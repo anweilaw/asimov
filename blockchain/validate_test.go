@@ -873,7 +873,7 @@ func TestCheckBlockContext(t *testing.T) {
 
 	//create empty block: checkBlockHeaderContext error:
 	timestampErrBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
-	0, true, tmpAddress,nil, chain.bestChain.Tip())
+	0, tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
@@ -881,7 +881,7 @@ func TestCheckBlockContext(t *testing.T) {
 
 	//not validator:
 	notValidatorBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
-	0, true, tmpAddress,nil, chain.bestChain.Tip())
+	0, tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
@@ -895,7 +895,7 @@ func TestCheckBlockContext(t *testing.T) {
 	}
 	//signature error:
 	signatureErrBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
-	0, true, coinBaseAddr,nil, chain.bestChain.Tip())
+	0, coinBaseAddr,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
@@ -961,7 +961,7 @@ func TestCheckSignatures(t *testing.T) {
 
 	//signature error:
 	emptyBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
-	0, true, tmpAddress,nil, chain.bestChain.Tip())
+	0, tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
@@ -1081,7 +1081,7 @@ func TestCheckSignaturesWeight(t *testing.T) {
 
 	// check block coinbase addr:
 	CoinbaseAddrErrblock, err := createTestBlock(chain,1, 0, 0, protos.Assets{0,0},
-	0,true, tmpAddress,nil, chain.bestChain.Tip())
+	0,tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("create block error %v", err)
 	}
@@ -1110,7 +1110,7 @@ func TestCheckSignaturesWeight(t *testing.T) {
 	//preSign blockHeight is too small: The max height depth is 10
 	// check block coinbase addr:
 	sigHeightErrblock, err := createTestBlock(chain,1, 20, 20, protos.Assets{0,0},
-	0,true, validators[20],nil, chain.bestChain.Tip())
+	0,validators[20],nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("create block error %v", err)
 	}
@@ -1150,7 +1150,7 @@ func TestCheckSignaturesWeight(t *testing.T) {
 	//添加4个block到bestChain:
 	for i:=int32(0); i<4; i++ {
 		block, err := createTestBlock(chain,1, uint16(i), i, protos.Assets{0,0}, 0,
-		true, validators[i],nil,chain.bestChain.Tip())
+		validators[i],nil,chain.bestChain.Tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}
@@ -1501,7 +1501,7 @@ func TestCheckBlockSanity(t *testing.T) {
 
 	//timeStamp check test:
 	errHeaderBlock, errHeaderErr := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
-	500000000, true, tmpAcc.Address,nil,chain.bestChain.Tip())
+	500000000, tmpAcc.Address,nil,chain.bestChain.Tip())
 	if errHeaderErr != nil {
 		t.Errorf("create errHeaderBlock error %v", errHeaderErr)
 	}
@@ -1509,15 +1509,26 @@ func TestCheckBlockSanity(t *testing.T) {
 	errHeaderBlock.MsgBlock().Header.Timestamp = futureTimestamp
 
 	//emptyblock check test:
-	emptyBlock, emptyErr := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
-	500000000, false, tmpAcc.Address,nil, chain.bestChain.Tip())
-	if emptyErr != nil {
-		t.Errorf("create emptyBlock error %v", emptyErr)
+	var msgBlock protos.MsgBlock
+	msgBlock.Header = protos.BlockHeader{
+		Version:       1,
+		PrevBlock:     best.Hash,
+		MerkleRoot:    common.Hash{0x00,},
+		Timestamp:     123456789,
+		Height:        best.Height+1,
+		StateRoot:     common.Hash{0x00,},
+		GasLimit:      470778607,
+		GasUsed:       9000000,
+		Round:		   1,
+		SlotIndex:     0,
+		CoinBase:      [21]byte{0x66},
+		SigData:       [65]byte{0x63, 0xe3, 0x83, 0x03, 0xb3, 0xf3, 0xb3, 0x73, 0x83},
 	}
+	emptyBlock := asiutil.NewBlock(&msgBlock)
 
 	//first tx check test:
 	errCoinBaseBlock, errCoinbase := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
-	500000000, true, tmpAcc.Address,nil, chain.bestChain.Tip())
+	500000000, tmpAcc.Address,nil, chain.bestChain.Tip())
 	if errCoinbase != nil {
 		t.Errorf("create errCoinBaseBlock error %v", errCoinbase)
 	}
@@ -1526,7 +1537,7 @@ func TestCheckBlockSanity(t *testing.T) {
 
 	//PoaHash check test:
 	poaHashBlock, poaHashBlockErr := createTestBlock(chain, uint32(1), 0, 0,
-		protos.Assets{0,0},500000000, true, tmpAcc.Address,nil, chain.bestChain.Tip())
+		protos.Assets{0,0},500000000, tmpAcc.Address,nil, chain.bestChain.Tip())
 	if poaHashBlockErr != nil {
 		t.Errorf("create poaHashBlockErr error %v", poaHashBlockErr)
 	}
@@ -1551,7 +1562,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	coinBaseTxList = append(coinBaseTxList,coinBaseTxTmp)
 	dupCoinBaseBlock, dupCoinBaseBlockErr := createTestBlock(chain, uint32(1), 0, 0,
 		protos.Assets{0,0},500000000,
-		true, tmpAcc.Address,coinBaseTxList, chain.bestChain.Tip())
+		tmpAcc.Address,coinBaseTxList, chain.bestChain.Tip())
 	if dupCoinBaseBlockErr != nil {
 		t.Errorf("create dupCoinBaseBlockErr error %v", dupCoinBaseBlockErr)
 	}
@@ -1575,7 +1586,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	}
 	var maxSizeBlockErr error
 	maxSizeBlock, maxSizeBlockErr = createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
-	0, true, tmpAcc.Address,txLists, chain.bestChain.Tip())
+	0, tmpAcc.Address,txLists, chain.bestChain.Tip())
 	if maxSizeBlockErr != nil {
 		t.Errorf("create maxSizeBlockErr error %v", maxSizeBlockErr)
 	}
@@ -1586,12 +1597,12 @@ func TestCheckBlockSanity(t *testing.T) {
 
 	//create block:
 	block, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
-	0, true, tmpAcc.Address,nil, chain.bestChain.Tip())
+	0, tmpAcc.Address,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
 	block.MsgBlock().Header.Timestamp = time.Now().Unix() + 1
-	stateRoot,gasUsed := genGasUsed(chain, block, bestNode0)
+	stateRoot,gasUsed := getGasUsedAndStateRoot(chain, block, bestNode0)
 	block.MsgBlock().Header.GasUsed = gasUsed
 	block.MsgBlock().Header.StateRoot = *stateRoot
 	blockHash := block.Hash()
@@ -1626,7 +1637,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	merkleTxList := make([]*asiutil.Tx, 0)
 	merkleTxList = append(merkleTxList,tx)
 	merklesErrBlock, merklesErr := createTestBlock(chain, uint32(1), 0, 0,
-		protos.Assets{0,0},500000000, true, tmpAcc.Address, merkleTxList,
+		protos.Assets{0,0},500000000, tmpAcc.Address, merkleTxList,
 		chain.bestChain.Tip())
 	if merklesErr != nil {
 		t.Errorf("create merklesErrBlock error %v", merklesErr)
@@ -1642,7 +1653,7 @@ func TestCheckBlockSanity(t *testing.T) {
 
 	var dupTxBlockErr error
 	dupTxBlock, dupTxBlockErr = createTestBlock(chain, uint32(1), 2, 0, protos.Assets{0,0},
-	0, true, tmpAcc.Address, dupTxList, chain.bestChain.Tip())
+	0, tmpAcc.Address, dupTxList, chain.bestChain.Tip())
 	if dupTxBlockErr != nil {
 		t.Errorf("create dupTxBlockErr error %v", dupTxBlockErr)
 	}
@@ -2522,7 +2533,7 @@ func TestCheckConnectBlock(t *testing.T) {
 			normalTxList = append(normalTxList,normalTx)
 		}
 		block, newNode, err := createAndSignBlock(netParam, accList, tmpValidator, tmpFilters, chain, tmpEpoch,
-			tmpSlotIndex, int32(i), protos.Assets{0,0}, 0, true,
+			tmpSlotIndex, int32(i), protos.Assets{0,0}, 0,
 			tmpValidator[tmpSlotIndex],normalTxList,0,chain.GetTip())
 		if err != nil {
 			t.Errorf("create block error %v", err)

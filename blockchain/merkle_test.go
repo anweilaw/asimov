@@ -16,13 +16,12 @@ func TestMerkle(t *testing.T) {
 	parivateKeyList := []string{
 		"0xd0f0461b7b4d26cf370e6c73b58ef7fa26e8e30853a8cee901ed42cf0879cb6e", //privateKey0
 	}
-
 	accList, _, chain, teardownFunc, err := createFakeChainByPrivateKeys(parivateKeyList, chaincfg.ActiveNetParams.RoundSize)
 	defer teardownFunc()
 
 	//create block:
 	block, err := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
-	0, true, accList[0].Address, nil, chain.bestChain.Tip())
+	0, accList[0].Address, nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
@@ -31,7 +30,6 @@ func TestMerkle(t *testing.T) {
 	merkles := BuildMerkleTreeStore(block.Transactions())
 	calculatedMerkleRoot := merkles[len(merkles)-1]
 	str := fmt.Sprintf("%v", calculatedMerkleRoot)
-
 	if wantMerkle != str {
 		t.Errorf("BuildMerkleTreeStore: merkle root mismatch - got %v, want %v",
 			calculatedMerkleRoot, wantMerkle)

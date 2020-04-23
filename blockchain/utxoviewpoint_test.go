@@ -46,7 +46,7 @@ func TestFetchUtxoViewByAddress(t *testing.T) {
 	//create 2 block:
 	for i:=0; i<2; i++ {
 		block, err := createTestBlock(chain,1, uint16(i), 0, testAsset[i], testAmount[i],
-			true, acc[0].Address,nil, chain.bestChain.Tip())
+			acc[0].Address,nil, chain.bestChain.Tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}

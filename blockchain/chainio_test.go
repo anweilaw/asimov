@@ -1030,7 +1030,7 @@ func TestDbFetchBalance(t *testing.T) {
 		//create block:
 		block, _, err := createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
 			uint16(curSlot), chain.bestChain.height(), protos.Assets{0,0}, 0,
-			true, validators[curSlot],nil,0,chain.bestChain.tip())
+			validators[curSlot],nil,0,chain.bestChain.tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}

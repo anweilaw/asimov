@@ -61,7 +61,7 @@ func TestHaveBlock(t *testing.T) {
 		if i == (orphanBlkHeightIdx - 1) {
 			block, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
 				uint16(curSlot), chain.bestChain.height(), protos.Assets{0, 0}, 0,
-				true, validators[curSlot], nil, 0, chain.bestChain.tip())
+				validators[curSlot], nil, 0, chain.bestChain.tip())
 			if err != nil {
 				t.Errorf("create block error %v", err)
 			}
@@ -73,7 +73,7 @@ func TestHaveBlock(t *testing.T) {
 			//create block:
 			block, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
 				uint16(curSlot), chain.bestChain.height(), protos.Assets{0, 0}, 0,
-				true, validators[curSlot], nil, 0, chain.bestChain.tip())
+				validators[curSlot], nil, 0, chain.bestChain.tip())
 			if err != nil {
 				t.Errorf("create block error %v", err)
 			}
@@ -81,7 +81,7 @@ func TestHaveBlock(t *testing.T) {
 			if i == int(forkBlkHeightIdx - 1) {
 				frokBlock, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
 					uint16(curSlot), chain.bestChain.height(), protos.Assets{0, 0}, 0,
-					true, validators[curSlot], nil, int32(i+1), chain.bestChain.tip())
+					validators[curSlot], nil, int32(i+1), chain.bestChain.tip())
 				if err != nil {
 					t.Errorf("create block error %v", err)
 				}
@@ -755,7 +755,7 @@ func TestReorganizeChain(t *testing.T) {
 			normalTxList = append(normalTxList, normalTx)
 		}
 		block, _, err := createAndSignBlock(netParam, accList, validators, filters, chain, epoch, slot, int32(i),
-			protos.Assets{0, 0}, 0, true, validators[slot], normalTxList,
+			protos.Assets{0, 0}, 0, validators[slot], normalTxList,
 			0, chain.bestChain.tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
@@ -788,7 +788,7 @@ func TestReorganizeChain(t *testing.T) {
 				}
 			}
 			sideChainBlock, sideChainNode, err := createAndSignBlock(netParam, accList, tmpValidator, tmpFilters,
-				chain, tmpEpoch, tmpSlotIndex, int32(i), protos.Assets{0,0}, 0, true,
+				chain, tmpEpoch, tmpSlotIndex, int32(i), protos.Assets{0,0}, 0,
 				tmpValidator[tmpSlotIndex],nil,int32(i+1),sideChainBestNode)
 			if err != nil {
 				t.Errorf("create block error %v", err)
@@ -875,11 +875,11 @@ func TestConnectTransactions(t *testing.T) {
 	//add 2 block to bestChain:
 	for i := 0; i < 2; i++ {
 		block, err := createTestBlock(chain, 1, uint16(i), 0, testAsset[i], testAmount[i],
-			true, validators[i], nil, chain.bestChain.tip())
+			validators[i], nil, chain.bestChain.tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}
-		_, gasUsed := genGasUsed(chain, block, chain.bestChain.tip())
+		_, gasUsed := getGasUsedAndStateRoot(chain, block, chain.bestChain.tip())
 		block.MsgBlock().Header.GasUsed = gasUsed
 		block.MsgBlock().Header.Weight = weight
 		view := NewUtxoViewpoint()
@@ -914,11 +914,11 @@ func TestConnectTransactions(t *testing.T) {
 	normalTxList := make([]*asiutil.Tx, 0)
 	normalTxList = append(normalTxList, normalTx)
 	block2, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
-		0, true, validators[2], normalTxList, chain.bestChain.Tip())
+		0, validators[2], normalTxList, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
-	stateRoot, gasUsed := genGasUsed(chain, block2, chain.bestChain.tip())
+	stateRoot, gasUsed := getGasUsedAndStateRoot(chain, block2, chain.bestChain.tip())
 	block2.MsgBlock().Header.GasUsed = gasUsed
 	block2.MsgBlock().Header.StateRoot = *stateRoot
 
@@ -935,11 +935,11 @@ func TestConnectTransactions(t *testing.T) {
 	inDivTxList := make([]*asiutil.Tx, 0)
 	inDivTxList = append(inDivTxList, inDivTx)
 	block3, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
-		0, true, validators[2], inDivTxList, chain.bestChain.Tip())
+		0, validators[2], inDivTxList, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
-	stateRoot3, gasUsed3 := genGasUsed(chain, block3, chain.bestChain.tip())
+	stateRoot3, gasUsed3 := getGasUsedAndStateRoot(chain, block3, chain.bestChain.tip())
 	block3.MsgBlock().Header.GasUsed = gasUsed3
 	block3.MsgBlock().Header.StateRoot = *stateRoot3
 
@@ -951,11 +951,11 @@ func TestConnectTransactions(t *testing.T) {
 	siguUpTxList := make([]*asiutil.Tx, 0)
 	siguUpTxList = append(siguUpTxList, siguUpTx)
 	block4, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
-		0, true, validators[2], siguUpTxList, chain.bestChain.Tip())
+		0, validators[2], siguUpTxList, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
-	stateRoot4, gasUsed4 := genGasUsed(chain, block4, chain.bestChain.tip())
+	stateRoot4, gasUsed4 := getGasUsedAndStateRoot(chain, block4, chain.bestChain.tip())
 	block4.MsgBlock().Header.GasUsed = gasUsed4
 	block4.MsgBlock().Header.StateRoot = *stateRoot4
 
@@ -970,12 +970,12 @@ func TestConnectTransactions(t *testing.T) {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 	block5, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
-		0, true, validators[2], nil, chain.bestChain.Tip())
+		0, validators[2], nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
 	}
 	block5.MsgBlock().AddTransaction(errTxMsg)
-	_, gasUsed5 := genGasUsed(chain, block5, chain.bestChain.tip())
+	_, gasUsed5 := getGasUsedAndStateRoot(chain, block5, chain.bestChain.tip())
 	block5.MsgBlock().Header.GasUsed = gasUsed5
 
 	tests := []struct {

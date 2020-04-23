@@ -46,7 +46,7 @@ func TestCalculateBalance(t *testing.T) {
 	//add 2 block to bestChain:
 	for i:=0; i<2; i++ {
 		block, err = createTestBlock(chain, 1, uint16(i), chain.bestChain.height(), testAsset[i], testAmount[i],
-			true, acc.Address,nil, chain.bestChain.tip())
+			acc.Address,nil, chain.bestChain.tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}
