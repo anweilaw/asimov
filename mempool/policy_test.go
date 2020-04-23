@@ -154,39 +154,6 @@ func TestCheckTransactionStandard(t *testing.T) {
 			isStandard: false,
 			code:       protos.RejectNonstandard,
 		},
-		{
-			name: "More than one nulldata output",
-			tx: protos.MsgTx{
-				Version: 1,
-				TxIn:    []*protos.TxIn{&dummyTxIn},
-				TxOut: []*protos.TxOut{{
-					Value:    0,
-					PkScript: []byte{txscript.OP_RETURN},
-				}, {
-					Value:    0,
-					PkScript: []byte{txscript.OP_RETURN},
-				}},
-				LockTime: 0,
-			},
-			height:     300000,
-			isStandard: false,
-			code:       protos.RejectNonstandard,
-		},
-		{
-			name: "One nulldata output with 0 amount (standard)",
-			tx: protos.MsgTx{
-				Version: 1,
-				TxIn:    []*protos.TxIn{&dummyTxIn},
-				TxOut: []*protos.TxOut{{
-					Value:    0,
-					PkScript: []byte{txscript.OP_RETURN},
-				}},
-				LockTime: 0,
-			},
-			height:     300000,
-			isStandard: false,
-			code:       protos.RejectNonstandard,
-		},
 	}
 
 	pastMedianTime := time.Now().Unix()
