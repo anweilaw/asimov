@@ -572,6 +572,9 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *protos.MsgGetData) {
 			err = sp.server.pushMerkleBlockMsg(sp, &iv.Hash, c, waitChan, protos.BaseEncoding)
 		case protos.InvTypeSignature:
 			err = sp.server.pushSigMsg(sp, &iv.Hash, c, waitChan, protos.BaseEncoding)
+		case protos.InvTypeTxForbidden:
+			// skip
+			continue
 		default:
 			peerLog.Warnf("Unknown type in inventory request %d",
 				iv.Type)
@@ -1257,7 +1260,20 @@ func (s *NodeServer) pushTxMsg(sp *serverPeer, hash *common.Hash, doneChan chan<
 	// Attempt to fetch the requested transaction from the pool.  A
 	// call could be made to check for existence first, but simply trying
 	// to fetch a missing transaction results in the same behavior.
-	tx, err := s.txMemPool.FetchTransaction(hash)
+	tx, forbidden, err := s.txMemPool.FetchTransaction(hash)
+	if forbidden {
+		iv := protos.NewInvVect(protos.InvTypeTxForbidden, hash)
+
+		// Queue the inventory to be relayed with the next batch.
+		// It will be ignored if the peer is already known to
+		// have the inventory.
+		sp.QueueInventory(iv)
+
+		if doneChan != nil {
+			doneChan <- struct{}{}
+		}
+		return err
+	}
 	if err != nil {
 		peerLog.Tracef("Unable to fetch tx %v from transaction "+
 			"pool: %v", hash, err)
@@ -2536,7 +2552,6 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 			MinRelayTxPrice:   chaincfg.Cfg.MinTxPrice,
 			MaxTxVersion:      2,
 		},
-		ChainParams:    chainParams,
 		FetchUtxoView:  s.chain.FetchUtxoView,
 		Chain:          s.chain,
 		BestHeight:     func() int32 { return s.chain.BestSnapshot().Height },
@@ -2572,6 +2587,9 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 	// configuration options.
 	policy := mining.Policy{
 		TxMinPrice: chaincfg.Cfg.MinTxPrice,
+		BlockProductedTimeOut: mining.DefaultBlockProductedTimeOut,
+		TxConnectTimeOut: mining.DefaultTxConnectTimeOut,
+		UtxoValidateTimeOut: mining.UtxoValidateTimeOut,
 	}
 	blockTemplateGenerator := mining.NewBlkTmplGenerator(&policy,
 		s.txMemPool, s.sigMemPool, s.chain)

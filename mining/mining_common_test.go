@@ -852,7 +852,6 @@ func newFakeChain(paramstmp *chaincfg.Params) (*blockchain.BlockChain, func(), e
 		ChainParams: paramstmp,
 		//Checkpoints:   checkpoints,
 		TimeSource: blockchain.NewMedianTime(),
-		//SigCache:      txscript.NewSigCache(1000),
 		//IndexManager:  indexManager,
 		StateDB: stateDB,
 		//Account:       &acc,
@@ -951,14 +950,17 @@ func (fts *fakeTxSource) push(tx *TxDesc) {
 
 // MiningDescs returns a slice of mining descriptors for all the
 // transactions in the source pool.
-func (fts *fakeTxSource) TxDescs() []*TxDesc {
-	descs := make([]*TxDesc, len(fts.pool))
+func (fts *fakeTxSource) TxDescs() TxDescList {
+	descs := make(TxDescList, len(fts.pool))
 	i := 0
 	for _, desc := range fts.pool {
 		descs[i] = desc
 		i++
 	}
 	return descs
+}
+
+func (fts *fakeTxSource) UpdateForbiddenTxs(txHashes []*common.Hash, height int64) {
 }
 
 type fakeSigSource struct {

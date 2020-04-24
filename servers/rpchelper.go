@@ -328,8 +328,8 @@ func fetchInputTxos(rpcCfg rpcserverConfig, tx *protos.MsgTx) (map[protos.OutPoi
 		// Attempt to fetch and use the referenced transaction from the
 		// memory pool.
 		origin := &txIn.PreviousOutPoint
-		originTx, err := mp.FetchTransaction(&origin.Hash)
-		if err == nil {
+		originTx, _, err := mp.FetchTransaction(&origin.Hash)
+		if originTx != nil {
 			txOuts := originTx.MsgTx().TxOut
 			if origin.Index >= uint32(len(txOuts)) {
 				errStr := fmt.Sprintf("unable to find output "+

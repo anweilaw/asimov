@@ -120,6 +120,9 @@ func TestCreateCoinbaseTx(t *testing.T) {
 
 func TestNewBlockTemplate(t *testing.T) {
 	policy := Policy{
+		BlockProductedTimeOut: DefaultBlockProductedTimeOut,
+		TxConnectTimeOut: DefaultTxConnectTimeOut,
+		UtxoValidateTimeOut: UtxoValidateTimeOut,
 	}
 	chain, teardownFunc, err := newFakeChain(&chaincfg.DevelopNetParams)
 	if err != nil {
@@ -128,12 +131,7 @@ func TestNewBlockTemplate(t *testing.T) {
 	}
 	fakeTxSource := &fakeTxSource{make(map[common.Hash]*TxDesc)}
 	fakeSigSource := &fakeSigSource{make([]*asiutil.BlockSign, 0)}
-	//node, _ := chain.GetNodeByHeight(0)
-	//fakeSigSource.push(&protos.MsgBlockSign{
-	//	BlockHeight: 0,
-	//	BlockHash:   node.Hash(),
-	//	Signer:      common.HexToAddress("66"),
-	//})
+
 	g := NewBlkTmplGenerator(
 		&policy,
 		fakeTxSource,
@@ -144,12 +142,7 @@ func TestNewBlockTemplate(t *testing.T) {
 	defer teardownFunc()
 
 	global_view := blockchain.NewUtxoViewpoint()
-	//g.NewUtxoViewpoint = func() ainterface.IUtxoViewpoint {
-	//	return &UtxoViewpoint{
-	//		make(map[protos.OutPoint]*txo.UtxoEntry),
-	//		global_view,
-	//	}
-	//}
+
 	g.FetchUtxoView = func(tx *asiutil.Tx, dolock bool) (viewpoint ainterface.IUtxoViewpoint, e error) {
 		neededSet := make(map[protos.OutPoint]struct{})
 		prevOut := protos.OutPoint{Hash: *tx.Hash()}
@@ -182,7 +175,7 @@ func TestNewBlockTemplate(t *testing.T) {
 		keys = append(keys, &crypto.Account {*privKey, *privKey.PubKey(),addr})
 	}
 
-	fakeTxs := []*TxDesc{
+	fakeTxs := TxDescList{
 		{Tx: createFakeTx([]*fakeIn{
 			{
 				keys[0], 1e8, &asiutil.FlowCoinAsset, 0, false, 0, common.HexToHash("1"),
@@ -281,7 +274,7 @@ func TestNewBlockTemplate(t *testing.T) {
 		},
 	}, nil), GasPrice: 7})
 
-	invalidFakeTxs := []*TxDesc{
+	invalidFakeTxs := TxDescList{
 		{Tx: createFakeTx([]*fakeIn{
 			{
 				keys[0], 1e8, &asiutil.FlowCoinAsset, 0, false, 0, common.HexToHash("1"),
@@ -338,13 +331,6 @@ func TestNewBlockTemplate(t *testing.T) {
 		}, nil), GasPrice: 1},
 	}
 
-	//for _,v := range fakeTxs {
-	//	t.Log(v.Tx.Hash())
-	//}
-	//for _,v := range invalidFakeTxs {
-	//	t.Log(v.Tx.Hash())
-	//}
-
 	getFees := func(amounts int64) map[protos.Assets]int64 {
 		res := make(map[protos.Assets]int64)
 		res[asiutil.FlowCoinAsset] = amounts
@@ -360,7 +346,7 @@ func TestNewBlockTemplate(t *testing.T) {
 		gasCeil     uint64
 		round       uint32
 		slot        uint16
-		txs         []*TxDesc
+		txs         TxDescList
 		wantTx      []*common.Hash
 		wantFees    map[protos.Assets]int64
 		wantOpCosts []int64
@@ -368,7 +354,7 @@ func TestNewBlockTemplate(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			account, 160000000, 160000000, 1, 0, []*TxDesc{},
+			account, 160000000, 160000000, 1, 0, TxDescList{},
 			[]*common.Hash{},
 			make(map[protos.Assets]int64),
 			[]int64{1}, 120, false,
@@ -388,7 +374,7 @@ func TestNewBlockTemplate(t *testing.T) {
 			make(map[protos.Assets]int64),
 			[]int64{1}, 120, false,
 		}, {
-			keys[0], 160000000, 160000000, 1, 0, []*TxDesc{},
+			keys[0], 160000000, 160000000, 1, 0, TxDescList{},
 			[]*common.Hash{},
 			make(map[protos.Assets]int64),
 			[]int64{1}, 0, true,
@@ -403,7 +389,7 @@ func TestNewBlockTemplate(t *testing.T) {
 			fakeTxSource.push(v)
 		}
 
-		block, err := g.ProcessNewBlock(test.validator, test.gasFloor, test.gasCeil, test.round, test.slot)
+		block, err := g.ProduceNewBlock(test.validator, test.gasFloor, test.gasCeil, test.round, test.slot, 5*100000)
 		if err != nil {
 			if test.wantErr != true {
 				t.Errorf("tests #%d error %v", i, err)
@@ -439,7 +425,7 @@ func TestNewBlockTemplate(t *testing.T) {
 		t.Log(test.wantTx)
 
 		if !outTxEqual(txs[:len(txs)-1], test.wantTx) {
-			t.Errorf("tests #%d out tx error ,want tx: %v", i, test.wantTx)
+			t.Errorf("tests #%d out tx error, txlen %d, want tx: %v", i, len(txs), test.wantTx)
 		}
 
 		feesEqual := func(outs []*protos.TxOut, r map[protos.Assets]int64) bool {

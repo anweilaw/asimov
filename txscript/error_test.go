@@ -24,7 +24,6 @@ func TestErrorCodeStringer(t *testing.T) {
 		{ErrNotMultisigScript, "ErrNotMultisigScript"},
 		{ErrTooManyRequiredSigs, "ErrTooManyRequiredSigs"},
 		{ErrTooMuchNullData, "ErrTooMuchNullData"},
-		{ErrEarlyReturn, "ErrEarlyReturn"},
 		{ErrEmptyStack, "ErrEmptyStack"},
 		{ErrEvalFalse, "ErrEvalFalse"},
 		{ErrScriptUnfinished, "ErrScriptUnfinished"},

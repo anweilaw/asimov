@@ -93,8 +93,6 @@ Application Options:
                             (100)
       --nopeerbloomfilters  Disable bloom filtering support.
       --nocfilters          Disable committed filtering (CF) support.
-      --sigcachemaxsize=    The maximum number of entries in the signature
-                            verification cache.
       --blocksonly          Do not accept transactions from remote peers.
 
 

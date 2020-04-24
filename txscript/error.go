@@ -52,9 +52,6 @@ const (
 	// Failures related to final execution state.
 	// ------------------------------------------
 
-	// ErrEarlyReturn is returned when OP_RETURN is executed in the script.
-	ErrEarlyReturn
-
 	// ErrEmptyStack is returned when the script evaluated without error,
 	// but terminated with an empty top stack element.
 	ErrEmptyStack
@@ -294,7 +291,6 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrNotMultisigScript:                  "ErrNotMultisigScript",
 	ErrTooManyRequiredSigs:                "ErrTooManyRequiredSigs",
 	ErrTooMuchNullData:                    "ErrTooMuchNullData",
-	ErrEarlyReturn:                        "ErrEarlyReturn",
 	ErrEmptyStack:                         "ErrEmptyStack",
 	ErrEvalFalse:                          "ErrEvalFalse",
 	ErrScriptUnfinished:                   "ErrScriptUnfinished",

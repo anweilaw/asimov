@@ -1649,7 +1649,7 @@ func (s *PublicRpcAPI) GetRawTransaction(txId string, verbose bool, vinExtra boo
 	var blkHash *common.Hash
 	var blkHeight int32
 	isVtx := false
-	tx, err := s.cfg.TxMemPool.FetchTransaction(&txHash)
+	tx, _, err := s.cfg.TxMemPool.FetchTransaction(&txHash)
 	if err != nil {
 		if s.cfg.TxIndex == nil {
 			return nil, &rpcjson.RPCError{
@@ -2741,7 +2741,10 @@ func (s *PublicRpcAPI) GetBlockTemplate(privkey string, round uint32, slotIndex 
 		return nil,  internalRPCError(err.Error(), "privkey decode error")
 	}
 
-	block, err := s.cfg.BlockTemplateGenerator.ProcessNewBlock(acc, 160000000, 160000000, round, slotIndex)
+	// 5 seconds
+	blockInteval := 5.0 * 1000
+	block, err := s.cfg.BlockTemplateGenerator.ProduceNewBlock(acc,
+		common.GasFloor, common.GasCeil, round, slotIndex, blockInteval)
 	if err != nil {
 		return nil, internalRPCError(err.Error(), "failed to get block template")
 	}

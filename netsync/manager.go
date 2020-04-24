@@ -1212,6 +1212,9 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		case protos.InvTypeBlock:
 		case protos.InvTypeTx:
 		case protos.InvTypeSignature:
+		case protos.InvTypeTxForbidden:
+			sm.txMemPool.UpdateForbiddenTxs([]*common.Hash{&iv.Hash}, -1)
+			continue
 		default:
 			continue
 		}
@@ -1513,7 +1516,6 @@ func (sm *SyncManager) handleBlockchainNotification(notification *blockchain.Not
 
 		for _, vtx := range vblock.Transactions() {
 			sm.txMemPool.RemoveTransaction(vtx, false)
-			sm.txMemPool.RemoveDoubleSpends(vtx)
 			sm.txMemPool.RemoveOrphan(vtx)
 			sm.peerNotifier.TransactionConfirmed(vtx)
 			acceptedTxs := sm.txMemPool.ProcessOrphans(vtx)

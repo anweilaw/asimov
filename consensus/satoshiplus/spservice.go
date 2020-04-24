@@ -235,10 +235,11 @@ func (s *SPService) genBlock() (*asiutil.Block, error) {
 	if !isTurn {
 		return nil, nil
 	}
+	blockInterval := float64(s.GetRoundInterval()) / float64(chaincfg.ActiveNetParams.RoundSize) * 1000
 	log.Infof("satoshiplus gen block start at round=%d, slot=%d", round, slot)
 
-	block, err := s.config.BlockTemplateGenerator.ProcessNewBlock(
-		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot))
+	block, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
+		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot), blockInterval)
 	if err != nil {
 		log.Errorf("satoshiplus gen block failed to make a block: %v", err)
 		return nil, err

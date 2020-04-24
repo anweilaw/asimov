@@ -89,12 +89,13 @@ func (s *SoloService) Halt() error {
 func (s *SoloService) genBlock() error {
 	round, slot := s.slotControl()
 	s.resetTimer()
+	blockInterval := float64(s.GetRoundInterval()) / float64(chaincfg.ActiveNetParams.RoundSize) * 1000
 
 	// Create a new block using the available transactions
 	// in the memory pool as a source of transactions to potentially
 	// include in the block.
-	block, err := s.config.BlockTemplateGenerator.ProcessNewBlock(
-		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot))
+	block, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
+		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot), blockInterval)
 	if err != nil {
 		return fmt.Errorf("solo failed to create new block:%s", err)
 	}

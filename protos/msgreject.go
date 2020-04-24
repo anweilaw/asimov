@@ -23,6 +23,7 @@ const (
 	RejectInvalid         RejectCode = 0x10
 	RejectObsolete        RejectCode = 0x11
 	RejectDuplicate       RejectCode = 0x12
+	RejectForbidden       RejectCode = 0x13
 	RejectNonstandard     RejectCode = 0x40
 	RejectLowGasPrice     RejectCode = 0x41
 	RejectCheckpoint      RejectCode = 0x43
@@ -35,6 +36,7 @@ var rejectCodeStrings = map[RejectCode]string{
 	RejectInvalid:         "REJECT_INVALID",
 	RejectObsolete:        "REJECT_OBSOLETE",
 	RejectDuplicate:       "REJECT_DUPLICATE",
+	RejectForbidden:       "REJECT_FORBIDDEN",
 	RejectNonstandard:     "REJECT_NONSTANDARD",
 	RejectLowGasPrice:     "REJECT_LOWGASPRICE",
 	RejectCheckpoint:      "REJECT_CHECKPOINT",

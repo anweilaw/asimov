@@ -12,17 +12,14 @@ import (
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/rpcs/rpcjson"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/blockchain/indexers"
-	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/mining"
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/txscript"
-	"github.com/AsimovNetwork/asimov/vm/fvm/core/state"
 )
 
 const (
@@ -34,6 +31,12 @@ const (
 	// orphanExpireScanInterval is the minimum amount of time in between
 	// scans of the orphan pool to evict expired transactions.
 	orphanExpireScanInterval = time.Minute * 5
+
+	// forbiddenTxLimit is the maximum count of forbidden transactions in cache.
+	forbiddenTxLimit = 1000
+
+	// outpointTxLimit is the maximum count of transactions in each outpoints value.
+	outpointTxLimit = 5
 )
 
 // Tag represents an identifier to use for tagging orphan transactions.  The
@@ -46,10 +49,6 @@ type Config struct {
 	// Policy defines the various mempool configuration options related
 	// to policy.
 	Policy Policy
-
-	// ChainParams identifies which chain parameters the txpool is
-	// associated with.
-	ChainParams *chaincfg.Params
 
 	// FetchUtxoView defines the function to use to fetch unspent
 	// transaction output information.
@@ -69,17 +68,12 @@ type Config struct {
 	// utxo view.
 	CalcSequenceLock func(*asiutil.Tx, ainterface.IUtxoViewpoint) (*blockchain.SequenceLock, error)
 
-	// SigCache defines a signature cache to use.
-	//SigCache *txscript.SigCache
-
 	// AddrIndex defines the optional address index instance to use for
 	// indexing the unconfirmed transactions in the memory pool.
 	// This can be nil if the address index is not enabled.
 	AddrIndex *indexers.AddrIndex
 
 	Chain *blockchain.BlockChain
-
-	BestStateDB func() (*state.StateDB, error)
 
 	FeesChan chan interface{}
 
@@ -130,15 +124,14 @@ type TxPool struct {
 	routeMtx sync.Mutex
 	existCh  chan interface{}
 
-	// The following variables must only be used atomically.
-	lastUpdated int64 // last time pool was updated
-
 	mtx           sync.RWMutex
 	cfg           Config
 	pool          map[common.Hash]*mining.TxDesc
 	orphans       map[common.Hash]*orphanTx
 	orphansByPrev map[protos.OutPoint]map[common.Hash]*asiutil.Tx
-	outpoints     map[protos.OutPoint]*asiutil.Tx
+	outpoints     map[protos.OutPoint]map[common.Hash]*asiutil.Tx
+	forbiddenTxs  map[common.Hash]int64
+	forbiddenList []common.Hash
 	pennyTotal    float64 // exponentially decaying total for penny spends.
 	lastPennyUnix int64   // unix time of last ``penny spend''
 
@@ -375,6 +368,18 @@ func (mp *TxPool) IsTransactionInPool(hash *common.Hash) bool {
 	return inPool
 }
 
+// isTransactionInForbiddenPool returns whether or not the passed transaction
+// already exists in the main pool.
+//
+// This function MUST be called with the mempool lock held (for reads).
+func (mp *TxPool) isTransactionInForbiddenPool(hash *common.Hash) bool {
+	if _, exists := mp.forbiddenTxs[*hash]; exists {
+		return true
+	}
+
+	return false
+}
+
 // isOrphanInPool returns whether or not the passed transaction already exists
 // in the orphan pool.
 //
@@ -401,11 +406,11 @@ func (mp *TxPool) IsOrphanInPool(hash *common.Hash) bool {
 }
 
 // haveTransaction returns whether or not the passed transaction already exists
-// in the main pool or in the orphan pool.
+// in the main pool, in the orphan pool, or the forbidden pool.
 //
 // This function MUST be called with the mempool lock held (for reads).
 func (mp *TxPool) haveTransaction(hash *common.Hash) bool {
-	return mp.isTransactionInPool(hash) || mp.isOrphanInPool(hash)
+	return mp.isTransactionInPool(hash) || mp.isOrphanInPool(hash) || mp.isTransactionInForbiddenPool(hash)
 }
 
 // HaveTransaction returns whether or not the passed transaction already exists
@@ -431,8 +436,10 @@ func (mp *TxPool) removeTransaction(tx *asiutil.Tx, removeRedeemers bool) {
 		// Remove any transactions which rely on this one.
 		for i := uint32(0); i < uint32(len(tx.MsgTx().TxOut)); i++ {
 			prevOut := protos.OutPoint{Hash: *txHash, Index: i}
-			if txRedeemer, exists := mp.outpoints[prevOut]; exists {
-				mp.removeTransaction(txRedeemer, true)
+			if txRedeemers, exists := mp.outpoints[prevOut]; exists {
+				for _, txRedeemer := range txRedeemers {
+					mp.removeTransaction(txRedeemer, true)
+				}
 			}
 		}
 	}
@@ -447,10 +454,14 @@ func (mp *TxPool) removeTransaction(tx *asiutil.Tx, removeRedeemers bool) {
 
 		// Mark the referenced outpoints as unspent by the pool.
 		for _, txIn := range txDesc.Tx.MsgTx().TxIn {
-			delete(mp.outpoints, txIn.PreviousOutPoint)
+			if txRedeemers, exists := mp.outpoints[txIn.PreviousOutPoint]; exists {
+				delete(txRedeemers, *txDesc.Tx.Hash())
+				if len(txRedeemers) == 0 {
+					delete(mp.outpoints, txIn.PreviousOutPoint)
+				}
+			}
 		}
 		delete(mp.pool, *txHash)
-		atomic.StoreInt64(&mp.lastUpdated, time.Now().Unix())
 	}
 }
 
@@ -477,12 +488,18 @@ func (mp *TxPool) RemoveTransaction(tx *asiutil.Tx, removeRedeemers bool) {
 func (mp *TxPool) RemoveDoubleSpends(tx *asiutil.Tx) {
 	// Protect concurrent access.
 	mp.mtx.Lock()
+	var needRemoved []*asiutil.Tx
 	for _, txIn := range tx.MsgTx().TxIn {
-		if txRedeemer, ok := mp.outpoints[txIn.PreviousOutPoint]; ok {
-			if !txRedeemer.Hash().IsEqual(tx.Hash()) {
-				mp.removeTransaction(txRedeemer, true)
+		if txRedeemers, ok := mp.outpoints[txIn.PreviousOutPoint]; ok {
+			for txHash, txRedeemer := range txRedeemers {
+				if !txHash.IsEqual(tx.Hash()) {
+					needRemoved = append(needRemoved, txRedeemer)
+				}
 			}
 		}
+	}
+	for _, txRedeemer := range needRemoved {
+		mp.removeTransaction(txRedeemer, true)
 	}
 	mp.mtx.Unlock()
 }
@@ -519,9 +536,18 @@ func (mp *TxPool) addTransaction(utxoView ainterface.IUtxoViewpoint, tx *asiutil
 
 	mp.pool[*tx.Hash()] = txD
 	for _, txIn := range tx.MsgTx().TxIn {
-		mp.outpoints[txIn.PreviousOutPoint] = tx
+		txs, exist := mp.outpoints[txIn.PreviousOutPoint]
+		if !exist {
+			txs = make(map[common.Hash]*asiutil.Tx)
+			mp.outpoints[txIn.PreviousOutPoint] = txs
+		} else if len(txs) >= outpointTxLimit {
+			for _, txR := range txs {
+				mp.removeTransaction(txR, true)
+				break
+			}
+		}
+		txs[*tx.Hash()] = tx
 	}
-	atomic.StoreInt64(&mp.lastUpdated, time.Now().Unix())
 
 	// Add unconfirmed address index entries associated with the transaction
 	// if enabled.
@@ -538,28 +564,25 @@ func (mp *TxPool) addTransaction(utxoView ainterface.IUtxoViewpoint, tx *asiutil
 // main chain.
 //
 // This function MUST be called with the mempool lock held (for reads).
-func (mp *TxPool) checkPoolDoubleSpend(tx *asiutil.Tx) error {
+func (mp *TxPool) checkPoolDoubleSpend(tx *asiutil.Tx, gasPrice float64) error {
 	for _, txIn := range tx.MsgTx().TxIn {
-		if txR, exists := mp.outpoints[txIn.PreviousOutPoint]; exists {
-			str := fmt.Sprintf("output %v already spent by "+
-				"transaction %v in the memory pool",
-				txIn.PreviousOutPoint, txR.Hash())
-			return txRuleError(protos.RejectDuplicate, str)
+		if txs, exists := mp.outpoints[txIn.PreviousOutPoint]; exists {
+			for _, txR := range txs {
+				if _, isForbidden := mp.forbiddenTxs[*txR.Hash()]; isForbidden {
+					continue
+				}
+				if txDesc, poolExists := mp.pool[*txR.Hash()]; poolExists{
+					if txDesc.GasPrice > gasPrice {
+						str := fmt.Sprintf("output %v already spent by "+
+							"transaction %v in the memory pool",
+							txIn.PreviousOutPoint, txR.Hash())
+						return txRuleError(protos.RejectDuplicate, str)
+					}
+				}
+			}
 		}
 	}
-
 	return nil
-}
-
-// CheckSpend checks whether the passed outpoint is already spent by a
-// transaction in the mempool. If that's the case the spending transaction will
-// be returned, if not nil will be returned.
-func (mp *TxPool) CheckSpend(op protos.OutPoint) *asiutil.Tx {
-	mp.mtx.RLock()
-	txR := mp.outpoints[op]
-	mp.mtx.RUnlock()
-
-	return txR
 }
 
 // fetchInputUtxos loads utxo details about the input transactions referenced by
@@ -598,17 +621,18 @@ func (mp *TxPool) fetchInputUtxos(tx *asiutil.Tx) (ainterface.IUtxoViewpoint, er
 // orphans.
 //
 // This function is safe for concurrent access.
-func (mp *TxPool) FetchTransaction(txHash *common.Hash) (*asiutil.Tx, error) {
+func (mp *TxPool) FetchTransaction(txHash *common.Hash) (*asiutil.Tx, bool, error) {
 	// Protect concurrent access.
 	mp.mtx.RLock()
 	txDesc, exists := mp.pool[*txHash]
+	_, f := mp.forbiddenTxs[*txHash]
 	mp.mtx.RUnlock()
 
 	if exists {
-		return txDesc.Tx, nil
+		return txDesc.Tx, f, nil
 	}
 
-	return nil, fmt.Errorf("transaction is not in the pool")
+	return nil, f, fmt.Errorf("transaction is not in the pool")
 }
 
 // FetchAnyTransaction returns the requested transaction from the transaction pool.
@@ -641,9 +665,8 @@ func (mp *TxPool) maybeAcceptTransaction(tx *asiutil.Tx, isNew, rejectDupOrphans
 	// applies to orphan transactions as well when the reject duplicate
 	// orphans flag is set.  This check is intended to be a quick check to
 	// weed out duplicates.
-	if mp.isTransactionInPool(txHash) || (rejectDupOrphans &&
-		mp.isOrphanInPool(txHash)) {
-
+	if mp.isTransactionInPool(txHash) || mp.isTransactionInForbiddenPool(txHash) ||
+		(rejectDupOrphans && mp.isOrphanInPool(txHash)) {
 		str := fmt.Sprintf("already have transaction %v", txHash)
 		return nil, nil, txRuleError(protos.RejectDuplicate, str)
 	}
@@ -693,19 +716,6 @@ func (mp *TxPool) maybeAcceptTransaction(tx *asiutil.Tx, isNew, rejectDupOrphans
 		str := fmt.Sprintf("transaction %v is not standard: %v",
 			txHash, err)
 		return nil, nil, txRuleError(rejectCode, str)
-	}
-
-	// The transaction may not use any of the same outputs as other
-	// transactions already in the pool as that would ultimately result in a
-	// double spend.  This check is intended to be quick and therefore only
-	// detects double spends within the transaction pool itself.  The
-	// transaction could still be double spending coins from the main chain
-	// at this point.  There is a more in-depth check that happens later
-	// after fetching the referenced transaction inputs from the main chain
-	// which examines the actual spend data and prevents double spends.
-	err = mp.checkPoolDoubleSpend(tx)
-	if err != nil {
-		return nil, nil, err
 	}
 
 	// Fetch all of the unspent transaction outputs referenced by the inputs
@@ -791,6 +801,14 @@ func (mp *TxPool) maybeAcceptTransaction(tx *asiutil.Tx, isNew, rejectDupOrphans
 		}
 	}
 
+	// Don't allow transactions with price too low to get into a mined block.
+	gasPrice := float64(txFee) / float64(tx.MsgTx().TxContract.GasLimit)
+	if gasPrice < mp.cfg.Policy.MinRelayTxPrice {
+		str := fmt.Sprintf("transaction %v gas price too low: %f > %f",
+			txHash, gasPrice, mp.cfg.Policy.MinRelayTxPrice)
+		return nil, nil, txRuleError(protos.RejectLowGasPrice, str)
+	}
+
 	// Don't allow transactions with non-standard inputs
 	err = checkInputsStandard(tx, utxoView)
 	if err != nil {
@@ -828,14 +846,6 @@ func (mp *TxPool) maybeAcceptTransaction(tx *asiutil.Tx, isNew, rejectDupOrphans
 		return nil, nil, txRuleError(protos.RejectNonstandard, str)
 	}
 
-	// Don't allow transactions with price too low to get into a mined block.
-	gasPrice := float64(txFee) / float64(tx.MsgTx().TxContract.GasLimit)
-	if gasPrice < mp.cfg.Policy.MinRelayTxPrice {
-		str := fmt.Sprintf("transaction %v gas price too low: %f > %f",
-			txHash, gasPrice, mp.cfg.Policy.MinRelayTxPrice)
-		return nil, nil, txRuleError(protos.RejectLowGasPrice, str)
-	}
-
 	// Verify crypto signatures for each input and reject the transaction if
 	// any don't verify.
 	err = blockchain.ValidateTransactionScripts(tx, utxoView,
@@ -844,6 +854,19 @@ func (mp *TxPool) maybeAcceptTransaction(tx *asiutil.Tx, isNew, rejectDupOrphans
 		if cerr, ok := err.(blockchain.RuleError); ok {
 			return nil, nil, chainRuleError(cerr)
 		}
+		return nil, nil, err
+	}
+
+	// The transaction may not use any of the same outputs as other
+	// transactions already in the pool as that would ultimately result in a
+	// double spend.  This check is intended to be quick and therefore only
+	// detects double spends within the transaction pool itself.  The
+	// transaction could still be double spending coins from the main chain
+	// at this point.  There is a more in-depth check that happens later
+	// after fetching the referenced transaction inputs from the main chain
+	// which examines the actual spend data and prevents double spends.
+	err = mp.checkPoolDoubleSpend(tx, gasPrice)
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -1074,17 +1097,37 @@ func (mp *TxPool) TxHashes() []*common.Hash {
 // The descriptors are to be treated as read only.
 //
 // This function is safe for concurrent access.
-func (mp *TxPool) TxDescs() []*mining.TxDesc {
+func (mp *TxPool) TxDescs() mining.TxDescList {
 	mp.mtx.RLock()
-	descs := make([]*mining.TxDesc, len(mp.pool))
-	i := 0
+	descs := make(mining.TxDescList, 0, len(mp.pool))
 	for _, desc := range mp.pool {
-		descs[i] = desc
-		i++
+		if _, exist := mp.forbiddenTxs[*desc.Tx.Hash()]; !exist {
+			descs = append(descs, desc)
+		}
 	}
 	mp.mtx.RUnlock()
 
 	return descs
+}
+
+// UpdateForbiddenTxs put given txhashes into forbiddenTxs.
+// If size of forbiddenTxs exceed limit, clear some olders.
+//
+// This function is safe for concurrent access.
+func (mp *TxPool) UpdateForbiddenTxs(txHashes []*common.Hash, height int64) {
+	mp.mtx.RLock()
+	for _, txHash := range txHashes {
+		mp.forbiddenTxs[*txHash] = height
+		mp.forbiddenList = append(mp.forbiddenList, *txHash)
+	}
+	size := len(mp.forbiddenTxs)
+	if size > forbiddenTxLimit {
+		for i := 0; i < size - forbiddenTxLimit; i++ {
+			delete(mp.forbiddenTxs, mp.forbiddenList[i])
+		}
+		mp.forbiddenList = mp.forbiddenList[size - forbiddenTxLimit:]
+	}
+	mp.mtx.RUnlock()
 }
 
 // RawMempoolVerbose returns all of the entries in the mempool as a fully
@@ -1123,14 +1166,6 @@ func (mp *TxPool) RawMempoolVerbose() map[string]*rpcjson.GetRawMempoolVerboseRe
 	}
 
 	return result
-}
-
-// LastUpdated returns the last time a transaction was added to or removed from
-// the main pool.  It does not include the orphan pool.
-//
-// This function is safe for concurrent access.
-func (mp *TxPool) LastUpdated() time.Time {
-	return time.Unix(atomic.LoadInt64(&mp.lastUpdated), 0)
 }
 
 func (mp *TxPool) updateFees(fees map[protos.Assets]int32) {
@@ -1197,7 +1232,8 @@ func New(cfg *Config) *TxPool {
 		orphans:        make(map[common.Hash]*orphanTx),
 		orphansByPrev:  make(map[protos.OutPoint]map[common.Hash]*asiutil.Tx),
 		nextExpireScan: time.Now().Add(orphanExpireScanInterval),
-		outpoints:      make(map[protos.OutPoint]*asiutil.Tx),
+		outpoints:      make(map[protos.OutPoint]map[common.Hash]*asiutil.Tx),
+		forbiddenTxs:   make(map[common.Hash]int64),
 	}
 }
 
