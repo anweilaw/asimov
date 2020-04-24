@@ -277,7 +277,6 @@ func createPoaConfig(privateKey string, paramstmp *chaincfg.Params) (*params.Con
 			MinRelayTxPrice:   chaincfg.Cfg.MinTxPrice,
 			MaxTxVersion:      2,
 		},
-		ChainParams:            &chaincfg.DevelopNetParams,
 		FetchUtxoView:          chain.FetchUtxoView,
 		Chain:                  chain,
 		BestHeight:             func() int32 { return chain.BestSnapshot().Height },
