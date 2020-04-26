@@ -2002,6 +2002,9 @@ func (b *BlockChain) checkAssetForbidden(
 			str := fmt.Sprintf("checkAssetForbidden:utxo not found %v", txin.PreviousOutPoint)
 			return ruleError(ErrMissingTxOut, str)
 		}
+		if utxo.Amount() == 0 {
+			continue
+		}
 
 		limit := b.contractManager.IsLimit(block, stateDB, utxo.Assets())
 		if limit <= 0 {
@@ -2026,6 +2029,9 @@ func (b *BlockChain) checkAssetForbidden(
 	}
 
 	for i, txout := range tx.MsgTx().TxOut {
+		if txout.Value == 0 {
+			continue
+		}
 		limit := b.contractManager.IsLimit(block, stateDB, &txout.Assets)
 		if limit <= 0 {
 			continue

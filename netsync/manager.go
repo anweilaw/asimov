@@ -55,7 +55,7 @@ const (
 
 	maxRequestedSigns = protos.MaxInvPerMsg
 
-	maxOrphanBlock = 120
+	maxOrphanBlock = 20
 )
 
 // zeroHash is the zero value hash (all zeros).  It is defined as a convenience.
@@ -778,10 +778,10 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	prevBlock := &bmsg.block.MsgBlock().Header.PrevBlock
 	if !sm.chain.MainChainHasBlock(prevBlock) && !sm.chain.IsCurrent() {
 		state.orphanBlocks++
-		if state.orphanBlocks % maxOrphanBlock == 0 {
-			peer.AddBanScore(20,0,"orphan block")
+		if state.orphanBlocks > maxOrphanBlock {
+			peer.AddBanScore(100,0,"orphan block when chain not current")
 		}
-		log.Debugf("Got orphan block from peer:%s when chain not current",peer)
+		log.Warnf("Got orphan block from peer:%s when chain not current",peer)
 		return
 	}
 
@@ -1200,6 +1200,18 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		if err == nil {
 			peer.UpdateLastBlockHeight(blkHeight)
 		}
+	}
+
+	// Don't get the data of a single inventory when the chain is not current.
+	if lastBlock != -1 && !sm.chain.IsCurrent() && len(invVects) == 1  {
+		// Send the getblock message when the number of blocks currently being
+		// requested is 0.
+		if len(state.requestedBlocks) == 0 {
+			inv := invVects[lastBlock]
+			locator := sm.chain.BlockLocatorFromHash(&inv.Hash)
+			peer.PushGetBlocksMsg(locator, &zeroHash)
+		}
+		return
 	}
 
 	// Request the advertised inventory if we don't already have it.  Also,
