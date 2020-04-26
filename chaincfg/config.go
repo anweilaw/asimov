@@ -132,6 +132,9 @@ type FConfig struct {
 	DebugLevel           string        `short:"d" long:"debuglevel" description:"Logging level for all subsystems {trace, debug, info, warn, error, critical} -- You may also specify <subsystem>=<level>,<subsystem2>=<level>,... to set the logger level for individual subsystems -- Use show to list available subsystems"`
 	Upnp                 bool          `long:"upnp" description:"Use UPnP to map our listening port outside of NAT"`
 	MinTxPrice           float64       `long:"mintxprice" description:"The minimum transaction price, it should not less than 0.01"`
+	BlkProductedTimeOut  float64       `long:"blkproductedtimeout" description:"the value for the policy BlockProductedTimeOut,it's value must be between 0 and 1"`
+	TxConnectTimeOut     float64       `long:"txconnecttimeout" description:"the value for the policy TxConnectTimeOut,it's value must be between 0 and 1"`
+	UtxoValidateTimeOut  float64       `long:"utxovalidatetimeout" description:"the time for validating utxos,it's value must be between 0 and 1"`
 	MaxOrphanTxs         int           `long:"maxorphantx" description:"Max number of orphan transactions to keep in memory"`
 	MaxOrphanTxSize      int           `long:"maxorphantxsize" description:"Max size of an orphan transaction to allow in memory"`
 	Consensustype        string        `long:"consensustype" description:"Consensus type which the server uses"`
