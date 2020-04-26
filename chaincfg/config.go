@@ -55,6 +55,27 @@ const (
 
 	DefaultHTTPEndPoint = "127.0.0.1:8545" // Default endpoint interface for the HTTP RPC server
 	DefaultWSEndPoint   = "127.0.0.1:8546" // Default endpoint interface for the websocket RPC server
+
+	// DefaultBlockProductedTimeOut is the default value for the policy
+	// `BlockProductedTimeOut`. There are four steps which take the main
+	// time of a block interval:
+	// 1. producing a block (*)
+	// 2. process block in the miner node
+	// 3. broadcast the block
+	// 4. process block in other nodes
+	DefaultBlockProductedTimeOut = 0.5
+
+	// DefaultTxConnectTimeOut is the default value for the policy
+	// `TxConnectTimeOut`. The whole progress of producing a block contains:
+	// 1. fetch txs from mempool & order them
+	// 2. validating utxos (*UtxoValidateTimeOut)
+	// 3. connect txs (*DefaultTxConnectTimeOut)
+	// 4. create coinbase (maybe coinbase tx need execute vm)
+	// 5. commit state db.
+	DefaultTxConnectTimeOut = 0.7
+
+	// refer to doc of DefaultTxConnectTimeOut
+	DefaultUtxoValidateTimeOut = 0.35
 )
 
 var (
@@ -132,9 +153,9 @@ type FConfig struct {
 	DebugLevel           string        `short:"d" long:"debuglevel" description:"Logging level for all subsystems {trace, debug, info, warn, error, critical} -- You may also specify <subsystem>=<level>,<subsystem2>=<level>,... to set the logger level for individual subsystems -- Use show to list available subsystems"`
 	Upnp                 bool          `long:"upnp" description:"Use UPnP to map our listening port outside of NAT"`
 	MinTxPrice           float64       `long:"mintxprice" description:"The minimum transaction price, it should not less than 0.01"`
-	BlkProductedTimeOut  float64       `long:"blkproductedtimeout" description:"the value for the policy BlockProductedTimeOut,it's value must be between 0 and 1"`
-	TxConnectTimeOut     float64       `long:"txconnecttimeout" description:"the value for the policy TxConnectTimeOut,it's value must be between 0 and 1"`
-	UtxoValidateTimeOut  float64       `long:"utxovalidatetimeout" description:"the time for validating utxos,it's value must be between 0 and 1"`
+	BlkProductedTimeOut  float64       `long:"blkproductedtimeout" description:"the value for the policy BlockProductedTimeOut,it's value must be in range of (0, 1)"`
+	TxConnectTimeOut     float64       `long:"txconnecttimeout" description:"the value for the policy TxConnectTimeOut,it's value must be in range of (0, 1)"`
+	UtxoValidateTimeOut  float64       `long:"utxovalidatetimeout" description:"the time for validating utxos,it's value must be in range of (0, 1)"`
 	MaxOrphanTxs         int           `long:"maxorphantx" description:"Max number of orphan transactions to keep in memory"`
 	MaxOrphanTxSize      int           `long:"maxorphantxsize" description:"Max size of an orphan transaction to allow in memory"`
 	Consensustype        string        `long:"consensustype" description:"Consensus type which the server uses"`
@@ -655,6 +676,42 @@ func LoadConfig() (*FConfig, []string, error) {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintln(os.Stderr, usageMessage)
 		return nil, nil, err
+	}
+
+	if cfg.BlkProductedTimeOut < 0 || cfg.BlkProductedTimeOut >= 1 {
+		str := "%s: The BlkProductedTimeOut is out of range (0, 1) " +
+			"-- parsed [%d]"
+		err := fmt.Errorf(str, funcName, cfg.BlkProductedTimeOut)
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, usageMessage)
+		return nil, nil, err
+	}
+	if cfg.BlkProductedTimeOut == 0 {
+		cfg.BlkProductedTimeOut = DefaultBlockProductedTimeOut
+	}
+
+	if cfg.TxConnectTimeOut < 0 || cfg.TxConnectTimeOut >= 1 {
+		str := "%s: The TxConnectTimeOut is out of range (0, 1) " +
+			"-- parsed [%d]"
+		err := fmt.Errorf(str, funcName, cfg.TxConnectTimeOut)
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, usageMessage)
+		return nil, nil, err
+	}
+	if cfg.TxConnectTimeOut == 0 {
+		cfg.TxConnectTimeOut = DefaultTxConnectTimeOut
+	}
+
+	if cfg.UtxoValidateTimeOut < 0 || cfg.UtxoValidateTimeOut >= 1 {
+		str := "%s: The UtxoValidateTimeOut is out of range (0, 1) " +
+			"-- parsed [%d]"
+		err := fmt.Errorf(str, funcName, cfg.UtxoValidateTimeOut)
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, usageMessage)
+		return nil, nil, err
+	}
+	if cfg.UtxoValidateTimeOut == 0 {
+		cfg.UtxoValidateTimeOut = DefaultUtxoValidateTimeOut
 	}
 
 	// Limit the max orphan count to a sane vlue.

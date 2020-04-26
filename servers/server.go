@@ -2583,34 +2583,13 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 		return nil, err
 	}
 
-	var blkProductedTimeOut float64
-	if cfg.BlkProductedTimeOut <= 0 || cfg.BlkProductedTimeOut >= 1 {
-		blkProductedTimeOut = mining.DefaultBlockProductedTimeOut
-	} else {
-		blkProductedTimeOut = cfg.BlkProductedTimeOut
-	}
-
-	var txConTimeOut float64
-	if cfg.TxConnectTimeOut <= 0 || cfg.TxConnectTimeOut >= 1 {
-		txConTimeOut = mining.DefaultTxConnectTimeOut
-	} else {
-		txConTimeOut = cfg.TxConnectTimeOut
-	}
-
-	var utxoValidateTimeOut float64
-	if cfg.UtxoValidateTimeOut <= 0 || cfg.UtxoValidateTimeOut >= 1 {
-		utxoValidateTimeOut = mining.UtxoValidateTimeOut
-	} else {
-		utxoValidateTimeOut = cfg.UtxoValidateTimeOut
-	}
-
 	// Create the mining policy and block template generator based on the
 	// configuration options.
 	policy := mining.Policy{
 		TxMinPrice: chaincfg.Cfg.MinTxPrice,
-		BlockProductedTimeOut: blkProductedTimeOut,
-		TxConnectTimeOut: txConTimeOut,
-		UtxoValidateTimeOut: utxoValidateTimeOut,
+		BlockProductedTimeOut: cfg.BlkProductedTimeOut,
+		TxConnectTimeOut: cfg.TxConnectTimeOut,
+		UtxoValidateTimeOut: cfg.UtxoValidateTimeOut,
 	}
 	blockTemplateGenerator := mining.NewBlkTmplGenerator(&policy,
 		s.txMemPool, s.sigMemPool, s.chain)

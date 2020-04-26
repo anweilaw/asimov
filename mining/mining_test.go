@@ -120,9 +120,9 @@ func TestCreateCoinbaseTx(t *testing.T) {
 
 func TestNewBlockTemplate(t *testing.T) {
 	policy := Policy{
-		BlockProductedTimeOut: DefaultBlockProductedTimeOut,
-		TxConnectTimeOut: DefaultTxConnectTimeOut,
-		UtxoValidateTimeOut: UtxoValidateTimeOut,
+		BlockProductedTimeOut: chaincfg.DefaultBlockProductedTimeOut,
+		TxConnectTimeOut: chaincfg.DefaultTxConnectTimeOut,
+		UtxoValidateTimeOut: chaincfg.DefaultUtxoValidateTimeOut,
 	}
 	chain, teardownFunc, err := newFakeChain(&chaincfg.DevelopNetParams)
 	if err != nil {

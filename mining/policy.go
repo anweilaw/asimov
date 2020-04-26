@@ -10,27 +10,6 @@ const (
 	// contextual transaction information provided in a transaction store
 	// when it has not yet been mined into a block.
 	UnminedHeight = 0x7fffffff
-
-	// DefaultBlockProductedTimeOut is the default value for the policy
-	// `BlockProductedTimeOut`. There are four steps which take the main
-	// time of a block interval:
-	// 1. producing a block (*)
-	// 2. process block in the miner node
-	// 3. broadcast the block
-	// 4. process block in other nodes
-	DefaultBlockProductedTimeOut = 0.5
-
-	// DefaultTxConnectTimeOut is the default value for the policy
-	// `TxConnectTimeOut`. The whole progress of producing a block contains:
-	// 1. fetch txs from mempool & order them
-	// 2. validating utxos (*UtxoValidateTimeOut)
-	// 3. connect txs (*DefaultTxConnectTimeOut)
-	// 4. create coinbase (maybe coinbase tx need execute vm)
-	// 5. commit state db.
-	DefaultTxConnectTimeOut = 0.7
-
-	// refer to doc of DefaultTxConnectTimeOut
-	UtxoValidateTimeOut = 0.35
 )
 
 // Policy houses the policy (configuration parameters) which is used to control
