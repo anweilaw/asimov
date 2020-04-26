@@ -362,6 +362,9 @@ func LoadConfig() (*FConfig, []string, error) {
 		RPCKey:               DefaultRPCKeyFile,
 		RPCCert:              DefaultRPCCertFile,
 		MinTxPrice:           DefaultMinTxPrice,
+		BlkProductedTimeOut:  DefaultBlockProductedTimeOut,
+		TxConnectTimeOut:     DefaultTxConnectTimeOut,
+		UtxoValidateTimeOut:  DefaultUtxoValidateTimeOut,
 		MaxOrphanTxs:         DefaultMaxOrphanTransactions,
 		MaxOrphanTxSize:      DefaultMaxOrphanTxSize,
 		EmptyRound:           false,
@@ -678,9 +681,6 @@ func LoadConfig() (*FConfig, []string, error) {
 		return nil, nil, err
 	}
 
-	if cfg.BlkProductedTimeOut == 0 {
-		cfg.BlkProductedTimeOut = DefaultBlockProductedTimeOut
-	}
 	if cfg.BlkProductedTimeOut <= 0 || cfg.BlkProductedTimeOut >= 1 {
 		str := "%s: The BlkProductedTimeOut is out of range (0, 1) " +
 			"-- parsed [%f]"
@@ -690,9 +690,6 @@ func LoadConfig() (*FConfig, []string, error) {
 		return nil, nil, err
 	}
 
-	if cfg.TxConnectTimeOut == 0 {
-		cfg.TxConnectTimeOut = DefaultTxConnectTimeOut
-	}
 	if cfg.TxConnectTimeOut <= 0 || cfg.TxConnectTimeOut >= 1 {
 		str := "%s: The TxConnectTimeOut is out of range (0, 1) " +
 			"-- parsed [%f]"
@@ -702,9 +699,6 @@ func LoadConfig() (*FConfig, []string, error) {
 		return nil, nil, err
 	}
 
-	if cfg.UtxoValidateTimeOut == 0 {
-		cfg.UtxoValidateTimeOut = DefaultUtxoValidateTimeOut
-	}
 	if cfg.UtxoValidateTimeOut <= 0 || cfg.UtxoValidateTimeOut >= 1 {
 		str := "%s: The UtxoValidateTimeOut is out of range (0, 1) " +
 			"-- parsed [%f]"
