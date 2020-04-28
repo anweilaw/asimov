@@ -2551,6 +2551,7 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 			MaxSigOpCostPerTx: blockchain.MaxBlockSigOpsCost,
 			MinRelayTxPrice:   chaincfg.Cfg.MinTxPrice,
 			MaxTxVersion:      2,
+			RejectReplacement: cfg.RejectReplacement,
 		},
 		FetchUtxoView:  s.chain.FetchUtxoView,
 		Chain:          s.chain,

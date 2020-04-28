@@ -143,6 +143,7 @@ type FConfig struct {
 	TorIsolation         bool          `long:"torisolation" description:"Enable Tor stream isolation by randomizing user credentials for each connection."`
 	TestNet              bool          `long:"testnet" description:"Use the test network"`
 	RegressionTest       bool          `long:"regtest" description:"Use the regression test network"`
+	RejectReplacement    bool          `long:"rejectreplacement" description:"Reject transactions that attempt to replace existing transactions within the mempool through the Replace-By-Price (RBP) signaling policy."`
 	SimNet               bool          `long:"simnet" description:"Use the simulation network"`
 	DevelopNet           bool          `long:"devnet" description:"Use the develop network"`
 	ChainId              uint64        `long:"chainid" description:"Use distinguish different chain, the main chain occupy zero, each subchain take a positive integer"`
