@@ -7,10 +7,12 @@ package mining
 
 import (
 	"container/heap"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/crypto"
+	"github.com/AsimovNetwork/asimov/vm/fvm/core/state"
 	"sort"
 	"time"
 
@@ -384,9 +386,8 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	header.CoinBase = *payToAddress
 	stateDB, feepool, contractOut, err := g.chain.Prepare(header, gasFloor, gasCeil)
 	defer func() {
-		if err != nil {
-			g.chain.Rollback()
-		} else if len(forbiddenTxHashes) > 0 {
+		g.chain.ChainRUnlock()
+		if err == nil && len(forbiddenTxHashes) > 0 {
 			g.txSource.UpdateForbiddenTxs(forbiddenTxHashes, int64(bestHeight + 1))
 		}
 	}()
@@ -844,7 +845,7 @@ priorityQueueLoop:
 	msgBlock.Header.GasUsed = totalGasUsed
 	msgBlock.Header.PoaHash = msgBlock.CalculatePoaHash()
 
-	err = g.chain.Commit(&msgBlock, stateDB, account)
+	err = commit(&msgBlock, stateDB, account)
 	if err != nil {
 		return nil, err
 	}
@@ -868,4 +869,22 @@ func rebuildFunder(tx *asiutil.Tx, stdTxout *protos.TxOut, fees *map[protos.Asse
 			tx.MsgTx().AddTxOut(protos.NewTxOut(value, stdTxout.PkScript, assets))
 		}
 	}
+}
+
+// commit state and signature the given block
+func commit(block *protos.MsgBlock, stateDB *state.StateDB, account *crypto.Account) error {
+	stateRoot, err := stateDB.Commit(true)
+	if err != nil {
+		return err
+	}
+	block.Header.StateRoot = stateRoot
+
+	blockHash := block.BlockHash()
+	signature, err := crypto.Sign(blockHash[:], (*ecdsa.PrivateKey)(&account.PrivateKey))
+	if err != nil {
+		log.Errorf("sign block failed: %s", err)
+		return err
+	}
+	copy(block.Header.SigData[:], signature)
+	return nil
 }

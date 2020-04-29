@@ -10,6 +10,7 @@ import (
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/vm/fvm/core/virtualtx"
 	fvm "github.com/AsimovNetwork/asimov/vm/fvm/core/vm"
+	"github.com/AsimovNetwork/asimov/vm/fvm/params"
 	"math/big"
 )
 
@@ -21,6 +22,7 @@ type ChainContext interface {
 	GetVmConfig() *fvm.Config
 	GetTemplateWarehouseInfo() (common.Address, string)
 	GetSystemContractInfo(delegateAddr common.ContractCode) (common.Address, []byte, string)
+	GetTemplateInfo(contractAddr []byte, gas uint64, block *asiutil.Block, stateDB fvm.StateDB, chainConfig *params.ChainConfig)(uint16, string, uint64)
 	FetchTemplate(txs map[common.Hash]asiutil.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error)
 	BlockHashByHeight(int32) (*common.Hash, error)
 }

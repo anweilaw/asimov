@@ -36,7 +36,7 @@ const (
 	ReadOnlyGas = 2300
 
 	// The gas is used when checking whether an address is in whitelist on limit assets.
-	SupportCheckGas = 5600
+	SupportCheckGas = 6000
 
 	// The gas is used when consensus invoke some readonly function in system contract.
 	SystemContractReadOnlyGas = 30000000

@@ -1,5 +1,7 @@
 pragma solidity 0.4.25;
 
+import "../utils/test_tool.sol";
+
 interface Registry {
 	function init() external;
 	function registerOrganization(string organizationName, string templateName) external returns(uint32);
@@ -14,7 +16,7 @@ interface Registry {
 	function canTransfer(uint32 organizationId, uint32 assetIndex) external view returns (bool);
 	function isRestrictedAsset(uint32 organizationId, uint32 assetIndex) external view returns(bool, bool);
 	function removeAssetRestriction(uint32 assetIndex) external;
-	function canTransferRestrictedAsset(uint32 organizationId, uint32 assetIndex, address transferAddress) external view returns(bool);
+	function getOrganizationAddressById(uint32 organizationId, uint32 assetIndex) external view returns(address);
 	function getOrganizationId() external view returns(bool, uint32);
 	function findAsset(uint32 assetIndex) external view returns(uint32, uint32, bool);
 	function hasRegistered() external view returns(bool);
@@ -175,14 +177,14 @@ contract TestRegistry {
 		registry.updateRestrictionProperty(1);
 	}
 
-	function testCanTransferRestrictedAsset() public {
+	function testGetOrganizationAddressById() public {
 		setUp();
 
 		uint32 organizationId = registry.registerOrganization("aaa", "bbb");
 		registry.create(this, 0, 1, 100000000, true);
 		/// failed; unknow address 0x66b28f9dd1cf6314a8b5d691aeec6c6eaf456cbd9a
-		bool canTransfer = registry.canTransferRestrictedAsset(organizationId, 1, 0x66b28f9dd1cf6314a8b5d691aeec6c6eaf456cbd9a);
-		emit LogResult(canTransfer);
+		address organizationAddress = registry.getOrganizationAddressById(organizationId, 1);
+		assertTrue(0x0 != organizationAddress)
 	}
 
 	function testGetOrganizationId() public {

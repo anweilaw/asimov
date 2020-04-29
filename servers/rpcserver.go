@@ -1127,8 +1127,8 @@ func (s *PublicRpcAPI) GetContractTemplate(contractAddress string) (interface{},
 		return nil, internalRPCError(err.Error(), "Failed to get stateDB")
 	}
 
-	templateType, templateName, _ := blockchain.GetTemplateInfo(addr, common.SystemContractReadOnlyGas,
-		chain, block, stateDB, chaincfg.ActiveNetParams.FvmParam)
+	templateType, templateName, _ := chain.GetTemplateInfo(addr, common.SystemContractReadOnlyGas,
+		block, stateDB, chaincfg.ActiveNetParams.FvmParam)
 
 	return rpcjson.ContractTemplate{
 		TemplateTName: templateName,
@@ -1498,7 +1498,7 @@ func (s *PublicRpcAPI) EstimateGas(caller string, contractAddress string, amount
 			return 0, internalRPCError(err.Error(), "Failed to create contract")
 		}
 
-		err, leftOverGas = blockchain.InitTemplate(category, templateName, addr, leftOverGas, assets, chain, vmInstance)
+		err, leftOverGas = chain.InitTemplate(category, templateName, addr, leftOverGas, assets, vmInstance)
 		if err != nil {
 			return 0, internalRPCError(err.Error(), "Failed to init template")
 		}

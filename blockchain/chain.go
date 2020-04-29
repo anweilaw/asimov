@@ -7,7 +7,6 @@ package blockchain
 import (
 	"bytes"
 	"container/list"
-	"crypto/ecdsa"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
-	"github.com/AsimovNetwork/asimov/crypto"
 	"github.com/AsimovNetwork/asimov/database"
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/rpcs/rawdb"
@@ -1949,7 +1947,7 @@ func (b *BlockChain) createContract(
 	}
 
 	// Init Template
-	err, leftOverGas = InitTemplate(category, templateName, newAddr, leftOverGas, &out.Assets, b, vmenv)
+	err, leftOverGas = b.InitTemplate(category, templateName, newAddr, leftOverGas, &out.Assets, vmenv)
 	if err != nil {
 		errStr := fmt.Sprint("init template error ", category, templateName, newAddr, err)
 		err = ruleError(ErrFailedInitTemplate, errStr)
@@ -3189,7 +3187,7 @@ func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset
 // This method will lock the chain, and it will be released in Commit or Rollback method.
 func (b *BlockChain) Prepare(header *protos.BlockHeader, gasFloor, gasCeil uint64) (
 	stateDB *state.StateDB, feepool map[protos.Assets]int32, contractOut *protos.TxOut, err error) {
-	b.chainLock.Lock()
+	b.chainLock.RLock()
 	parent := b.GetTip()
 	if parent.Round() > header.Round || (parent.Round() == header.Round && parent.slot >= header.SlotIndex) {
 		err = errors.New("slot changes when prepare block")
@@ -3228,25 +3226,7 @@ func (b *BlockChain) Prepare(header *protos.BlockHeader, gasFloor, gasCeil uint6
 	return
 }
 
-func (b *BlockChain) Commit(block *protos.MsgBlock, stateDB *state.StateDB, account *crypto.Account) error {
-	stateRoot, err := stateDB.Commit(true)
-	if err != nil {
-		return err
-	}
-	block.Header.StateRoot = stateRoot
-
-	blockHash := block.BlockHash()
-	signature, err := crypto.Sign(blockHash[:], (*ecdsa.PrivateKey)(&account.PrivateKey))
-	if err != nil {
-		log.Errorf("sign block failed: %s", err)
-		return err
-	}
-	copy(block.Header.SigData[:], signature)
-
-	b.chainLock.Unlock()
-	return nil
-}
-
-func (b *BlockChain) Rollback() {
-	b.chainLock.Unlock()
+// unlock the chainLock, this method is use
+func (b *BlockChain) ChainRUnlock() {
+	b.chainLock.RUnlock()
 }

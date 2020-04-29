@@ -404,34 +404,4 @@ contract ValidatorCommittee is ACL {
   		return lastUpdatedHeight;
   	}
 
-  	/// 测试方法,单位以块数计算
-    function testUpdateRoundLength(uint length) public {
-    	ROUND_LENGTH = length;
-    	PROPOSAL_LENGTH = SafeMath.div(SafeMath.mul(ROUND_LENGTH, 7), 30);
-    }
-
-    /// 测试方法
-    function testGetRoundParams() public view returns(uint, uint) {
-    	return (round, ROUND_LENGTH);
-    }
-
-    /// 测试方法
-    function testGetProposalDetail(uint proposalId) public view returns(address, ProposalStatus, address[], address[], address[]) {
-    	Proposal storage p = proposals[proposalId];
-    	return (p.proposer, p.status, p.voters, p.approvers, p.rejecters);
-    }
-
-    /// 测试方法
-    function testUpdateValidatorBlocks(address[] validatorAddresses, uint[] actualBlocks) public {
-    	uint length = validatorAddresses.length;
-    	require(length == actualBlocks.length, "invalid params's length to update validators's length");
-
-		for (uint i = 0; i < length; i++) {
-			Validator storage v = validators[validatorAddresses[i]];
-			if (v.existed) {
-				v.actualBlocks = actualBlocks[i];
-			}
-		}
-    }
-
 }

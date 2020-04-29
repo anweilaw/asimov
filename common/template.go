@@ -11,6 +11,12 @@ const (
 
 	InitTemplateFunc = "initTemplate"
 
+	// default method name of canTransfer in organization contract
+	CanTransferFuncName = "canTransfer"
+
+	// default value of an address type, formatted with string
+	DefaultAddressValue = "0x000000000000000000000000000000000000000000"
+
 	// This is the standard template's abi.
 	TemplateABI = "[{\"constant\": true, \"inputs\": [], \"name\": \"getTemplateInfo\", \"outputs\": [{\"name\": \"\", \"type\": \"uint16\"}, {\"name\": \"\", \"type\": \"string\"} ], \"payable\": false, \"stateMutability\": \"view\", \"type\": \"function\"}, {\"constant\": false, \"inputs\": [{\"name\": \"_category\", \"type\": \"uint16\"}, {\"name\": \"_templateName\", \"type\": \"string\"} ], \"name\": \"initTemplate\", \"outputs\": [], \"payable\": false, \"stateMutability\": \"nonpayable\", \"type\": \"function\"} ]"
 )
