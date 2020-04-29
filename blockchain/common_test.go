@@ -492,7 +492,6 @@ func (m *ManagerTmp) IsLimit(block *asiutil.Block,
 func (m *ManagerTmp) IsSupport(block *asiutil.Block,
 	stateDB vm.StateDB, gasLimit uint64, assets *protos.Assets, address []byte) (bool, uint64) {
 	_, organizationId, assetIndex := assets.AssetsFields()
-	transferAddress := common.BytesToAddress(address)
 
 	caller := chaincfg.OfficialAddress
 	contract := m.GetActiveContractByHeight(block.Height(), common.RegistryCenter)
@@ -522,38 +521,23 @@ func (m *ManagerTmp) IsSupport(block *asiutil.Block,
 		log.Error(err)
 	}
 
-	if common.DefaultAddressValue == outType.String() {
+	if common.EmptyAddressValue == outType.String() {
 		return false, gasLimit - common.SupportCheckGas + leftOverGas
 	}
 
-	category, templateName, _ := m.chain.GetTemplateInfo(outType.Bytes(), common.SystemContractReadOnlyGas,
-		block, stateDB, chaincfg.ActiveNetParams.FvmParam)
+	transferAddress := common.BytesToAddress(address)
+	transferInput := common.PackCanTransferInput(transferAddress, assetIndex)
 
-	templateContent, ok, _ := m.GetTemplate(block, common.SystemContractReadOnlyGas,
-		stateDB, chaincfg.ActiveNetParams.FvmParam, category, templateName)
-	if !ok {
-		return false, gasLimit - common.SupportCheckGas + leftOverGas
-	}
-
-	keyHash := common.HexToHash(templateContent.Key)
-	_, _, _, abiInfo, _, _ := m.chain.FetchTemplate(nil, &keyHash)
-	inputTransfer, err := fvm.PackFunctionArgs(string(abiInfo), common.CanTransferFuncName, transferAddress, assetIndex)
-	if err != nil {
-		return false, gasLimit - common.SupportCheckGas + leftOverGas
-	}
-
-	// call canTransfer method to check if the asset can be transfer
 	result2, leftOverGas2, _ := fvm.CallReadOnlyFunction(caller, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
-		common.ReadOnlyGas, outType, inputTransfer)
+		common.ReadOnlyGas, outType, transferInput)
 
-	var support bool
-	err = fvm.UnPackFunctionResult(string(abiInfo), &support, common.CanTransferFuncName, result2)
+	support, err := common.UnPackBoolResult(result2)
 	if err != nil {
 		log.Error(err)
 	}
 
-	return support, gasLimit - common.SupportCheckGas + leftOverGas + leftOverGas2 + common.ReadOnlyGas
+	return support, gasLimit - common.SupportCheckGas + leftOverGas + leftOverGas2 - common.ReadOnlyGas
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
