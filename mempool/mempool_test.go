@@ -198,8 +198,7 @@ func (p *poolHarness) CreateCoinbaseTx(blockHeight int32, numOutputs uint32) (*a
 // inputs and generates the provided number of outputs by evenly splitting the
 // total input amount.  All outputs will be to the payment script associated
 // with the harness and all inputs are assumed to do the same.
-func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32, fee common.Amount,
-	signalsReplacement bool) (*asiutil.Tx, error) {
+func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32, fee common.Amount) (*asiutil.Tx, error) {
 	// Calculate the total input amount and split it amongst the requested
 	// number of outputs.
 	var totalInput common.Amount
@@ -212,9 +211,6 @@ func (p *poolHarness) CreateSignedTx(inputs []spendableOutput, numOutputs uint32
 
 	tx := protos.NewMsgTx(protos.TxVersion)
 	sequence := protos.MaxTxInSequenceNum
-	if signalsReplacement {
-		sequence = MaxRBPSequence
-	}
 	tx.TxContract.GasLimit = DefaultGasLimit
 	for _, input := range inputs {
 		tx.AddTxIn(&protos.TxIn{
@@ -831,7 +827,7 @@ func TestBasicOrphanRemoval(t *testing.T) {
 	nonChainedOrphanTx, err := harness.CreateSignedTx([]spendableOutput{{
 		amount:   common.Amount(5000000000),
 		outPoint: protos.OutPoint{Hash: common.Hash{}, Index: 0},
-	}}, 1, 0, false)
+	}}, 1, 0)
 	if err != nil {
 		t.Fatalf("unable to create signed tx: %v", err)
 	}
@@ -967,7 +963,7 @@ func TestMultiInputOrphanDoubleSpend(t *testing.T) {
 	doubleSpendTx, err := harness.CreateSignedTx([]spendableOutput{
 		txOutToSpendableOut(chainedTxns[1], 0),
 		txOutToSpendableOut(chainedTxns[maxOrphans], 0),
-	}, 1, 0, false)
+	}, 1, 0)
 	if err != nil {
 		t.Fatalf("unable to create signed tx: %v", err)
 	}
@@ -1074,14 +1070,11 @@ func (ctx *testContext) addCoinbaseTx(numOutputs uint32) *asiutil.Tx {
 // It can be added to the test context's mempool or mock chain based on the
 // confirmed boolean.
 func (ctx *testContext) addSignedTx(inputs []spendableOutput,
-	numOutputs uint32, fee common.Amount,
-	signalsReplacement, confirmed bool) *asiutil.Tx {
+	numOutputs uint32, fee common.Amount, confirmed bool) *asiutil.Tx {
 
 	ctx.t.Helper()
 
-	tx, err := ctx.harness.CreateSignedTx(
-		inputs, numOutputs, fee, signalsReplacement,
-	)
+	tx, err := ctx.harness.CreateSignedTx(inputs, numOutputs, fee)
 	if err != nil {
 		ctx.t.Fatalf("unable to create transaction: %v", err)
 	}
@@ -1108,122 +1101,6 @@ func (ctx *testContext) addSignedTx(inputs []spendableOutput,
 	return tx
 }
 
-// TestSignalsReplacement tests that transactions properly signal they can be
-// replaced using RBP.
-func TestSignalsReplacement(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name               string
-		setup              func(ctx *testContext) *asiutil.Tx
-		signalsReplacement bool
-	}{
-		{
-			// Transactions can signal replacement through
-			// inheritance if any of its ancestors does.
-			name: "non-signaling with unconfirmed non-signaling parent",
-			setup: func(ctx *testContext) *asiutil.Tx {
-				coinbase := ctx.addCoinbaseTx(1)
-
-				coinbaseOut := txOutToSpendableOut(coinbase, 0)
-				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-
-				parentOut := txOutToSpendableOut(parent, 0)
-				outs = []spendableOutput{parentOut}
-				return ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-			},
-			signalsReplacement: false,
-		},
-		{
-			// Transactions can signal replacement through
-			// inheritance if any of its ancestors does, but they
-			// must be unconfirmed.
-			name: "non-signaling with confirmed signaling parent",
-			setup: func(ctx *testContext) *asiutil.Tx {
-				coinbase := ctx.addCoinbaseTx(1)
-
-				coinbaseOut := txOutToSpendableOut(coinbase, 0)
-				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, true, true)
-
-				parentOut := txOutToSpendableOut(parent, 0)
-				outs = []spendableOutput{parentOut}
-				return ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-			},
-			signalsReplacement: false,
-		},
-		{
-			name: "inherited signaling",
-			setup: func(ctx *testContext) *asiutil.Tx {
-				coinbase := ctx.addCoinbaseTx(1)
-
-				// We'll create a chain of transactions
-				// A -> B -> C where C is the transaction we'll
-				// be checking for replacement signaling. The
-				// transaction can signal replacement through
-				// any of its ancestors as long as they also
-				// signal replacement.
-				coinbaseOut := txOutToSpendableOut(coinbase, 0)
-				outs := []spendableOutput{coinbaseOut}
-				a := ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
-
-				aOut := txOutToSpendableOut(a, 0)
-				outs = []spendableOutput{aOut}
-				b := ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-
-				bOut := txOutToSpendableOut(b, 0)
-				outs = []spendableOutput{bOut}
-				return ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-			},
-			signalsReplacement: true,
-		},
-		{
-			name: "explicit signaling",
-			setup: func(ctx *testContext) *asiutil.Tx {
-				coinbase := ctx.addCoinbaseTx(1)
-				coinbaseOut := txOutToSpendableOut(coinbase, 0)
-				outs := []spendableOutput{coinbaseOut}
-				return ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
-			},
-			signalsReplacement: true,
-		},
-	}
-
-	for _, testCase := range testCases {
-		success := t.Run(testCase.name, func(t *testing.T) {
-			// We'll start each test by creating our mempool
-			// harness.
-			harness, _, err := newPoolHarness(&chaincfg.MainNetParams)
-			if err != nil {
-				t.Fatalf("unable to create test pool: %v", err)
-			}
-			ctx := &testContext{t, harness}
-
-			// Each test includes a setup method, which will set up
-			// its required dependencies. The transaction returned
-			// is the one we'll be using to determine if it signals
-			// replacement support.
-			tx := testCase.setup(ctx)
-
-			// Each test should match the expected response.
-			signalsReplacement := ctx.harness.txPool.signalsReplacement(
-				tx, nil,
-			)
-			if signalsReplacement && !testCase.signalsReplacement {
-				ctx.t.Fatalf("expected transaction %v to not "+
-					"signal replacement", tx.Hash())
-			}
-			if !signalsReplacement && testCase.signalsReplacement {
-				ctx.t.Fatalf("expected transaction %v to "+
-					"signal replacement", tx.Hash())
-			}
-		})
-		if !success {
-			break
-		}
-	}
-}
 
 // TestCheckPoolDoubleSpend ensures that the mempool can properly detect
 // unconfirmed double spends in the case of replacement and non-replacement
@@ -1236,57 +1113,6 @@ func TestCheckPoolDoubleSpend(t *testing.T) {
 		setup         func(ctx *testContext) *asiutil.Tx
 		isReplacement bool
 	}{
-		{
-			// Transactions that don't double spend any inputs,
-			// regardless of whether they signal replacement or not,
-			// are valid.
-			name: "no double spend",
-			setup: func(ctx *testContext) *asiutil.Tx {
-				coinbase := ctx.addCoinbaseTx(1)
-
-				coinbaseOut := txOutToSpendableOut(coinbase, 0)
-				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-
-				parentOut := txOutToSpendableOut(parent, 0)
-				outs = []spendableOutput{parentOut}
-				return ctx.addSignedTx(outs, 2, DefaultInputFee, false, false)
-			},
-			isReplacement: false,
-		},
-		{
-			// Transactions that don't signal replacement and double
-			// spend inputs are invalid.
-			name: "non-replacement double spend",
-			setup: func(ctx *testContext) *asiutil.Tx {
-				coinbase1 := ctx.addCoinbaseTx(1)
-				coinbaseOut1 := txOutToSpendableOut(coinbase1, 0)
-				outs := []spendableOutput{coinbaseOut1}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
-
-				coinbase2 := ctx.addCoinbaseTx(1)
-				coinbaseOut2 := txOutToSpendableOut(coinbase2, 0)
-				outs = []spendableOutput{coinbaseOut2}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-
-				// Create a transaction that spends both
-				// coinbase outputs that were spent above. This
-				// should be detected as a double spend as one
-				// of the transactions doesn't signal
-				// replacement.
-				outs = []spendableOutput{coinbaseOut1, coinbaseOut2}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 1, DefaultInputFee, false,
-				)
-				if err != nil {
-					ctx.t.Fatalf("unable to create "+
-						"transaction: %v", err)
-				}
-
-				return tx
-			},
-			isReplacement: false,
-		},
 		{
 			// Transactions that double spend inputs and signal
 			// replacement are invalid if the mempool's policy
@@ -1305,20 +1131,18 @@ func TestCheckPoolDoubleSpend(t *testing.T) {
 				// coinbase output.
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
+				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				parentOut := txOutToSpendableOut(parent, 0)
 				outs = []spendableOutput{parentOut}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
+				ctx.addSignedTx(outs, 1, DefaultInputFee,  false)
 
 				// Create another transaction that spends the
 				// same coinbase output. Since the original
 				// spender of this output, all of its spends
 				// should also be conflicts.
 				outs = []spendableOutput{coinbaseOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 2, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1330,9 +1154,9 @@ func TestCheckPoolDoubleSpend(t *testing.T) {
 		},
 		{
 			// Transactions that double spend inputs and signal
-			// replacement are valid as long as the mempool's policy
-			// accepts them.
-			name: "replacement double spend",
+			// replacement are invalid if the mempool's policy
+			// rejects replacements.
+			name: "reject replacement policy is false",
 			setup: func(ctx *testContext) *asiutil.Tx {
 				coinbase := ctx.addCoinbaseTx(1)
 
@@ -1340,20 +1164,18 @@ func TestCheckPoolDoubleSpend(t *testing.T) {
 				// coinbase output.
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
+				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				parentOut := txOutToSpendableOut(parent, 0)
 				outs = []spendableOutput{parentOut}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
+				ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				// Create another transaction that spends the
 				// same coinbase output. Since the original
 				// spender of this output, all of its spends
 				// should also be conflicts.
 				outs = []spendableOutput{coinbaseOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 2, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1426,13 +1248,11 @@ func TestConflicts(t *testing.T) {
 
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
+				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				parentOut := txOutToSpendableOut(parent, 0)
 				outs = []spendableOutput{parentOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 2, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1452,22 +1272,20 @@ func TestConflicts(t *testing.T) {
 				coinbaseOut1 := txOutToSpendableOut(coinbase1, 0)
 				outs := []spendableOutput{coinbaseOut1}
 				conflict1 := ctx.addSignedTx(
-					outs, 1, DefaultInputFee, false, false,
+					outs, 1, DefaultInputFee, false,
 				)
 
 				coinbase2 := ctx.addCoinbaseTx(1)
 				coinbaseOut2 := txOutToSpendableOut(coinbase2, 0)
 				outs = []spendableOutput{coinbaseOut2}
 				conflict2 := ctx.addSignedTx(
-					outs, 1, DefaultInputFee, false, false,
+					outs, 1, DefaultInputFee, false,
 				)
 
 				// Create a transaction that spends both
 				// coinbase outputs that were spent above.
 				outs = []spendableOutput{coinbaseOut1, coinbaseOut2}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 1, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 1, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1492,20 +1310,18 @@ func TestConflicts(t *testing.T) {
 				// coinbase output.
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
-				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
+				parent := ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				parentOut := txOutToSpendableOut(parent, 0)
 				outs = []spendableOutput{parentOut}
-				child := ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
+				child := ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				// Create another transaction that spends the
 				// same coinbase output. Since the original
 				// spender of this output has descendants, they
 				// should also be conflicts.
 				outs = []spendableOutput{coinbaseOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 2, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1576,21 +1392,21 @@ func TestAncestorsDescendants(t *testing.T) {
 	// chain like so to properly detect ancestors and descendants past a
 	// single parent/child.
 	aInputs := outputs[:1]
-	a := ctx.addSignedTx(aInputs, 2, DefaultInputFee, false, false)
+	a := ctx.addSignedTx(aInputs, 2, DefaultInputFee, false)
 
 	bInputs := []spendableOutput{txOutToSpendableOut(a, 0)}
-	b := ctx.addSignedTx(bInputs, 1, DefaultInputFee, false, false)
+	b := ctx.addSignedTx(bInputs, 1, DefaultInputFee,  false)
 
 	cInputs := []spendableOutput{txOutToSpendableOut(a, 1)}
-	c := ctx.addSignedTx(cInputs, 1, DefaultInputFee, false, false)
+	c := ctx.addSignedTx(cInputs, 1, DefaultInputFee, false)
 
 	dInputs := []spendableOutput{txOutToSpendableOut(c, 0)}
-	d := ctx.addSignedTx(dInputs, 1, DefaultInputFee, false, false)
+	d := ctx.addSignedTx(dInputs, 1, DefaultInputFee, false)
 
 	eInputs := []spendableOutput{
 		txOutToSpendableOut(b, 0), txOutToSpendableOut(d, 0),
 	}
-	e := ctx.addSignedTx(eInputs, 1, DefaultInputFee, false, false)
+	e := ctx.addSignedTx(eInputs, 1, DefaultInputFee, false)
 
 	// We'll be querying for the ancestors of E. We should expect to see all
 	// of the transactions that it depends on.
@@ -1641,35 +1457,6 @@ func TestRBP(t *testing.T) {
 		err   string
 	}{
 		{
-			// A transaction cannot replace another if it doesn't
-			// signal replacement.
-			name: "non-replaceable parent",
-			setup: func(ctx *testContext) (*asiutil.Tx, []*asiutil.Tx) {
-				coinbase := ctx.addCoinbaseTx(1)
-
-				// Create a transaction that spends the coinbase
-				// output and doesn't signal for replacement.
-				coinbaseOut := txOutToSpendableOut(coinbase, 0)
-				outs := []spendableOutput{coinbaseOut}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, false, false)
-
-				// Attempting to create another transaction that
-				// spends the same output should fail since the
-				// original transaction spending it doesn't
-				// signal replacement.
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
-				if err != nil {
-					ctx.t.Fatalf("unable to create "+
-						"transaction: %v", err)
-				}
-
-				return tx, nil
-			},
-			err: "already spent by transaction",
-		},
-		{
 			// A transaction cannot replace another if we don't
 			// allow accepting replacement transactions.
 			name: "reject replacement policy",
@@ -1682,15 +1469,13 @@ func TestRBP(t *testing.T) {
 				// output and doesn't signal for replacement.
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
+				ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				// Attempting to create another transaction that
 				// spends the same output should fail since the
 				// original transaction spending it doesn't
 				// signal replacement.
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 2, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1716,7 +1501,7 @@ func TestRBP(t *testing.T) {
 				}
 				parent := ctx.addSignedTx(
 					coinbaseOuts, numDescendants,
-					DefaultInputFee, true, false,
+					DefaultInputFee, false,
 				)
 
 				// We'll then spend each output of the parent
@@ -1725,7 +1510,7 @@ func TestRBP(t *testing.T) {
 					out := txOutToSpendableOut(parent, i)
 					outs := []spendableOutput{out}
 					ctx.addSignedTx(
-						outs, 1, DefaultInputFee, false, false,
+						outs, 1, DefaultInputFee, false,
 					)
 				}
 
@@ -1735,9 +1520,7 @@ func TestRBP(t *testing.T) {
 				// coinbase output would evict the maximum
 				// number of transactions from the mempool,
 				// however, so we should reject it.
-				tx, err := ctx.harness.CreateSignedTx(
-					coinbaseOuts[:1], 1, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(coinbaseOuts[:1], 1, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1760,7 +1543,7 @@ func TestRBP(t *testing.T) {
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
 				parent := ctx.addSignedTx(
-					outs, 1, DefaultInputFee, true, false,
+					outs, 1, DefaultInputFee, false,
 				)
 
 				// Attempting to create another transaction that
@@ -1768,9 +1551,7 @@ func TestRBP(t *testing.T) {
 				// invalid.
 				parentOut := txOutToSpendableOut(parent, 0)
 				outs = []spendableOutput{coinbaseOut, parentOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 2, DefaultInputFee, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 2, DefaultInputFee)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1794,20 +1575,18 @@ func TestRBP(t *testing.T) {
 				// have a higher fee rate than the second.
 				coinbaseOut1 := txOutToSpendableOut(coinbase1, 0)
 				outs := []spendableOutput{coinbaseOut1}
-				ctx.addSignedTx(outs, 1, DefaultInputFee*2, true, false)
+				ctx.addSignedTx(outs, 1, DefaultInputFee*2, false)
 
 				coinbaseOut2 := txOutToSpendableOut(coinbase2, 0)
 				outs = []spendableOutput{coinbaseOut2}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
+				ctx.addSignedTx(outs, 1, DefaultInputFee, false)
 
 				// We'll then create the replacement transaction
 				// by spending the coinbase outputs. It will be
 				// an invalid one however, since it won't have a
 				// higher fee rate than the first transaction.
 				outs = []spendableOutput{coinbaseOut1, coinbaseOut2}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 1, DefaultInputFee*2, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 1, DefaultInputFee*2)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
@@ -1816,44 +1595,6 @@ func TestRBP(t *testing.T) {
 				return tx, nil
 			},
 			err: "insufficient gasPrice",
-		},
-		{
-			// A transaction cannot replace another if it introduces
-			// a new unconfirmed input that was not already in any
-			// of the transactions it's directly replacing.
-			name: "spends new unconfirmed input",
-			setup: func(ctx *testContext) (*asiutil.Tx, []*asiutil.Tx) {
-				coinbase1 := ctx.addCoinbaseTx(1)
-				coinbase2 := ctx.addCoinbaseTx(1)
-
-				// We'll create two unconfirmed transactions
-				// from our coinbase transactions.
-				coinbaseOut1 := txOutToSpendableOut(coinbase1, 0)
-				outs := []spendableOutput{coinbaseOut1}
-				ctx.addSignedTx(outs, 1, DefaultInputFee, true, false)
-
-				coinbaseOut2 := txOutToSpendableOut(coinbase2, 0)
-				outs = []spendableOutput{coinbaseOut2}
-				newTx := ctx.addSignedTx(
-					outs, 1, DefaultInputFee, false, false,
-				)
-
-				// We should not be able to accept a replacement
-				// transaction that spends an unconfirmed input
-				// that was not previously included.
-				newTxOut := txOutToSpendableOut(newTx, 0)
-				outs = []spendableOutput{coinbaseOut1, newTxOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 1, DefaultInputFee*2, false,
-				)
-				if err != nil {
-					ctx.t.Fatalf("unable to create "+
-						"transaction: %v", err)
-				}
-
-				return tx, nil
-			},
-			err: "spends new unconfirmed input",
 		},
 		{
 			// A transaction can replace another with a higher gasPrice.
@@ -1866,7 +1607,7 @@ func TestRBP(t *testing.T) {
 				coinbaseOut := txOutToSpendableOut(coinbase, 0)
 				outs := []spendableOutput{coinbaseOut}
 				parent := ctx.addSignedTx(
-					outs, 1, DefaultInputFee, true, false,
+					outs, 1, DefaultInputFee, false,
 				)
 
 				// Spend the parent transaction to create a
@@ -1874,7 +1615,7 @@ func TestRBP(t *testing.T) {
 				parentOut := txOutToSpendableOut(parent, 0)
 				outs = []spendableOutput{parentOut}
 				child := ctx.addSignedTx(
-					outs, 1, DefaultInputFee, false, false,
+					outs, 1, DefaultInputFee, false,
 				)
 
 				// The replacement transaction should replace
@@ -1882,9 +1623,7 @@ func TestRBP(t *testing.T) {
 				// gasPrice and doesn't violate any other conditions
 				// within the RBP policy.
 				outs = []spendableOutput{coinbaseOut}
-				tx, err := ctx.harness.CreateSignedTx(
-					outs, 1, DefaultInputFee*3, false,
-				)
+				tx, err := ctx.harness.CreateSignedTx(outs, 1, DefaultInputFee*3)
 				if err != nil {
 					ctx.t.Fatalf("unable to create "+
 						"transaction: %v", err)
