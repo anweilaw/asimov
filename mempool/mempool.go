@@ -780,18 +780,38 @@ func (mp *TxPool) validateReplacement(tx *asiutil.Tx,
 		return nil, txRuleError(protos.RejectInvalid, str)
 	}
 
-	for hash, _ := range conflicts {
-		if _, isForbidden := mp.forbiddenTxs[hash]; isForbidden {
-			continue
-		}
-		if gasPrice <= mp.pool[hash].GasPrice {
+	var (
+		conflictsParents = make(map[common.Hash]struct{})
+	)
+
+	for hash, conflict := range conflicts {
+		_, isForbidden := mp.forbiddenTxs[hash]
+		if !isForbidden && gasPrice <= mp.pool[hash].GasPrice {
 			str := fmt.Sprintf("replacement transaction %v has an "+
 				"insufficient gasPrice: needs more than %v, has %v",
 				hash, mp.pool[hash].GasPrice, gasPrice)
 			return nil, txRuleError(protos.RejectDuplicate, str)
 		}
+		// We'll track each conflict's parents to ensure the replacement
+		// isn't spending any new unconfirmed inputs.
+		for _, txIn := range conflict.MsgTx().TxIn {
+			conflictsParents[txIn.PreviousOutPoint.Hash] = struct{}{}
+		}
 	}
 
+	for _, txIn := range tx.MsgTx().TxIn {
+		if _, ok := conflictsParents[txIn.PreviousOutPoint.Hash]; ok {
+			continue
+		}
+		// Confirmed outputs are valid to spend in the replacement.
+		if _, ok := mp.pool[txIn.PreviousOutPoint.Hash]; !ok {
+			continue
+		}
+		str := fmt.Sprintf("replacement transaction spends new "+
+			"unconfirmed input %v not found in conflicting transactions",
+			txIn.PreviousOutPoint)
+		return nil, txRuleError(protos.RejectInvalid, str)
+	}
 	return conflicts, nil
 }
 

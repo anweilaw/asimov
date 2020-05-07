@@ -1597,6 +1597,43 @@ func TestRBP(t *testing.T) {
 			err: "insufficient gasPrice",
 		},
 		{
+			// A transaction cannot replace another if it introduces
+			// a new unconfirmed input that was not already in any
+			// of the transactions it's directly replacing.
+			name: "spends new unconfirmed input",
+			setup: func(ctx *testContext) (*asiutil.Tx, []*asiutil.Tx) {
+				coinbase1 := ctx.addCoinbaseTx(1)
+				coinbase2 := ctx.addCoinbaseTx(1)
+
+				// We'll create two unconfirmed transactions
+				// from our coinbase transactions.
+				coinbaseOut1 := txOutToSpendableOut(coinbase1, 0)
+				outs := []spendableOutput{coinbaseOut1}
+				ctx.addSignedTx(outs, 1, DefaultInputFee, false)
+
+				coinbaseOut2 := txOutToSpendableOut(coinbase2, 0)
+				outs = []spendableOutput{coinbaseOut2}
+				newTx := ctx.addSignedTx(
+					outs, 1, DefaultInputFee, false,
+				)
+
+				// We should not be able to accept a replacement
+				// transaction that spends an unconfirmed input
+				// that was not previously included.
+				newTxOut := txOutToSpendableOut(newTx, 0)
+				outs = []spendableOutput{coinbaseOut1, newTxOut}
+				tx, err := ctx.harness.CreateSignedTx(
+					outs, 1, DefaultInputFee*2)
+				if err != nil {
+					ctx.t.Fatalf("unable to create "+
+						"transaction: %v", err)
+				}
+
+				return tx, nil
+			},
+			err: "spends new unconfirmed input",
+		},
+		{
 			// A transaction can replace another with a higher gasPrice.
 			name: "higher gasPrice",
 			setup: func(ctx *testContext) (*asiutil.Tx, []*asiutil.Tx) {
