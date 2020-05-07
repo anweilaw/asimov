@@ -126,9 +126,25 @@ func (m *Manager) GetAssetInfoByAssetId(
 	return results, err
 }
 
-// IsLimit returns a number of int type by calling system contract of registry
-// the number represents if an asset is restricted
+// IsLimit returns a number of int type by find in memory or calling system
+// contract of registry the number represents if an asset is restricted
 func (m *Manager) IsLimit(block *asiutil.Block,
+	stateDB vm.StateDB, assets *protos.Assets) int {
+	if _, ok := m.assetsUnrestrictedCache[*assets]; ok {
+		return 0
+	}
+	limit := m.isLimit(block, stateDB, assets)
+
+	if limit == 0 {
+		m.assetsUnrestrictedCache[*assets] = struct{}{}
+	}
+
+	return limit
+}
+
+// isLimit returns a number of int type by calling system contract of registry
+// the number represents if an asset is restricted
+func (m *Manager) isLimit(block *asiutil.Block,
 	stateDB vm.StateDB, assets *protos.Assets) int {
 	officialAddr := chaincfg.OfficialAddress
 	_, organizationId, assetIndex := assets.AssetsFields()

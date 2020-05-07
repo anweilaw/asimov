@@ -70,6 +70,9 @@ const (
 	// trickleTimeout is the duration of the ticker which trickles down the
 	// inventory to a peer.
 	trickleTimeout = 10 * time.Second
+
+	// writeDeadLine is the deadline for writing the message.
+	writeDeadLine = 5 * time.Second
 )
 
 var (
@@ -1185,6 +1188,9 @@ func (p *Peer) writeMessage(msg protos.Message, enc protos.MessageEncoding) erro
 		}
 		return spew.Sdump(buf.Bytes())
 	}))
+
+	// Set the deadline for writing the message.
+	p.conn.SetWriteDeadline(time.Now().Add(writeDeadLine))
 
 	// Write the message to the peer.
 	n, err := protos.WriteMessageWithEncodingN(p.conn, msg,
