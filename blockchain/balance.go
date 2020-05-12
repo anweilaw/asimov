@@ -51,6 +51,5 @@ func (b *BlockChain) CalculateBalance(block *asiutil.Block, address common.Addre
 
 			return count, nil
 		}
-
 	}
 }

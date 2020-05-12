@@ -7,7 +7,6 @@ package mining
 
 import (
 	"container/heap"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
@@ -143,7 +142,7 @@ func TestNewBlockTemplate(t *testing.T) {
 
 	global_view := blockchain.NewUtxoViewpoint()
 
-	g.FetchUtxoView = func(tx *asiutil.Tx, dolock bool) (viewpoint ainterface.IUtxoViewpoint, e error) {
+	g.FetchUtxoView = func(tx *asiutil.Tx, dolock bool) (viewpoint *blockchain.UtxoViewpoint, e error) {
 		neededSet := make(map[protos.OutPoint]struct{})
 		prevOut := protos.OutPoint{Hash: *tx.Hash()}
 		for txOutIdx := range tx.MsgTx().TxOut {

@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/common/address"
 	"reflect"
 	"strconv"
@@ -37,7 +36,7 @@ const (
 // transactions to appear as though they are spending completely valid utxos.
 type fakeChain struct {
 	sync.RWMutex
-	utxos          ainterface.IUtxoViewpoint
+	utxos          *blockchain.UtxoViewpoint
 	currentHeight  int32
 	medianTimePast time.Time
 }
@@ -48,7 +47,7 @@ type fakeChain struct {
 // view can be examined for duplicate transactions.
 //
 // This function is safe for concurrent access however the returned view is NOT.
-func (s *fakeChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (ainterface.IUtxoViewpoint, error) {
+func (s *fakeChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (*blockchain.UtxoViewpoint, error) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -109,7 +108,7 @@ func (s *fakeChain) SetMedianTimePast(mtp time.Time) {
 // CalcSequenceLock returns the current sequence lock for the passed
 // transaction associated with the fake chain instance.
 func (s *fakeChain) CalcSequenceLock(tx *asiutil.Tx,
-	view ainterface.IUtxoViewpoint) (*blockchain.SequenceLock, error) {
+	view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
 
 	return &blockchain.SequenceLock{
 		Seconds:     -1,
@@ -288,7 +287,7 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 	return txChain, nil
 }
 
-func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView ainterface.IUtxoViewpoint,
+func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain.UtxoViewpoint,
 	b *blockchain.BlockChain) (int64, *map[protos.Assets]int64, error) {
 
 	// Coinbase transactions have no inputs.

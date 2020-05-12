@@ -2557,7 +2557,7 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 		Chain:          s.chain,
 		BestHeight:     func() int32 { return s.chain.BestSnapshot().Height },
 		MedianTimePast: func() int64 { return s.chain.BestSnapshot().TimeStamp },
-		CalcSequenceLock: func(tx *asiutil.Tx, view ainterface.IUtxoViewpoint) (*blockchain.SequenceLock, error) {
+		CalcSequenceLock: func(tx *asiutil.Tx, view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
 			return s.chain.CalcSequenceLock(tx, view, true)
 		},
 		AddrIndex:              s.addrIndex,

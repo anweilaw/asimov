@@ -347,7 +347,7 @@ func CountSigOps(tx *asiutil.Tx) int {
 // transactions which are of the pay-to-script-hash type.  This uses the
 // precise, signature operation counting mechanism from the script engine which
 // requires access to the input transaction scripts.
-func CountP2SHSigOps(tx *asiutil.Tx, isCoinBaseTx bool, utxoView ainterface.IUtxoViewpoint) (int, error) {
+func CountP2SHSigOps(tx *asiutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint) (int, error) {
 	// Coinbase transactions have no interesting inputs.
 	if isCoinBaseTx {
 		return 0, nil
@@ -932,7 +932,7 @@ func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block
 //
 // NOTE: The transaction MUST have already been sanity checked with the
 // CheckTransactionSanity function prior to calling this function.
-func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView ainterface.IUtxoViewpoint,
+func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpoint,
 	b *BlockChain) (int64, *map[protos.Assets]int64, error) {
 
 	// Coinbase transactions have no inputs.
@@ -1641,7 +1641,7 @@ func checkCoreTeamReward(coinbaseTx *protos.MsgTx, mineFeelist map[protos.Assets
 
 // GetSigOpCost returns the unified sig op cost for the passed transaction
 // respecting current active soft-forks which modified sig op cost counting.
-func GetSigOpCost(tx *asiutil.Tx, isCoinBaseTx bool, utxoView ainterface.IUtxoViewpoint) (int, error) {
+func GetSigOpCost(tx *asiutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint) (int, error) {
 	numSigOps := CountSigOps(tx)
 	numP2SHSigOps, err := CountP2SHSigOps(tx, isCoinBaseTx, utxoView)
 	if err != nil {
@@ -1670,9 +1670,6 @@ func MergeFees(totalp *map[protos.Assets]int64, feep *map[protos.Assets]int64) e
 
 	total := *totalp
 	for assets, v := range *feep {
-		//if vvsutil.IsIndivisible(assets[:]) == protos.UnDivisible {
-		//	continue
-		//}
 
 		if _, has := total[assets]; has {
 			lastTotalFee := total[assets]

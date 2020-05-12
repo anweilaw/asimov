@@ -16,7 +16,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
@@ -40,6 +39,9 @@ const (
 
 	// Processed status of minging source tx
 	MiningTxProcessed
+
+	// The count of a normal tx's input should less than 32. It also accept tx with more input.
+    txInputNum = 32
 )
 
 // TxDesc is a descriptor about a transaction in a transaction source along with
@@ -119,7 +121,6 @@ type SigSource interface {
 type TxPrioItem struct {
 	tx       *asiutil.Tx
 	gasPrice float64
-	utxos    ainterface.IUtxoViewpoint
 
 	// dependsOn holds a map of transaction hashes which this one depends
 	// on.  It will only be set when the transaction references other
@@ -186,21 +187,19 @@ func NewTxPriorityQueue(reserve int) *txPriorityQueue {
 // viewA will contain all of its original entries plus all of the entries
 // in viewB.  It will replace any entries in viewB which also exist in viewA
 // if the entry in viewA is spent.
-func (g *BlkTmplGenerator) mergeUtxoView(viewA ainterface.IUtxoViewpoint, viewB ainterface.IUtxoViewpoint) (
-	ainterface.IUtxoViewpoint, bool) {
+func mergeUtxoView(viewA *blockchain.UtxoViewpoint, viewB *blockchain.UtxoViewpoint) {
 	viewAEntries := viewA.Entries()
 	for outpoint, _ := range viewB.Entries() {
 		if entryA, exists := viewAEntries[outpoint]; exists && entryA != nil && entryA.IsSpent() {
-			return viewA, false
+			return
 		}
 	}
-	view := viewA.Clone()
 	for outpoint, entryB := range viewB.Entries() {
 		if entryB != nil {
-			view.AddEntry(outpoint, entryB)
+			viewA.AddEntry(outpoint, entryB)
 		}
 	}
-	return view, true
+	return
 }
 
 // StandardCoinbaseScript returns a standard script suitable for use as the
@@ -293,7 +292,7 @@ type BlkTmplGenerator struct {
 	sigSource    SigSource
 	chain        *blockchain.BlockChain
 
-	FetchUtxoView func(tx *asiutil.Tx, dolock bool) (ainterface.IUtxoViewpoint, error)
+	FetchUtxoView func(tx *asiutil.Tx, dolock bool) (*blockchain.UtxoViewpoint, error)
 }
 
 // NewBlkTmplGenerator returns a new block template generator for the given
@@ -551,8 +550,7 @@ mempoolLoop:
 		// other transactions in the mempool so they can be properly
 		// ordered below.
 		prioItem := &TxPrioItem{
-			tx: tx,
-			utxos: utxos}
+			tx: tx}
 		for _, txIn := range tx.MsgTx().TxIn {
 			originHash := &txIn.PreviousOutPoint.Hash
 			entry := utxos.LookupEntry(txIn.PreviousOutPoint)
@@ -587,6 +585,11 @@ mempoolLoop:
 		}
 
 		prioItem.gasPrice = txDesc.GasPrice
+
+		// Merge the referenced outputs from the input transactions to
+		// this transaction into the block utxo view.  This allows the
+		// code below to avoid a second lookup.
+		mergeUtxoView(blockUtxos, utxos)
 
 		// Add the transaction to the priority queue to mark it ready
 		// for inclusion in the block unless it has dependencies.
@@ -649,20 +652,9 @@ priorityQueueLoop:
 			continue
 		}
 
-		// Merge the referenced outputs from the input transactions to
-		// this transaction into the block utxo view.  This allows the
-		// code below to avoid a second lookup.
-		mView, canMerge := g.mergeUtxoView(blockUtxos, prioItem.utxos)
-		if !canMerge {
-			log.Tracef("Skipping tx %s due to double spend: %v", tx.Hash())
-			logSkippedDeps(tx, deps)
-			continue
-		}
-		mergeView := mView.(*blockchain.UtxoViewpoint)
-
 		// Enforce maximum signature operation cost per block.  Also
 		// check for overflow.
-		sigOpCost, err := blockchain.GetSigOpCost(tx, false, mergeView)
+		sigOpCost, err := blockchain.GetSigOpCost(tx, false, blockUtxos)
 		if err != nil {
 			log.Tracef("Skipping tx %s due to error in "+
 				"GetSigOpCost: %v", tx.Hash(), err)
@@ -677,18 +669,9 @@ priorityQueueLoop:
 			continue
 		}
 
-		err = blockchain.ValidateTransactionScripts(tx, mergeView,
-			txscript.StandardVerifyFlags)
-		if err != nil {
-			log.Tracef("Skipping tx %s due to error in "+
-				"ValidateTransactionScripts: %v", tx.Hash(), err)
-			logSkippedDeps(tx, deps)
-			continue
-		}
-
 		// Ensure the transaction inputs pass all of the necessary
 		// preconditions before allowing it to be added to the block.
-		fee, feeList, err := blockchain.CheckTransactionInputs(tx, header.Height, mergeView, g.chain)
+		fee, feeList, err := blockchain.CheckTransactionInputs(tx, header.Height, blockUtxos, g.chain)
 		if err != nil {
 			log.Tracef("Skipping tx %s due to error in "+
 				"CheckTransactionInputs: %v", tx.Hash(), err)
@@ -716,10 +699,19 @@ priorityQueueLoop:
 			}
 		}
 
+		err = blockchain.ValidateTransactionScripts(tx, blockUtxos,
+			txscript.StandardVerifyFlags)
+		if err != nil {
+			log.Tracef("Skipping tx %s due to error in "+
+				"ValidateTransactionScripts: %v", tx.Hash(), err)
+			logSkippedDeps(tx, deps)
+			continue
+		}
+
 		// try connect transaction
 		stateDB.Prepare(*tx.Hash(), common.Hash{}, txidx)
 		receipt, err, gasUsed, vtx, feeLockItems := g.chain.ConnectTransaction(
-			newBlock, txidx, mergeView, tx, &stxos, stateDB, fee)
+			newBlock, txidx, blockUtxos, tx, &stxos, stateDB, fee)
 
 		processTxEndTime := getMilliSecond()
 		needbreak := float64(processTxEndTime -processTxStartTime) > produceTxTimeInterval
@@ -731,6 +723,14 @@ priorityQueueLoop:
 				tx.Hash())
 			logSkippedDeps(tx, deps)
 			forbiddenTxHashes = append(forbiddenTxHashes, tx.Hash())
+			for _, txIn := range tx.MsgTx().TxIn {
+				// Ensure the referenced utxo exists in the view.  This should
+				// never happen unless there is a bug is introduced in the code.
+				entry := blockUtxos.LookupEntry(txIn.PreviousOutPoint)
+				if entry != nil {
+					entry.UnSpent()
+				}
+			}
 			continue
 		}
 		if receipt != nil {
@@ -753,7 +753,6 @@ priorityQueueLoop:
 				}
 			}
 		}
-		blockUtxos = mergeView
 		txidx++
 
 		// Add the transaction to the block, increment counters, and

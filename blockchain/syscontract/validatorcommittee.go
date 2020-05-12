@@ -16,6 +16,8 @@ import (
 	"math/big"
 )
 
+var validatorCommitteeAddress = vm.ConvertSystemContractAddress(common.ValidatorCommittee)
+
 // FeeItem defines assets and their effective heights
 type FeeItem struct {
 	Assets *protos.Assets
@@ -38,13 +40,12 @@ func (m *Manager) GetFees(
 		log.Error(errStr)
 		panic(errStr)
 	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.ValidatorCommittee), contract.AbiInfo
 
 	feeListFunc := common.ContractValidatorCommittee_GetAssetFeeListFunction()
 
-	runCode, err := fvm.PackFunctionArgs(abi, feeListFunc)
+	runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, feeListFunc)
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
-		common.SystemContractReadOnlyGas, proxyAddr, runCode)
+		common.SystemContractReadOnlyGas, validatorCommitteeAddress, runCode)
 	if err != nil {
 		log.Errorf("Get contract templates failed, error: %s", err)
 		return nil, err, leftOverGas
@@ -55,7 +56,7 @@ func (m *Manager) GetFees(
 		&assets,
 		&height,
 	}
-	err = fvm.UnPackFunctionResult(abi, &outData, feeListFunc, result)
+	err = fvm.UnPackFunctionResult(contract.AbiInfo, &outData, feeListFunc, result)
 	if err != nil {
 		log.Errorf("Get fee list failed, error: %s", err)
 		return nil, err, leftOverGas

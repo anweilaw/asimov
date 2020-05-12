@@ -7,7 +7,6 @@ package indexers
 import (
 	"errors"
 	"fmt"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"sync"
 
 	"github.com/AsimovNetwork/asimov/asiutil"
@@ -892,7 +891,7 @@ func (idx *AddrIndex) indexUnconfirmedAddresses(pkScript []byte, tx *asiutil.Tx)
 // addresses not being indexed.
 //
 // This function is safe for concurrent access.
-func (idx *AddrIndex) AddUnconfirmedTx(tx *asiutil.Tx, utxoView ainterface.IUtxoViewpoint) {
+func (idx *AddrIndex) AddUnconfirmedTx(tx *asiutil.Tx, utxoView *blockchain.UtxoViewpoint) {
 	// Index addresses of all referenced previous transaction outputs.
 	//
 	// The existence checks are elided since this is only called after the

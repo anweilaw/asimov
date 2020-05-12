@@ -8,7 +8,6 @@ package mempool
 import (
 	"container/list"
 	"fmt"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/rpcs/rpcjson"
 	"sync"
@@ -54,7 +53,7 @@ type Config struct {
 
 	// FetchUtxoView defines the function to use to fetch unspent
 	// transaction output information.
-	FetchUtxoView func(*asiutil.Tx, bool) (ainterface.IUtxoViewpoint, error)
+	FetchUtxoView func(*asiutil.Tx, bool) (*blockchain.UtxoViewpoint, error)
 
 	// BestHeight defines the function to use to access the block height of
 	// the current best chain.
@@ -68,7 +67,7 @@ type Config struct {
 	// CalcSequenceLock defines the function to use in order to generate
 	// the current sequence lock for the given transaction using the passed
 	// utxo view.
-	CalcSequenceLock func(*asiutil.Tx, ainterface.IUtxoViewpoint) (*blockchain.SequenceLock, error)
+	CalcSequenceLock func(*asiutil.Tx, *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error)
 
 	// AddrIndex defines the optional address index instance to use for
 	// indexing the unconfirmed transactions in the memory pool.
@@ -79,7 +78,7 @@ type Config struct {
 
 	FeesChan chan interface{}
 
-	CheckTransactionInputs func(tx *asiutil.Tx, txHeight int32, utxoView ainterface.IUtxoViewpoint,
+	CheckTransactionInputs func(tx *asiutil.Tx, txHeight int32, utxoView *blockchain.UtxoViewpoint,
 		b *blockchain.BlockChain) (int64, *map[protos.Assets]int64, error)
 }
 
@@ -516,7 +515,7 @@ func (mp *TxPool) HasSpentInTxPool(PreviousOutPoints *[]protos.OutPoint) []proto
 // helper for maybeAcceptTransaction.
 //
 // This function MUST be called with the mempool lock held (for writes).
-func (mp *TxPool) addTransaction(utxoView ainterface.IUtxoViewpoint, tx *asiutil.Tx, height int32, fee int64, feeList *map[protos.Assets]int64) *mining.TxDesc {
+func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *asiutil.Tx, height int32, fee int64, feeList *map[protos.Assets]int64) *mining.TxDesc {
 	// Add the transaction to the pool and mark the referenced outpoints
 	// as spent by the pool.
 	txD := &mining.TxDesc{
@@ -576,7 +575,7 @@ func (mp *TxPool) checkPoolDoubleSpend(tx *asiutil.Tx) (bool, error) {
 // transaction pool.
 //
 // This function MUST be called with the mempool lock held (for reads).
-func (mp *TxPool) fetchInputUtxos(tx *asiutil.Tx) (ainterface.IUtxoViewpoint, error) {
+func (mp *TxPool) fetchInputUtxos(tx *asiutil.Tx) (*blockchain.UtxoViewpoint, error) {
 	utxoView, err := mp.cfg.FetchUtxoView(tx, true)
 	if err != nil {
 		return nil, err

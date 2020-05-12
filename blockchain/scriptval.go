@@ -6,7 +6,6 @@ package blockchain
 
 import (
 	"fmt"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"math"
 	"runtime"
 	"time"
@@ -30,7 +29,7 @@ type txValidator struct {
 	validateChan chan *txValidateItem
 	quitChan     chan struct{}
 	resultChan   chan error
-	utxoView     ainterface.IUtxoViewpoint
+	utxoView     *UtxoViewpoint
 	flags        txscript.ScriptFlags
 }
 
@@ -169,7 +168,7 @@ func (v *txValidator) Validate(items []*txValidateItem) error {
 
 // newTxValidator returns a new instance of txValidator to be used for
 // validating transaction scripts asynchronously.
-func newTxValidator(utxoView ainterface.IUtxoViewpoint, flags txscript.ScriptFlags) *txValidator {
+func newTxValidator(utxoView *UtxoViewpoint, flags txscript.ScriptFlags) *txValidator {
 	return &txValidator{
 		validateChan: make(chan *txValidateItem),
 		quitChan:     make(chan struct{}),
@@ -181,7 +180,7 @@ func newTxValidator(utxoView ainterface.IUtxoViewpoint, flags txscript.ScriptFla
 
 // ValidateTransactionScripts validates the scripts for the passed transaction
 // using multiple goroutines.
-func ValidateTransactionScripts(tx *asiutil.Tx, utxoView ainterface.IUtxoViewpoint,
+func ValidateTransactionScripts(tx *asiutil.Tx, utxoView *UtxoViewpoint,
 	flags txscript.ScriptFlags) error {
 
 	//cachedHashes, _ := hashCache.GetSigHashes(tx.Hash())

@@ -7,7 +7,6 @@ package mempool
 
 import (
 	"fmt"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/protos"
@@ -53,7 +52,7 @@ const (
 // not perform those checks because the script engine already does this more
 // accurately and concisely via the txscript.ScriptVerifyCleanStack and
 // txscript.ScriptVerifySigPushOnly flags.
-func checkInputsStandard(tx *asiutil.Tx, utxoView ainterface.IUtxoViewpoint) error {
+func checkInputsStandard(tx *asiutil.Tx, utxoView *blockchain.UtxoViewpoint) error {
 	// NOTE: The reference implementation also does a coinbase check here,
 	// but coinbases have already been rejected prior to calling this
 	// function so no need to recheck.

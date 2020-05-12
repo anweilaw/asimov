@@ -6,7 +6,6 @@ package blockchain
 
 import (
 	"bytes"
-	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
@@ -34,20 +33,6 @@ type UtxoViewpoint struct {
 	bestHash common.Hash
 	txs      map[common.Hash]asiutil.TxMark
 	signs    map[protos.MsgBlockSign]asiutil.ViewAction
-}
-
-func (view *UtxoViewpoint) Clone() ainterface.IUtxoViewpoint {
-	newView := NewUtxoViewpoint()
-	for outpoint, entryA := range view.entries {
-		newView.AddEntry(outpoint, entryA)
-	}
-	for hash, mark := range view.txs {
-		newView.txs[hash] = mark
-	}
-	for sign, action := range view.signs {
-		newView.signs[sign] = action
-	}
-	return newView
 }
 
 // BestHash returns the hash of the best block in the chain the view currently
@@ -435,7 +420,7 @@ func (view *UtxoViewpoint) fetchInputUtxos(db database.Transactor, block *asiuti
 
 // NewUtxoViewpoint returns a new empty unspent transaction output view.
 func NewUtxoViewpoint() *UtxoViewpoint {
-	return &UtxoViewpoint{
+	return  &UtxoViewpoint{
 		entries: make(map[protos.OutPoint]*txo.UtxoEntry),
 		txs:     make(map[common.Hash]asiutil.TxMark),
 		signs:   make(map[protos.MsgBlockSign]asiutil.ViewAction),
@@ -448,7 +433,7 @@ func NewUtxoViewpoint() *UtxoViewpoint {
 // so the returned view can be examined for duplicate transactions.
 //
 // This function is safe for concurrent access however the returned view is NOT.
-func (b *BlockChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (ainterface.IUtxoViewpoint, error) {
+func (b *BlockChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (*UtxoViewpoint, error) {
 	// Create a set of needed outputs based on those referenced by the
 	// inputs of the passed transaction and the outputs of the transaction
 	// itself.

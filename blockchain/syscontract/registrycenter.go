@@ -17,6 +17,8 @@ import (
 	"math/big"
 )
 
+var registyCenterAddress = vm.ConvertSystemContractAddress(common.RegistryCenter)
+
 
 // GetContractAddressByAsset returns organization addresses by calling system contract of registry
 // according to parameter assets
@@ -34,7 +36,6 @@ func (m *Manager) GetContractAddressByAsset(
 		log.Error(errStr)
 		panic(errStr)
 	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.RegistryCenter), contract.AbiInfo
 
 	// function name of contract registry
 	funcName := common.ContractRegistryCenter_GetOrganizationAddressesByAssetsFunction()
@@ -46,11 +47,11 @@ func (m *Manager) GetContractAddressByAsset(
 	}
 
 	// pack function params, ready for calling
-	runCode, err := fvm.PackFunctionArgs(abi, funcName, assetId)
+	runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, funcName, assetId)
 
 	// call function
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
-		gas, proxyAddr, runCode)
+		gas, registyCenterAddress, runCode)
 	if err != nil {
 		log.Errorf("Get  contract address of asset failed, error: %s", err)
 		return nil, false, leftOverGas
@@ -59,7 +60,7 @@ func (m *Manager) GetContractAddressByAsset(
 	var outType []common.Address
 
 	// unpack results
-	err = fvm.UnPackFunctionResult(abi, &outType, funcName, result)
+	err = fvm.UnPackFunctionResult(contract.AbiInfo, &outType, funcName, result)
 	if err != nil {
 		log.Errorf("Get contract address of asset failed, error: %s", err)
 		return nil, false, leftOverGas
@@ -83,7 +84,6 @@ func (m *Manager) GetAssetInfoByAssetId(
 		log.Error(errStr)
 		panic(errStr)
 	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.RegistryCenter), contract.AbiInfo
 
 	// function name of contract registry
 	funcName := common.ContractRegistryCenter_GetAssetInfoByAssetIdFunction()
@@ -94,16 +94,16 @@ func (m *Manager) GetAssetInfoByAssetId(
 		assetBytes := common.Hex2Bytes(asset)
 		_, orgId, assetIndex := protos.AssetDetailFromBytes(assetBytes)
 
-		runCode, err := fvm.PackFunctionArgs(abi, funcName, orgId, assetIndex)
+		runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, funcName, orgId, assetIndex)
 		result, _, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
-			common.SystemContractReadOnlyGas, proxyAddr, runCode)
+			common.SystemContractReadOnlyGas, registyCenterAddress, runCode)
 		if err != nil {
 			log.Errorf("Get  asset inf failed, error: %s", err)
 		}
 
 		var outType = &[]interface{}{new(bool), new(string), new(string), new(string), new(*big.Int), new([]*big.Int)}
 
-		err = fvm.UnPackFunctionResult(abi, outType, funcName, result)
+		err = fvm.UnPackFunctionResult(contract.AbiInfo, outType, funcName, result)
 		if err != nil {
 			log.Errorf("Unpack asset info result failed, error: %s", err)
 		}
@@ -154,23 +154,22 @@ func (m *Manager) isLimit(block *asiutil.Block,
 		log.Error(errStr)
 		panic(errStr)
 	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.RegistryCenter), contract.AbiInfo
 	funcName := common.ContractRegistryCenter_IsRestrictedAssetFunction()
-	input, err := fvm.PackFunctionArgs(abi, funcName, organizationId, assetIndex)
+	input, err := fvm.PackFunctionArgs(contract.AbiInfo, funcName, organizationId, assetIndex)
 	if err != nil {
 		return -1
 	}
 
 	result, _, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
-		common.ReadOnlyGas, proxyAddr, input)
+		common.ReadOnlyGas, registyCenterAddress, input)
 	if err != nil {
 		log.Error(err)
 		return -1
 	}
 
 	var outType = &[]interface{}{new(bool), new(bool)}
-	err = fvm.UnPackFunctionResult(abi, outType, funcName, result)
+	err = fvm.UnPackFunctionResult(contract.AbiInfo, outType, funcName, result)
 	if err != nil {
 		log.Error(err)
 		return -1
@@ -202,16 +201,15 @@ func (m *Manager) IsSupport(block *asiutil.Block,
 		log.Error(errStr)
 		panic(errStr)
 	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.RegistryCenter), contract.AbiInfo
 	funcName := common.ContractRegistryCenter_GetOrganizationAddressByIdFunction()
-	input, err := fvm.PackFunctionArgs(abi, funcName, organizationId, assetIndex)
+	input, err := fvm.PackFunctionArgs(contract.AbiInfo, funcName, organizationId, assetIndex)
 	if err != nil {
 		return false, gasLimit
 	}
 
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(caller, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
-		common.SupportCheckGas, proxyAddr, input)
+		common.SupportCheckGas, registyCenterAddress, input)
 
 	if err != nil {
 		log.Error(err)
@@ -219,7 +217,7 @@ func (m *Manager) IsSupport(block *asiutil.Block,
 	}
 
 	var outType common.Address
-	err = fvm.UnPackFunctionResult(abi, &outType, funcName, result)
+	err = fvm.UnPackFunctionResult(contract.AbiInfo, &outType, funcName, result)
 	if err != nil {
 		log.Error(err)
 	}

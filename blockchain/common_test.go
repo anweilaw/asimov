@@ -1508,7 +1508,7 @@ func medianAdjustedTime(chainState *BestState, timeSource MedianTimeSource) int6
 }
 
 
-func mergeUtxoView(viewA ainterface.IUtxoViewpoint, viewB ainterface.IUtxoViewpoint) {
+func mergeUtxoView(viewA *UtxoViewpoint, viewB *UtxoViewpoint) {
 	viewAEntries := viewA.Entries()
 	for outpoint, entryB := range viewB.Entries() {
 		if entryA, exists := viewAEntries[outpoint]; !exists ||
@@ -1519,7 +1519,7 @@ func mergeUtxoView(viewA ainterface.IUtxoViewpoint, viewB ainterface.IUtxoViewpo
 	}
 }
 
-func spendTransaction(utxoView ainterface.IUtxoViewpoint, tx *asiutil.Tx, height int32) error {
+func spendTransaction(utxoView *UtxoViewpoint, tx *asiutil.Tx, height int32) error {
 	for _, txIn := range tx.MsgTx().TxIn {
 		entry := utxoView.LookupEntry(txIn.PreviousOutPoint)
 		if entry != nil {

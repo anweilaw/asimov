@@ -388,7 +388,7 @@ type SequenceLock struct {
 // the candidate transaction to be included in a block.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) CalcSequenceLock(tx *asiutil.Tx, utxoView ainterface.IUtxoViewpoint, mempool bool) (*SequenceLock, error) {
+func (b *BlockChain) CalcSequenceLock(tx *asiutil.Tx, utxoView *UtxoViewpoint, mempool bool) (*SequenceLock, error) {
 	b.chainLock.Lock()
 	defer b.chainLock.Unlock()
 
@@ -399,7 +399,7 @@ func (b *BlockChain) CalcSequenceLock(tx *asiutil.Tx, utxoView ainterface.IUtxoV
 // transaction. See the exported version, CalcSequenceLock for further details.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) calcSequenceLock(node *blockNode, tx *asiutil.Tx, utxoView ainterface.IUtxoViewpoint, mempool bool) (*SequenceLock, error) {
+func (b *BlockChain) calcSequenceLock(node *blockNode, tx *asiutil.Tx, utxoView *UtxoViewpoint, mempool bool) (*SequenceLock, error) {
 	// A value of -1 for each relative lock type represents a relative time
 	// lock value that will allow a transaction to be included in a block
 	// at any given height or time. This value is returned as the relative
@@ -1318,6 +1318,7 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 		// to the main chain without violating any rules and without
 		// actually connecting the block.
 		view := NewUtxoViewpoint()
+
 		view.SetBestHash(parentHash)
 		stxos := make([]SpentTxOut, 0, countSpentOutputs(block))
 
@@ -2377,13 +2378,13 @@ func (b *BlockChain) isCurrent() bool {
 		return true
 	}
 
-	// Not current if the latest best block has a timestamp before 24 hours
+	// Not current if the latest best block has a timestamp before a hour
 	// ago.
 	//
 	// The chain appears to be current if none of the checks reported
 	// otherwise.
-	minus24Hours := b.timeSource.AdjustedTime() - 24*int64(time.Hour/time.Second)
-	return b.bestChain.Tip().timestamp >= minus24Hours
+	minusHour := b.timeSource.AdjustedTime() - int64(time.Hour/time.Second)
+	return b.bestChain.Tip().timestamp >= minusHour
 }
 
 // IsCurrent returns whether or not the chain believes it is current.  Several

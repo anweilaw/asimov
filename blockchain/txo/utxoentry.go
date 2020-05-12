@@ -73,6 +73,11 @@ func (entry *UtxoEntry) IsSpent() bool {
 	return entry.packedFlags&tfSpent == tfSpent
 }
 
+// UnSpent marks the output as unspent.
+func (entry *UtxoEntry) UnSpent() {
+	entry.packedFlags &= (^tfSpent) | tfModified
+}
+
 func (entry *UtxoEntry) PackedFlags() uint8 {
 	return uint8(entry.packedFlags)
 }
