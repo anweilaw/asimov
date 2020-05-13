@@ -17,21 +17,17 @@ Linux.
 
 ## Asimov Full Node
 
-Download the package from https://https://asimov.network/wallet , where
+Download the package from https://asimov.network/wallet , where
 there is a link named 'Download Asimov Fullnode'
 
 This zip file contains six parts
 
 - Full Node ```asimovd```
-
 - Tool ```wallet```
-
 - Readme `README.md`
-
-- Sample Configuration `asimovd.sample.conf`
-
+- genesis json `genesis.json`
+- Sample Configuration `asimovd.example.conf`
 - Genesis block `testnet.block`
-
 - Check Sum `md5.md`
 
 ## Prepare Workspace
@@ -68,51 +64,42 @@ Then, you may see some error like this
 Check the config file <Your Dir>/Asimovd/asimovd.conf:
 stat <Your Dir>/Asimovd/asimovd.conf: no such file or directory
 `
-It means you need make a configuration file for the node.
+It means you need make a configuration file for the node:
 
-### Config ```asimovd.conf``` in your working path.
+if run the node on self defined directory, into your homeDir and create Asimovd directory, and then
 
-Copy sample config file
+copy asimovd.example.conf, genesis.json and testnet.block file to Asimovd directory.
+
+### Config ```asimovd.example.conf``` in your working path.
+
 ```sh
-cp asimovd.sample.conf asimovd.conf
+mv asimovd.example.conf asimovd.conf
 ```
 
-Edit config file
+Edit asimovd.conf file as follows:
+
 ```sh
 ; devnet,testnet,regtest,simnet
 testnet=1
 ; solo,poa,satoshiplus
 consensustype=satoshiplus
 privatekey=<your_privatekey_can_generate_by_wallet>
-; rpc port
-rpclisten=:18334
 ```
 
 
 ### Config ```genesis.json``` in your working path.
 
-Copy sample json file
+Edit genesis json file, use the value as follows:
 ```sh
-cp genesis.sample.json genesis.json
+  "collectHeight":6026,
+  "chainStartTime":1588905142
 ```
-
-Edit config file in testnet or mainnet, use a same value in all nodes.
-```sh
-  "collectHeight":204,
-  "chainStartTime":1576221900
-```
-
-### Copy genesis block into the working path
-
-genesis blocks are located in ./genesisbin/
 
 ## Generate your private key.
 
-Build genkeys and generate your private key
+generate your private key using wallet:
 
 ```sh
-cd cmd
-go build
 ./wallet -c genKey -n test
   New key pair (priv, pubkey) (format:hex)
       { 0xf57dcd236c78368d64eb455b35d98c6d676394a1bb246f88fddd4d9103132729 , 0x020e470848be43cc2a9927af3ea9919e36a1e1b3319bc3845a31e1dcb5bcde79b8 }
