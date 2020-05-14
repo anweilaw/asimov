@@ -24,6 +24,7 @@ This zip file contains six parts
 
 - Full Node ```asimovd```
 - Tool ```wallet```
+- Tool ```autotx```
 - Readme `README.md`
 - genesis json `genesis.json`
 - Sample Configuration `asimovd.example.conf`
@@ -64,15 +65,13 @@ Then, you may see some error like this
 Check the config file <Your Dir>/Asimovd/asimovd.conf:
 stat <Your Dir>/Asimovd/asimovd.conf: no such file or directory
 `
-It means you need make a configuration file for the node:
-
-if run the node on self defined directory, into your homeDir and create Asimovd directory, and then
-
-copy asimovd.example.conf, genesis.json and testnet.block file to Asimovd directory.
+It means you need make a configuration file for the node: into your homeDir and create Asimovd directory, and then copy asimovd.example.conf, genesis.json and testnet.block file to Asimovd directory.
 
 ### Config ```asimovd.example.conf``` in your working path.
 
-```sh
+into Asimovd directory:
+
+```
 mv asimovd.example.conf asimovd.conf
 ```
 
@@ -89,7 +88,7 @@ privatekey=<your_privatekey_can_generate_by_wallet>
 
 ### Config ```genesis.json``` in your working path.
 
-Edit genesis json file, use the value as follows:
+Edit genesis.json file, use the value as follows:
 ```sh
   "collectHeight":6026,
   "chainStartTime":1588905142
@@ -97,7 +96,7 @@ Edit genesis json file, use the value as follows:
 
 ## Generate your private key.
 
-generate your private key using wallet:
+generate your privatekey using wallet:
 
 ```sh
 ./wallet -c genKey -n test
@@ -130,16 +129,15 @@ Same as above configuration section.
 
 ## Toolchain
 
-Clone and build
+visit online [Developer Center](https://developer.asimov.network) to use the web IDE for asimov blockchain contract development.
+
+Or clone and build source code(be about to open source):
 
 ```sh
 git clone https://github.com/AsimovNetwork/developer.git
 npm install
 npm run serve
 ```
-
-Or visit online [Developer Center](https://developer.asimov.network) to use
-the web IDE for asimov blockchain contract development.
 
 
 ## Start the node
