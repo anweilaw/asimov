@@ -23,7 +23,7 @@ there is a link named 'Download Asimov Fullnode'
 This zip file contains eight parts
 
 - Full Node ```asimovd```
-- Sample Configuration `asimovd.example.conf`
+- Sample Configuration `asimovd.sample.conf`
 - genesis json `genesis.json
 - Genesis block `testnet.block`
 - Tool ```wallet```
@@ -65,14 +65,14 @@ Then, you may see some error like this
 Check the config file <Your Dir>/Asimovd/asimovd.conf:
 stat <Your Dir>/Asimovd/asimovd.conf: no such file or directory
 `
-It means you need make a configuration file for the node: into your homeDir and create Asimovd directory, and then copy asimovd.example.conf, genesis.json and testnet.block file to Asimovd directory.
+It means you need make a configuration file for the node: into your homeDir and create Asimovd directory, and then copy asimovd.sample.conf, genesis.json and testnet.block file to Asimovd directory.
 
-### Config ```asimovd.example.conf``` in your working path.
+### Config ```asimovd.sample.conf``` in your working path.
 
 into Asimovd directory:
 
 ```
-mv asimovd.example.conf asimovd.conf
+cp asimovd.sample.conf asimovd.conf
 ```
 
 Edit asimovd.conf file as follows:
