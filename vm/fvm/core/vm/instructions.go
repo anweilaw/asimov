@@ -873,10 +873,10 @@ func opSuicide(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memo
 	allVtx := interpreter.fvm.Vtx.GetAllTransfers()
 
 	// Copy balance and merge erc20
-	netAssets := make(map[protos.Assets][]int64)
+	netAssets := make(map[protos.Asset][]int64)
 	if balanceAssets != nil {
 		for _, entry := range *balanceAssets {
-            assets := *entry.Assets()
+            assets := *entry.Asset()
             assetsbalance, ok := netAssets[assets]
             if ok {
             	if assets.IsIndivisible() {
@@ -940,7 +940,7 @@ func opSuicide(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memo
 		netAssets[assets] = assetsbalance
 	}
 
-	// move assets.
+	// move asset.
 	for assets, assetsbalance := range netAssets {
 		assetsCopy := assets
 		if assets.IsIndivisible() {
@@ -1026,7 +1026,7 @@ func makeSwap(size int64) executionFunc {
 	}
 }
 
-func opFlowAssetType(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+func opFlowAssets(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	if contract.Asset() != nil {
 		stack.push(new(big.Int).SetBytes(contract.Asset().Bytes()))
 	} else {
@@ -1038,19 +1038,19 @@ func opFlowAssetType(pc *uint64, interpreter *FVMInterpreter, contract *Contract
 func opFlowCreateAsset(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	amount, coinIndex, assetType := stack.pop(), stack.pop(), stack.pop()
 	if coinIndex.Cmp(common.BigMaxuint32) > 0 || coinIndex.Cmp(common.Big0) < 0 {
-		return nil, errors.New("create assets coinIndex out of bounds [0, 2^32)")
+		return nil, errors.New("create asset coinIndex out of bounds [0, 2^32)")
 	}
 	if assetType.Cmp(common.Big1) > 0 || assetType.Cmp(common.Big0) < 0 {
-		return nil, errors.New("create assets assetType out of bounds [0, 1]")
+		return nil, errors.New("create asset assetType out of bounds [0, 1]")
 	}
 	assetTypeU32 := uint32(assetType.Uint64())
-	if assetTypeU32 & protos.InDivisibleAssets == protos.InDivisibleAssets {
+	if assetTypeU32 & protos.InDivisibleAsset == protos.InDivisibleAsset {
 		if amount.Cmp(common.BigMaxint64) > 0 || amount.Cmp(common.Big0) <= 0 {
-			return nil, errors.New("create indivisible assets, amount out of bounds (0, 2^63)")
+			return nil, errors.New("create indivisible asset, amount out of bounds (0, 2^63)")
 		}
 	} else {
 		if amount.Cmp(common.BigMaxxing) > 0 || amount.Cmp(common.Big0) < 0 {
-			return nil, errors.New("create divisible assets, amount out of bounds [0, bigMaxxing 1e18]")
+			return nil, errors.New("create divisible asset, amount out of bounds [0, bigMaxxing 1e18]")
 		}
 	}
 	coinIndexU32 := uint32(coinIndex.Uint64())
@@ -1063,7 +1063,7 @@ func opFlowCreateAsset(pc *uint64, interpreter *FVMInterpreter, contract *Contra
 func opFlowMintAsset(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	amount, coinIndex := stack.pop(), stack.pop()
 	if coinIndex.Cmp(common.BigMaxuint32) > 0 || coinIndex.Cmp(common.Big0) < 0 {
-		return nil, errors.New("mint assets coinIndex out of bounds [0, 2^32)")
+		return nil, errors.New("mint asset coinIndex out of bounds [0, 2^32)")
 	}
 	coinIndexU32 := uint32(coinIndex.Uint64())
 

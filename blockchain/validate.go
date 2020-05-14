@@ -235,10 +235,10 @@ func CheckTransactionSanity(tx *asiutil.Tx) error {
 	// restrictions.  All amounts in a transaction are in a unit value known
 	// as a xing.  One bitcoin is a quantity of xing as defined by the
 	// XingPerAsimov common.
-	totalInCoin := make(map[protos.Assets]int64)
+	totalInCoin := make(map[protos.Asset]int64)
 	for _, txOut := range msgTx.TxOut {
 		// Only contract invoke accept value 0.
-		if txOut.Value == 0 && !txOut.Assets.IsIndivisible() && len(txOut.Data) > 0 {
+		if txOut.Value == 0 && !txOut.Asset.IsIndivisible() && len(txOut.Data) > 0 {
 			continue
 		}
 		xing := txOut.Value
@@ -250,29 +250,29 @@ func CheckTransactionSanity(tx *asiutil.Tx) error {
 		// Two's complement int64 overflow guarantees that any overflow
 		// is detected and reported.  This is impossible for Bitcoin, but
 		// perhaps possible if an alt increases the total money supply.
-		if !txOut.Assets.IsIndivisible() {
+		if !txOut.Asset.IsIndivisible() {
 			if xing > common.MaxXing {
 				str := fmt.Sprintf("CheckTransactionSanity: transaction output value of %v is "+
 					"higher than max allowed value of %v", xing,
 					common.MaxXing)
 				return ruleError(ErrBadTxOutValue, str)
 			}
-			if _, ok := totalInCoin[txOut.Assets]; ok {
-				totalInCoin[txOut.Assets] += xing
+			if _, ok := totalInCoin[txOut.Asset]; ok {
+				totalInCoin[txOut.Asset] += xing
 			} else {
-				totalInCoin[txOut.Assets] = xing
+				totalInCoin[txOut.Asset] = xing
 			}
 
-			if totalInCoin[txOut.Assets] <= 0 {
+			if totalInCoin[txOut.Asset] <= 0 {
 				str := fmt.Sprintf("CheckTransactionSanity: total value of all transaction "+
 					"outputs exceeds max allowed value of %v",
 					common.MaxXing)
 				return ruleError(ErrBadTxOutValue, str)
 			}
-			if totalInCoin[txOut.Assets] > common.MaxXing {
+			if totalInCoin[txOut.Asset] > common.MaxXing {
 				str := fmt.Sprintf("CheckTransactionSanity: total value of all transaction "+
 					"outputs is %v which is higher than max "+
-					"allowed value of %v", totalInCoin[txOut.Assets],
+					"allowed value of %v", totalInCoin[txOut.Asset],
 					common.MaxXing)
 				return ruleError(ErrBadTxOutValue, str)
 			}
@@ -933,7 +933,7 @@ func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block
 // NOTE: The transaction MUST have already been sanity checked with the
 // CheckTransactionSanity function prior to calling this function.
 func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpoint,
-	b *BlockChain) (int64, *map[protos.Assets]int64, error) {
+	b *BlockChain) (int64, *map[protos.Asset]int64, error) {
 
 	// Coinbase transactions have no inputs.
 	if IsCoinBase(tx) {
@@ -951,11 +951,10 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	// no more than one asset in one tx except flowAsset .
 	//var totalCoinXingIn int64
 	//var totalFlowAssetIn int64
-	totalInCoin := make(map[protos.Assets]int64)
-	//txAssets := asiutil.FlowCoinAsset
+	totalInCoin := make(map[protos.Asset]int64)
 
 	//undivisible.
-	totalInAsset := make(map[protos.Assets]map[int64]struct{})
+	totalInAsset := make(map[protos.Asset]map[int64]struct{})
 
 	for txInIndex, txIn := range tx.MsgTx().TxIn {
 		// Ensure the referenced input transaction is available.
@@ -1006,22 +1005,22 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 			return 0, nil, ruleError(ErrBadTxOutValue, str)
 		}
 
-		if !utxo.Assets().IsIndivisible() {
-			if _, ok := totalInCoin[*utxo.Assets()]; ok {
-				totalInCoin[*utxo.Assets()] += utxo.Amount()
+		if !utxo.Asset().IsIndivisible() {
+			if _, ok := totalInCoin[*utxo.Asset()]; ok {
+				totalInCoin[*utxo.Asset()] += utxo.Amount()
 			} else {
-				totalInCoin[*utxo.Assets()] = utxo.Amount()
+				totalInCoin[*utxo.Asset()] = utxo.Amount()
 			}
 
 		} else {
-			if _, ok := totalInAsset[*utxo.Assets()]; !ok {
-				totalInAsset[*utxo.Assets()] = make(map[int64]struct{})
+			if _, ok := totalInAsset[*utxo.Asset()]; !ok {
+				totalInAsset[*utxo.Asset()] = make(map[int64]struct{})
 			}
 
-			assetInfo := totalInAsset[*utxo.Assets()]
+			assetInfo := totalInAsset[*utxo.Asset()]
 			if _, ok := assetInfo[utxo.Amount()]; ok {
 				str := fmt.Sprintf("CheckTransactionInputs: duplicated input asset "+
-					"no %v asset type of %v", utxo.Amount(), utxo.Assets())
+					"no %v asset type of %v", utxo.Amount(), utxo.Asset())
 				return 0, nil, ruleError(ErrDuplicateTxInputs, str)
 
 			} else {
@@ -1034,8 +1033,8 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	// Calculate the total output amount for this transaction.  It is safe
 	// to ignore overflow and out of range errors here because those error
 	// conditions would have already been caught by checkTransactionSanity.
-	totalOutCoin := make(map[protos.Assets]int64)
-	totalOutAsset := make(map[protos.Assets]map[int64]struct{})
+	totalOutCoin := make(map[protos.Asset]int64)
+	totalOutAsset := make(map[protos.Asset]map[int64]struct{})
 
 	for outIdx, txOut := range tx.MsgTx().TxOut {
 
@@ -1044,22 +1043,22 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 			return 0, nil, ruleError(ErrInvalidOutput, str)
 		}
 
-		if !txOut.Assets.IsIndivisible() {
-			if _, ok := totalOutCoin[txOut.Assets]; ok {
-				totalOutCoin[txOut.Assets] += txOut.Value
+		if !txOut.Asset.IsIndivisible() {
+			if _, ok := totalOutCoin[txOut.Asset]; ok {
+				totalOutCoin[txOut.Asset] += txOut.Value
 			} else {
-				totalOutCoin[txOut.Assets] = txOut.Value
+				totalOutCoin[txOut.Asset] = txOut.Value
 			}
 
 		} else {
-			if _, ok := totalOutAsset[txOut.Assets]; !ok {
-				totalOutAsset[txOut.Assets] = make(map[int64]struct{})
+			if _, ok := totalOutAsset[txOut.Asset]; !ok {
+				totalOutAsset[txOut.Asset] = make(map[int64]struct{})
 			}
 
-			assetInfo := totalOutAsset[txOut.Assets]
+			assetInfo := totalOutAsset[txOut.Asset]
 			if _, ok := assetInfo[txOut.Value]; ok {
 				str := fmt.Sprintf("CheckTransactionInputs: duplicated out asset no %v asset type of %v",
-					txOut.Value, txOut.Assets)
+					txOut.Value, txOut.Asset)
 				return 0, nil, ruleError(ErrDuplicateTxInputs, str)
 
 			} else {
@@ -1078,8 +1077,8 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	for k, outAsset := range totalOutAsset {
 		inAsset, ok := totalInAsset[k]
 		if !ok {
-			str := fmt.Sprintf("CheckTransactionInputs: miss assets inputs for "+
-				"transaction %v,asset type %v", txHash, k)
+			str := fmt.Sprintf("CheckTransactionInputs: miss asset inputs for "+
+				"transaction %v, asset %v", txHash, k)
 			return 0, nil, ruleError(ErrNoTxInputs, str)
 		}
 
@@ -1092,25 +1091,25 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 
 		for assetNum := range outAsset {
 			if _, has := inAsset[assetNum]; !has {
-				str := fmt.Sprintf("CheckTransactionInputs: miss assets inputs for "+
-					"transaction %v ,asset type %v, asset num %v", txHash, k, assetNum)
+				str := fmt.Sprintf("CheckTransactionInputs: miss asset inputs for "+
+					"transaction %v ,asset %v, asset num %v", txHash, k, assetNum)
 				return 0, nil, ruleError(ErrNoTxInputs, str)
 			}
 		}
 	}
 
-	fees := make(map[protos.Assets]int64)
+	fees := make(map[protos.Asset]int64)
 	for k, out := range totalOutCoin {
 		in, ok := totalInCoin[k]
 		if !ok {
-			str := fmt.Sprintf("CheckTransactionInputs: miss assets inputs for "+
-				"transaction %v ,asset type %v", txHash, k)
+			str := fmt.Sprintf("CheckTransactionInputs: miss asset inputs for "+
+				"transaction %v ,asset %v", txHash, k)
 			return 0, nil, ruleError(ErrAssetsNotEqual, str)
 		}
 
 		if in < out {
-			str := fmt.Sprintf("CheckTransactionInputs: total value of assets inputs for "+
-				"transaction %v, asset type %v, value %v is less than output"+
+			str := fmt.Sprintf("CheckTransactionInputs: total value of asset inputs for "+
+				"transaction %v, asset %v, value %v is less than output"+
 				"spent of %v", txHash, k, in, out)
 			return 0, nil, ruleError(ErrSpendTooHigh, str)
 		}
@@ -1136,11 +1135,8 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	}
 
 	return totalFee, &fees, nil
-	// NOTE: it is possible to have more than one VVSCoinType inputs
-	// which will be spent to allow other asset tx.
-	// but it only contains one output which assetId is VVSCoinType(0)
-	// so here we just calculate total output txFee
-	//return totalFlowAssetIn - totalFlowAssetOut, nil
+	// NOTE: it is possible to have more than one Asset input
+	// which will be spent to allow other asset as fee.
 }
 
 func CheckVTransactionInputs(tx *asiutil.Tx, utxoView *UtxoViewpoint) error {
@@ -1165,7 +1161,7 @@ func CheckVTransactionInputs(tx *asiutil.Tx, utxoView *UtxoViewpoint) error {
 				"value of %v", common.Amount(originTxXing))
 			return ruleError(ErrBadTxInput, str)
 		}
-		if !utxo.Assets().IsIndivisible() && originTxXing > common.MaxXing {
+		if !utxo.Asset().IsIndivisible() && originTxXing > common.MaxXing {
 			str := fmt.Sprintf("CheckVTransactionInputs: transaction preoutput value of %v is "+
 				"higher than max allowed value of %v",
 				common.Amount(originTxXing),
@@ -1181,7 +1177,7 @@ func CheckVTransactionInputs(tx *asiutil.Tx, utxoView *UtxoViewpoint) error {
 			return ruleError(ErrBadTxOutValue, str)
 		}
 
-		if !txOut.Assets.IsIndivisible() && txOut.Value > common.MaxXing {
+		if !txOut.Asset.IsIndivisible() && txOut.Value > common.MaxXing {
 			str := fmt.Sprintf("CheckVTransactionInputs: transaction output value of %v is "+
 				"higher than max allowed value of %v",
 				txOut.Value,
@@ -1194,7 +1190,7 @@ func CheckVTransactionInputs(tx *asiutil.Tx, utxoView *UtxoViewpoint) error {
 }
 
 // we should get the value from the market maker contract.
-func GetUsd(assets *protos.Assets, value int64) int64 {
+func GetUsd(asset *protos.Asset, value int64) int64 {
 	return 1e8 / 1e8 * value
 }
 
@@ -1293,8 +1289,8 @@ func (b *BlockChain) GetValidatorsByNode(round uint32, preroundLastNode *blockNo
 // This function MUST be called with the chain state lock held (for writes).
 func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, view *UtxoViewpoint,
 	stxos *[]SpentTxOut, msgvblock *protos.MsgVBlock, statedb *state.StateDB,
-	feepool map[protos.Assets]int32) (
-	types.Receipts, []*types.Log, map[protos.Assets]*txo.LockItem, error) {
+	feepool map[protos.Asset]int32) (
+	types.Receipts, []*types.Log, map[protos.Asset]*txo.LockItem, error) {
 
 	// If the side chain blocks end up in the database, a call to
 	// CheckBlockSanity should be done here in case a previous version
@@ -1369,11 +1365,11 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	// against all the inputs when the signature operations are out of
 	// bounds.
 	var totalGasUsed uint64
-	allFees := make(map[protos.Assets]int64)
+	allFees := make(map[protos.Asset]int64)
 	var (
 		receipts          types.Receipts
 		allLogs           []*types.Log
-		totalFeeLockItems map[protos.Assets]*txo.LockItem
+		totalFeeLockItems map[protos.Asset]*txo.LockItem
 	)
 	for i, tx := range transactions {
 		fee, feeList, err := CheckTransactionInputs(tx, node.height, view, b)
@@ -1384,11 +1380,11 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 		// Sum the total fees and ensure we don't overflow the
 		// accumulator.
 		if feeList != nil {
-			for assets, _ := range *feeList {
-				if _, ok := feepool[assets]; !ok {
+			for asset, _ := range *feeList {
+				if _, ok := feepool[asset]; !ok {
 					errstr := fmt.Sprintf("Skipping tx %s because its "+
-						"fee %v is unsupported", tx.Hash(), assets)
-					return nil, nil, nil, ruleError(ErrForbiddenAssets, errstr)
+						"fee %v is unsupported", tx.Hash(), asset)
+					return nil, nil, nil, ruleError(ErrForbiddenAsset, errstr)
 				}
 			}
 			err = MergeFees(&allFees, feeList)
@@ -1544,7 +1540,7 @@ func (b *BlockChain) createCoinbaseContractOut(preround uint32, preroundLastNode
 		return nil, err
 	}
 	pkscript, err := txscript.PayToAddrScript(&proxy)
-	return protos.NewContractTxOut(0, pkscript, asiutil.FlowCoinAsset, input), nil
+	return protos.NewContractTxOut(0, pkscript, asiutil.AsimovAsset, input), nil
 }
 
 // The total output values of the coinbase transaction must not exceed
@@ -1552,16 +1548,16 @@ func (b *BlockChain) createCoinbaseContractOut(preround uint32, preroundLastNode
 // mining the block.  It is safe to ignore overflow and out of range
 // errors here because those error conditions would have already been
 // caught by checkTransactionSanity.
-func (b *BlockChain) checkCoinbaseTx(prenode *blockNode, block *asiutil.Block, allFees map[protos.Assets]int64) error {
+func (b *BlockChain) checkCoinbaseTx(prenode *blockNode, block *asiutil.Block, allFees map[protos.Asset]int64) error {
 	coinbaseIdx := len(block.Transactions()) - 1
 	coinbaseTx := block.Transactions()[coinbaseIdx].MsgTx()
-	mineFeelist := make(map[protos.Assets]int64)
+	mineFeelist := make(map[protos.Asset]int64)
 	for _, txOut := range coinbaseTx.TxOut {
-		mineFeelist[txOut.Assets] += txOut.Value
+		mineFeelist[txOut.Asset] += txOut.Value
 	}
 
 	reward := CalcBlockSubsidy(block.Height(), b.chainParams)
-	allFees[asiutil.FlowCoinAsset] += reward
+	allFees[asiutil.AsimovAsset] += reward
 
 	if len(allFees) != len(mineFeelist) {
 		str := fmt.Sprintf("checkCoinbaseTx: the asset numbers of allFees: %v "+
@@ -1596,7 +1592,7 @@ func (b *BlockChain) checkCoinbaseTx(prenode *blockNode, block *asiutil.Block, a
 		}
 		if bytes.Compare(expectedOut.Data, actualOut.Data) != 0 ||
 			bytes.Compare(expectedOut.PkScript, actualOut.PkScript) != 0 ||
-			expectedOut.Value != actualOut.Value || !expectedOut.Assets.Equal(&actualOut.Assets) {
+			expectedOut.Value != actualOut.Value || !expectedOut.Asset.Equal(&actualOut.Asset) {
 			errStr := fmt.Sprintf("coinbase tx contains unexpected contract txout %s, expect: %v actual: %v",
 				block.MsgBlock().Header.CoinBase.String(), expectedOut, actualOut)
 			return ruleError(ErrBadCoinbaseData, errStr)
@@ -1616,13 +1612,13 @@ func (b *BlockChain) checkCoinbaseTx(prenode *blockNode, block *asiutil.Block, a
 }
 
 // validate the reward of the core team in the coinbase tx.
-func checkCoreTeamReward(coinbaseTx *protos.MsgTx, mineFeelist map[protos.Assets]int64) error {
+func checkCoreTeamReward(coinbaseTx *protos.MsgTx, mineFeelist map[protos.Asset]int64) error {
 	fundationAddr := common.HexToAddress(string(common.GenesisOrganization))
 	pkScript, _ := txscript.PayToAddrScript(&fundationAddr)
-	coreTeamReward := make(map[protos.Assets]int64)
+	coreTeamReward := make(map[protos.Asset]int64)
 	for _, txout := range coinbaseTx.TxOut {
 		if bytes.Equal(pkScript, txout.PkScript) {
-			coreTeamReward[txout.Assets] += txout.Value
+			coreTeamReward[txout.Asset] += txout.Value
 		}
 	}
 
@@ -1663,22 +1659,22 @@ func pkScriptToAddr(pkScript []byte) ([]byte, error) {
 }
 
 // suppose both parameters are valid (Divisible)
-func MergeFees(totalp *map[protos.Assets]int64, feep *map[protos.Assets]int64) error {
+func MergeFees(totalp *map[protos.Asset]int64, feep *map[protos.Asset]int64) error {
 	if totalp == nil || feep == nil {
 		return nil
 	}
 
 	total := *totalp
-	for assets, v := range *feep {
+	for asset, v := range *feep {
 
-		if _, has := total[assets]; has {
-			lastTotalFee := total[assets]
-			total[assets] += v
-			if total[assets] < lastTotalFee {
+		if _, has := total[asset]; has {
+			lastTotalFee := total[asset]
+			total[asset] += v
+			if total[asset] < lastTotalFee {
 				return ruleError(ErrBadFees, "total fee for block overflows accumulator")
 			}
 		} else {
-			total[assets] = v
+			total[asset] = v
 		}
 	}
 	return nil
@@ -1689,7 +1685,7 @@ func (b *BlockChain) GetAcceptFees(
 	block *asiutil.Block,
 	stateDB vm.StateDB,
 	chainConfig *params.ChainConfig,
-	height int32) (map[protos.Assets]int32, error, uint64) {
+	height int32) (map[protos.Asset]int32, error, uint64) {
 	fees, err, leftOverGas := b.contractManager.GetFees(block, stateDB, chainConfig)
 	if err != nil {
 		return nil, err, leftOverGas
@@ -1698,14 +1694,14 @@ func (b *BlockChain) GetAcceptFees(
 }
 
 //TODO
-func FilterAcceptFee(fees map[protos.Assets]int32, height int32) map[protos.Assets]int32 {
-	res := make(map[protos.Assets]int32)
-	for assets, value := range fees {
+func FilterAcceptFee(fees map[protos.Asset]int32, height int32) map[protos.Asset]int32 {
+	res := make(map[protos.Asset]int32)
+	for asset, value := range fees {
 		if value <= height {
-			res[assets] = value
+			res[asset] = value
 		}
 	}
-	res[asiutil.FlowCoinAsset] = 0
+	res[asiutil.AsimovAsset] = 0
 	return res
 }
 

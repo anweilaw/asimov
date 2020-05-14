@@ -459,7 +459,7 @@ func handleDelegateCall(systemContractAddr common.ContractCode, fvm *FVM, input 
 
 	// current system contract
 	this := AccountRef(delegateAddr)
-	delegateCaller := NewContract(contract.caller, this, contract.value, contract.Gas, contract.assets)
+	delegateCaller := NewContract(contract.caller, this, contract.value, contract.Gas, contract.asset)
 
 	return fvm.DelegateCall(delegateCaller, instanceAddress, input, contract.Gas)
 }

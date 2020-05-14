@@ -21,21 +21,21 @@ type VTransfer struct {
 	From          []byte
 	To            []byte
 	Amount        int64
-	Assets        *protos.Assets
+	Asset         *protos.Asset
 	VTransferType uint8
 }
 
 type VirtualTransaction struct {
 	VTransfer []*VTransfer
 
-	// assets --> result
-	items map[protos.Assets]*TransferResultItem
+	// asset --> result
+	items map[protos.Asset]*TransferResultItem
 }
 
 func NewVirtualTransaction() *VirtualTransaction {
 	return &VirtualTransaction{
 		VTransfer: make([]*VTransfer, 0, 0),
-		items:     make(map[protos.Assets]*TransferResultItem),
+		items:     make(map[protos.Asset]*TransferResultItem),
 	}
 }
 
@@ -53,16 +53,16 @@ type TransferResultItem struct {
 	Erc721Change map[common.Address]map[int64]struct{} // 721 asset transfer record
 }
 
-func (vtx *VirtualTransaction) GetAllTransfers() map[protos.Assets]*TransferResultItem {
+func (vtx *VirtualTransaction) GetAllTransfers() map[protos.Asset]*TransferResultItem {
 	return vtx.items
 }
 
-func (vtx *VirtualTransaction) AppendVTransfer(sender common.Address, to common.Address, amount *big.Int, assets *protos.Assets) {
+func (vtx *VirtualTransaction) AppendVTransfer(sender common.Address, to common.Address, amount *big.Int, assets *protos.Asset) {
 	vTransfer := VTransfer{
 		From:          sender.Bytes(),
 		To:            to.Bytes(),
 		Amount:        amount.Int64(),
-		Assets:        assets,
+		Asset:         assets,
 		VTransferType: VTransferTypeNormal,
 	}
 	vtx.VTransfer = append(vtx.VTransfer, &vTransfer)
@@ -72,12 +72,12 @@ func (vtx *VirtualTransaction) AppendVTransfer(sender common.Address, to common.
 	vtx.addChange(assetItem, to, amount.Int64())
 }
 
-func (vtx *VirtualTransaction) AppendVCreation(to common.Address, amount *big.Int, assets *protos.Assets, vTransferType uint8) {
+func (vtx *VirtualTransaction) AppendVCreation(to common.Address, amount *big.Int, assets *protos.Asset, vTransferType uint8) {
 	vTransfer := VTransfer{
 		From:          nil,
 		To:            to.Bytes(),
 		Amount:        amount.Int64(),
-		Assets:        assets,
+		Asset:         assets,
 		VTransferType: vTransferType,
 	}
 	vtx.VTransfer = append(vtx.VTransfer, &vTransfer)
@@ -95,7 +95,7 @@ func (vtx *VirtualTransaction) AppendVCreation(to common.Address, amount *big.In
 
 // return total incoming for 20 asset
 // return voucher id for 721 asset; return 0 if voucher id not in change list
-func (vtx *VirtualTransaction) GetIncoming(addr common.Address, assets *protos.Assets, voucherId int64) *big.Int {
+func (vtx *VirtualTransaction) GetIncoming(addr common.Address, assets *protos.Asset, voucherId int64) *big.Int {
 	income := big.NewInt(0)
 	assetItem, ok := vtx.items[*assets]
 	if ok {
@@ -122,7 +122,7 @@ func (vtx *VirtualTransaction) GetIncoming(addr common.Address, assets *protos.A
 	return income
 }
 
-func (vtx *VirtualTransaction) getItem(assets *protos.Assets) *TransferResultItem {
+func (vtx *VirtualTransaction) getItem(assets *protos.Asset) *TransferResultItem {
 	assetItem, ok := vtx.items[*assets]
 	if !ok {
 		vtx.items[*assets] = &TransferResultItem{

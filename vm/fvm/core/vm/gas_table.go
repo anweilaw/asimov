@@ -396,14 +396,6 @@ func gasRevert(gt params.GasTable, fvm *FVM, contract *Contract, stack *Stack, m
 
 func gasSuicide(gt params.GasTable, fvm *FVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	var gas = gt.Suicide
-	var (
-		address = common.BigToAddress(stack.Back(0))
-	)
-
-	// if empty and transfers value
-	if (fvm.StateDB.Empty(address) && fvm.StateDB.GetBalance(contract.Address()).Sign() != 0) || !fvm.StateDB.Exist(address) {
-		gas += gt.CreateBySuicide
-	}
 
 	if !fvm.StateDB.HasSuicided(contract.Address()) {
 		fvm.StateDB.AddRefund(params.SuicideRefundGas)

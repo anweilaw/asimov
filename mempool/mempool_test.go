@@ -288,7 +288,7 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 }
 
 func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain.UtxoViewpoint,
-	b *blockchain.BlockChain) (int64, *map[protos.Assets]int64, error) {
+	b *blockchain.BlockChain) (int64, *map[protos.Asset]int64, error) {
 
 	// Coinbase transactions have no inputs.
 	if blockchain.IsCoinBase(tx) {
@@ -306,11 +306,11 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain
 	// no more than one asset in one tx except flowAsset .
 	//var totalCoinXingIn int64
 	//var totalFlowAssetIn int64
-	totalInCoin := make(map[protos.Assets]int64)
-	//txAssets := asiutil.FlowCoinAsset
+	totalInCoin := make(map[protos.Asset]int64)
+	//txAssets := asiutil.AsimovAsset
 
 	//undivisible.
-	totalInAsset := make(map[protos.Assets]map[int64]struct{})
+	totalInAsset := make(map[protos.Asset]map[int64]struct{})
 
 	for txInIndex, txIn := range tx.MsgTx().TxIn {
 		// Ensure the referenced input transaction is available.
@@ -360,21 +360,21 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain
 			return 0, nil, errors.New(str)
 		}
 
-		if !utxo.Assets().IsIndivisible() {
-			if _, ok := totalInCoin[*utxo.Assets()]; ok {
-				totalInCoin[*utxo.Assets()] += utxo.Amount()
+		if !utxo.Asset().IsIndivisible() {
+			if _, ok := totalInCoin[*utxo.Asset()]; ok {
+				totalInCoin[*utxo.Asset()] += utxo.Amount()
 			} else {
-				totalInCoin[*utxo.Assets()] = utxo.Amount()
+				totalInCoin[*utxo.Asset()] = utxo.Amount()
 			}
 
 		} else {
-			if _, ok := totalInAsset[*utxo.Assets()]; !ok {
-				totalInAsset[*utxo.Assets()] = make(map[int64]struct{})
+			if _, ok := totalInAsset[*utxo.Asset()]; !ok {
+				totalInAsset[*utxo.Asset()] = make(map[int64]struct{})
 			}
 
-			assetInfo := totalInAsset[*utxo.Assets()]
+			assetInfo := totalInAsset[*utxo.Asset()]
 			if _, ok := assetInfo[utxo.Amount()]; ok {
-				str := fmt.Sprintf("duplicated input asset no %v asset type of %v", utxo.Amount(), utxo.Assets())
+				str := fmt.Sprintf("duplicated input asset no %v asset type of %v", utxo.Amount(), utxo.Asset())
 				return 0, nil, errors.New(str)
 
 			} else {
@@ -383,8 +383,8 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain
 		}
 	}
 
-	totalOutCoin := make(map[protos.Assets]int64)
-	totalOutAsset := make(map[protos.Assets]map[int64]struct{})
+	totalOutCoin := make(map[protos.Asset]int64)
+	totalOutAsset := make(map[protos.Asset]map[int64]struct{})
 
 	for outIdx, txOut := range tx.MsgTx().TxOut {
 
@@ -393,21 +393,21 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain
 			return 0, nil, errors.New(str)
 		}
 
-		if !txOut.Assets.IsIndivisible() {
-			if _, ok := totalOutCoin[txOut.Assets]; ok {
-				totalOutCoin[txOut.Assets] += txOut.Value
+		if !txOut.Asset.IsIndivisible() {
+			if _, ok := totalOutCoin[txOut.Asset]; ok {
+				totalOutCoin[txOut.Asset] += txOut.Value
 			} else {
-				totalOutCoin[txOut.Assets] = txOut.Value
+				totalOutCoin[txOut.Asset] = txOut.Value
 			}
 
 		} else {
-			if _, ok := totalOutAsset[txOut.Assets]; !ok {
-				totalOutAsset[txOut.Assets] = make(map[int64]struct{})
+			if _, ok := totalOutAsset[txOut.Asset]; !ok {
+				totalOutAsset[txOut.Asset] = make(map[int64]struct{})
 			}
 
-			assetInfo := totalOutAsset[txOut.Assets]
+			assetInfo := totalOutAsset[txOut.Asset]
 			if _, ok := assetInfo[txOut.Value]; ok {
-				str := fmt.Sprintf("duplicated out asset no %v asset type of %v", txOut.Value, txOut.Assets)
+				str := fmt.Sprintf("duplicated out asset no %v asset type of %v", txOut.Value, txOut.Asset)
 				return 0, nil, errors.New(str)
 
 			} else {
@@ -445,7 +445,7 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain
 		}
 	}
 
-	fees := make(map[protos.Assets]int64)
+	fees := make(map[protos.Asset]int64)
 	for k, out := range totalOutCoin {
 		in, ok := totalInCoin[k]
 		if !ok {

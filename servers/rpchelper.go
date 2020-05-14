@@ -155,7 +155,7 @@ func createVoutList(mtx *protos.MsgTx, filterAddrMap map[string]struct{}) []rpcj
 		vout.ScriptPubKey.Type = scriptClass.String()
 		vout.ScriptPubKey.ReqSigs = int32(reqSigs)
 		vout.Data = hex.EncodeToString(v.Data)
-		vout.Asset = hex.EncodeToString(v.Assets.Bytes())
+		vout.Asset = hex.EncodeToString(v.Asset.Bytes())
 
 		voutList = append(voutList, vout)
 	}
@@ -173,7 +173,7 @@ func calculateTransactionFee(tx *protos.MsgTx, originTxOuts []protos.TxOut) ([]r
 	}
 
 	for _, vin := range originTxOuts {
-		asset := hex.EncodeToString(vin.Assets.Bytes())
+		asset := hex.EncodeToString(vin.Asset.Bytes())
 		if _, ok := vinAssetMap[asset]; !ok {
 			vinAssetMap[asset] = int64(0)
 		}
@@ -182,7 +182,7 @@ func calculateTransactionFee(tx *protos.MsgTx, originTxOuts []protos.TxOut) ([]r
 	}
 
 	for _, vout := range tx.TxOut {
-		asset := hex.EncodeToString(vout.Assets.Bytes())
+		asset := hex.EncodeToString(vout.Asset.Bytes())
 		if _, ok := vinAssetMap[asset]; ok {
 			vinAssetMap[asset] -= vout.Value
 		} else {
@@ -507,7 +507,7 @@ func createVinListPrevOut(rpcCfg rpcserverConfig, mtx *protos.MsgTx, vinExtra bo
 			vinListEntry.PrevOut = &rpcjson.PrevOut{
 				Addresses: encodedAddrs,
 				Value:     originTxOut.Value,
-				Asset:     hex.EncodeToString(originTxOut.Assets.Bytes()),
+				Asset:     hex.EncodeToString(originTxOut.Asset.Bytes()),
 				Data:      hex.EncodeToString(originTxOut.Data),
 			}
 		}
@@ -672,7 +672,7 @@ type rpcserverContractManager interface {
 	// Get assets which can be used as transaction fees on Asimov
 	GetFees(block *asiutil.Block,
 		stateDB vm.StateDB,
-		chainConfig *params.ChainConfig) (map[protos.Assets]int32, error, uint64)
+		chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64)
 
 	// Get information of a template
 	GetTemplate(

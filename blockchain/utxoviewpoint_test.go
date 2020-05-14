@@ -32,7 +32,7 @@ func TestFetchUtxoViewByAddress(t *testing.T) {
 		{0x66,0xe3,0x05,0x4b,0x41,0x10,0x51,0xda,0x54,0x92,0xae,0xc7,0xa8,0x23,},
 	}
 
-	var testAsset = []protos.Assets{
+	var testAsset = []protos.Asset{
 		{0,0},
 		{1,1},
 	}
@@ -129,10 +129,10 @@ func TestFetchUtxoViewByAddress(t *testing.T) {
 				wantMap := test.result[tmp]
 				gotMap := utxoViewPoint.entries
 				if _, ok := gotMap[wantMap.Key]; ok {
-					if wantMap.Value.Assets().Id != gotMap[wantMap.Key].Assets().Id ||
-						wantMap.Value.Assets().Property != gotMap[wantMap.Key].Assets().Property{
-						t.Errorf("tests #%d error: the assets of result utxoViewPoint is not correct: " +
-							"want: %v, got: %v", i, wantMap.Value.Assets(), gotMap[wantMap.Key].Assets())
+					if wantMap.Value.Asset().Id != gotMap[wantMap.Key].Asset().Id ||
+						wantMap.Value.Asset().Property != gotMap[wantMap.Key].Asset().Property{
+						t.Errorf("tests #%d error: the asset of result utxoViewPoint is not correct: " +
+							"want: %v, got: %v", i, wantMap.Value.Asset(), gotMap[wantMap.Key].Asset())
 					}
 					if !bytes.Equal(wantMap.Value.PkScript(), gotMap[wantMap.Key].PkScript()) {
 						t.Errorf("tests #%d error: the pkScript of result utxoViewPoint is not correct: " +
@@ -166,10 +166,10 @@ func TestConstructLockItems(t *testing.T) {
 	voteId2 := txo.VoteId{1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,0,0,0,2}
 	voteId3 := txo.VoteId{1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,0,0,0,3}
 	voteId4 := txo.VoteId{1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,0,0,0,4}
-	assets1 := protos.Assets{0,1}
-	assets2 := protos.Assets{0,2}
-	assets3 := protos.Assets{0,3}
-	indivisibleAssets := protos.Assets{1,1}
+	asset1 := protos.Asset{0,1}
+	asset2 := protos.Asset{0,2}
+	asset3 := protos.Asset{0,3}
+	indivisibleAsset := protos.Asset{1,1}
 
 	//test coinbase tx:
 	msgCoinbase := protos.MsgTx{
@@ -179,7 +179,7 @@ func TestConstructLockItems(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	txCoinbase := asiutil.NewTx(&msgCoinbase)
@@ -216,7 +216,7 @@ func TestConstructLockItems(t *testing.T) {
 		return
 	}
 
-	//test VoteTy tx with indivisible assets
+	//test VoteTy tx with indivisible asset
 	indivisibleAssetMsg := protos.MsgTx{
 		TxIn: []*protos.TxIn {
 			protos.NewTxIn(&protos.OutPoint{
@@ -232,12 +232,12 @@ func TestConstructLockItems(t *testing.T) {
 		},
 		TxOut: []*protos.TxOut {
 			protos.NewContractTxOut(200000000, []byte{txscript.OP_VOTE, txscript.OP_DATA_21,
-				0x63, 0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,}, indivisibleAssets, []byte{
+				0x63, 0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,}, indivisibleAsset, []byte{
 				0,1,2,3,4,5,
 				0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
 				0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,200,
 			}),
-			protos.NewTxOut(100000000, []byte{txscript.OP_3}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(100000000, []byte{txscript.OP_3}, asiutil.AsimovAsset),
 		},
 	}
 	indivisibleTx := asiutil.NewTx(&indivisibleAssetMsg)
@@ -247,14 +247,14 @@ func TestConstructLockItems(t *testing.T) {
 		nil,
 		0,
 		false,
-		&indivisibleAssets,
+		&indivisibleAsset,
 		nil)
 	indivisibleView.entries[indivisibleAssetMsg.TxIn[1].PreviousOutPoint] = txo.NewUtxoEntry(
 		100000000,
 		nil,
 		0,
 		false,
-		&asiutil.FlowCoinAsset,
+		&asiutil.AsimovAsset,
 		nil)
 
 
@@ -310,17 +310,17 @@ func TestConstructLockItems(t *testing.T) {
 		},
 		TxOut: []*protos.TxOut {
 			protos.NewContractTxOut(200000000, []byte{txscript.OP_VOTE, txscript.OP_DATA_21,
-				0x63, 0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,}, asiutil.FlowCoinAsset, []byte{
+				0x63, 0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,}, asiutil.AsimovAsset, []byte{
 				0,1,2,3,4,5,
 				0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
 				0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,200,
 			}),
-			protos.NewTxOut(1600000000, []byte{txscript.OP_1}, assets1),
-			protos.NewTxOut(100000000, []byte{txscript.OP_2}, assets1),
-			protos.NewTxOut(2100000000, []byte{txscript.OP_3}, assets2),
-			protos.NewTxOut(4000000000, []byte{txscript.OP_3}, assets3),
-			protos.NewTxOut(0, []byte{txscript.OP_3}, assets3),
-			protos.NewTxOut(100000000, []byte{txscript.OP_3}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(1600000000, []byte{txscript.OP_1}, asset1),
+			protos.NewTxOut(100000000, []byte{txscript.OP_2}, asset1),
+			protos.NewTxOut(2100000000, []byte{txscript.OP_3}, asset2),
+			protos.NewTxOut(4000000000, []byte{txscript.OP_3}, asset3),
+			protos.NewTxOut(0, []byte{txscript.OP_3}, asset3),
+			protos.NewTxOut(100000000, []byte{txscript.OP_3}, asiutil.AsimovAsset),
 		},
 	}
 	tx := asiutil.NewTx(&msg)
@@ -335,14 +335,14 @@ func TestConstructLockItems(t *testing.T) {
 		nil,
 		0,
 		false,
-		&asiutil.FlowCoinAsset,
+		&asiutil.AsimovAsset,
 		nil)
 	view.entries[msg.TxIn[1].PreviousOutPoint] = txo.NewUtxoEntry(
 		1500000000,
 		nil,
 		0,
 		false,
-		&assets1,
+		&asset1,
 		&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				voteId1:&txo.LockEntry{
@@ -358,7 +358,7 @@ func TestConstructLockItems(t *testing.T) {
 		nil,
 		0,
 		false,
-		&assets1,
+		&asset1,
 		&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				voteId1:&txo.LockEntry{
@@ -374,7 +374,7 @@ func TestConstructLockItems(t *testing.T) {
 		nil,
 		0,
 		false,
-		&assets2,
+		&asset2,
 		&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				voteId1:&txo.LockEntry{
@@ -390,7 +390,7 @@ func TestConstructLockItems(t *testing.T) {
 		nil,
 		0,
 		false,
-		&assets3,
+		&asset3,
 		&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				voteId4:&txo.LockEntry{
@@ -403,7 +403,7 @@ func TestConstructLockItems(t *testing.T) {
 		nil,
 		0,
 		false,
-		&asiutil.FlowCoinAsset,
+		&asiutil.AsimovAsset,
 		&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				*voteIdFirst:&txo.LockEntry{
@@ -465,15 +465,15 @@ func TestConstructLockItems(t *testing.T) {
 			},
 		},
 	}
-	feeLockItemsWant := map[protos.Assets]*txo.LockItem {
-		protos.Assets{0,1}:&txo.LockItem{
+	feeLockItemsWant := map[protos.Asset]*txo.LockItem {
+		protos.Asset{0,1}:&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				voteId2:&txo.LockEntry{
 					voteId2, 300000000,
 				},
 			},
 		},
-		protos.Assets{0,2}:&txo.LockItem{
+		protos.Asset{0,2}:&txo.LockItem{
 			map[txo.VoteId]*txo.LockEntry{
 				voteId1:&txo.LockEntry{
 					voteId1, 900000000,

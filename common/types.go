@@ -27,8 +27,8 @@ const (
 	HashLength = 32
 	// AddressLength is the expected length of the address
 	AddressLength = 21
-	// AssetsLength is the expected length of the assets
-	AssetsLength = 12
+	// AssetLength is the expected length of the assets
+	AssetLength = 12
 	// AmountSize is the expected size of amount
 	AmountSize = 8
 

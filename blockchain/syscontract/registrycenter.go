@@ -39,15 +39,14 @@ func (m *Manager) GetContractAddressByAsset(
 
 	// function name of contract registry
 	funcName := common.ContractRegistryCenter_GetOrganizationAddressesByAssetsFunction()
-	assetId := make([]uint64, 0, 1)
+	assetIds := make([]uint64, 0, 1)
 	for _, asset := range assets {
 		assetBytes := common.Hex2Bytes(asset)
-		assetId = append(assetId, binary.BigEndian.Uint64(assetBytes[4:]))
-
+		assetIds = append(assetIds, binary.BigEndian.Uint64(assetBytes[4:]))
 	}
 
 	// pack function params, ready for calling
-	runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, funcName, assetId)
+	runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, funcName, assetIds)
 
 	// call function
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
@@ -129,14 +128,14 @@ func (m *Manager) GetAssetInfoByAssetId(
 // IsLimit returns a number of int type by find in memory or calling system
 // contract of registry the number represents if an asset is restricted
 func (m *Manager) IsLimit(block *asiutil.Block,
-	stateDB vm.StateDB, assets *protos.Assets) int {
-	if _, ok := m.assetsUnrestrictedCache[*assets]; ok {
+	stateDB vm.StateDB, asset *protos.Asset) int {
+	if _, ok := m.assetsUnrestrictedCache[*asset]; ok {
 		return 0
 	}
-	limit := m.isLimit(block, stateDB, assets)
+	limit := m.isLimit(block, stateDB, asset)
 
 	if limit == 0 {
-		m.assetsUnrestrictedCache[*assets] = struct{}{}
+		m.assetsUnrestrictedCache[*asset] = struct{}{}
 	}
 
 	return limit
@@ -145,9 +144,9 @@ func (m *Manager) IsLimit(block *asiutil.Block,
 // isLimit returns a number of int type by calling system contract of registry
 // the number represents if an asset is restricted
 func (m *Manager) isLimit(block *asiutil.Block,
-	stateDB vm.StateDB, assets *protos.Assets) int {
+	stateDB vm.StateDB, asset *protos.Asset) int {
 	officialAddr := chaincfg.OfficialAddress
-	_, organizationId, assetIndex := assets.AssetsFields()
+	_, organizationId, assetIndex := asset.AssetFields()
 	contract := m.GetActiveContractByHeight(block.Height(), common.RegistryCenter)
 	if contract == nil {
 		errStr := fmt.Sprintf("Failed to get active contract %s, %d", common.RegistryCenter, block.Height())
@@ -185,14 +184,14 @@ func (m *Manager) isLimit(block *asiutil.Block,
 
 // IsSupport returns a bool result, which represents if a restricted asset can be transfer
 func (m *Manager) IsSupport(block *asiutil.Block,
-	stateDB vm.StateDB, gasLimit uint64, assets *protos.Assets, address []byte) (bool, uint64) {
+	stateDB vm.StateDB, gasLimit uint64, asset *protos.Asset, address []byte) (bool, uint64) {
 
 	if gasLimit < common.SupportCheckGas {
 		return false, 0
 	}
 
 	// step1: prepare parameters for calling system contract to get organization address
-	_, organizationId, assetIndex := assets.AssetsFields()
+	_, organizationId, assetIndex := asset.AssetFields()
 	caller := chaincfg.OfficialAddress
 
 	contract := m.GetActiveContractByHeight(block.Height(), common.RegistryCenter)

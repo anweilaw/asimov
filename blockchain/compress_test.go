@@ -134,63 +134,63 @@ func TestCompressedTxOut(t *testing.T) {
 		amount     uint64
 		pkScript   []byte
 		compressed []byte
-		assets     protos.Assets
+		asset      protos.Asset
 	}{
 		{
 			name:       "nulldata with 0 BTC",
 			amount:     0,
-			pkScript:  hexToBytes("6a200102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"),
+			pkScript:   hexToBytes("6a200102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"),
 			compressed: hexToBytes("00000000000000002c6a200102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f200c000000000000000000000000"),
-			assets:     protos.Assets{0,0},
+			asset:      protos.Asset{0,0},
 		},
 		{
 			name:       "pay-to-pubkey-hash with 546 xing",
 			amount:     546,
 			pkScript:   hexToBytes("76a915661018853670f9f3b0582c5b9ee8ce93764ac32b93c5ac"),
 			compressed: hexToBytes("2202000000000000001018853670f9f3b0582c5b9ee8ce93764ac32b930c000000010000000000000002"),
-			assets:     protos.Assets{1,2},
+			asset:      protos.Asset{1,2},
 		},
 		{
 			name:       "pay-to-pubkey uncompressed 1 BTC",
 			amount:     100000000,
 			pkScript:   hexToBytes("4104192d74d0cb94344c9569c2e77901573d8d7903c3ebec3a957724895dca52c6b40d45264838c0bd96852662ce6a847b197376830160c6d2eb5e6a4c44d33f453eac"),
 			compressed: hexToBytes("00e1f5050000000004192d74d0cb94344c9569c2e77901573d8d7903c3ebec3a957724895dca52c6b40c000000000000000000000000"),
-			assets:     protos.Assets{0,0},
+			asset:      protos.Asset{0,0},
 		},
 		{
 			name:       "pay-to-script-hash with 21000000 BTC",
 			amount:     2100000000000000,
 			pkScript:   hexToBytes("a915731018853670f9f3b0582c5b9ee8ce93764ac32b93c4"),
 			compressed: hexToBytes("0040075af0750700011018853670f9f3b0582c5b9ee8ce93764ac32b930c000000010000000000000003"),
-			assets:     protos.Assets{1,3},
+			asset:      protos.Asset{1,3},
 		},
 		{
 			name:       "pay-to-contract with 0 BTC",
 			amount:     0,
 			pkScript:   hexToBytes("c215631018853670f9f3b0582c5b9ee8ce93764ac32b93"),
 			compressed: hexToBytes("0000000000000000061018853670f9f3b0582c5b9ee8ce93764ac32b930c000000000000000000000000"),
-			assets:     protos.Assets{0,0},
+			asset:      protos.Asset{0,0},
 		},
 		{
 			name:       "vote-contract with 0 btc",
 			amount:     0,
 			pkScript:   hexToBytes("c615631018853670f9f3b0582c5b9ee8ce93764ac32b93"),
 			compressed: hexToBytes("0000000000000000071018853670f9f3b0582c5b9ee8ce93764ac32b930c000000000000000000000000"),
-			assets:     protos.Assets{0,0},
+			asset:      protos.Asset{0,0},
 		},
 		{
 			name:       "0 btc, pkscript is nil",
 			amount:     0,
 			pkScript:   nil,
 			compressed: hexToBytes("00000000000000000a0c000000000000000000000000"),
-			assets:     protos.Assets{0,0},
+			asset:      protos.Asset{0,0},
 		},
 	}
 
 	for i, test := range tests {
 		// Ensure the function to calculate the serialized size without
 		// actually serializing the txout is calculated properly.
-		gotSize := compressedTxOutSize(test.amount, test.pkScript, &test.assets)
+		gotSize := compressedTxOutSize(test.amount, test.pkScript, &test.asset)
 		if gotSize != len(test.compressed) {
 			t.Errorf("compressedTxOutSize (%d, %s): did not get expected size - got %d, want %d",
 				i, test.name, gotSize, len(test.compressed))
@@ -200,7 +200,7 @@ func TestCompressedTxOut(t *testing.T) {
 		// Ensure the txout compresses to the expected value.
 		gotCompressed := make([]byte, gotSize)
 		gotBytesWritten := putCompressedTxOut(gotCompressed,
-			test.amount, test.pkScript, &test.assets)
+			test.amount, test.pkScript, &test.asset)
 		if !bytes.Equal(gotCompressed, test.compressed) {
 			t.Errorf("compressTxOut (%d, %s): did not get expected bytes - got %x, want %x",
 				i, test.name, gotCompressed, test.compressed)
@@ -230,9 +230,9 @@ func TestCompressedTxOut(t *testing.T) {
 				test.name, gotScript, test.pkScript)
 			continue
 		}
-		if assetNo == nil || *assetNo != test.assets {
+		if assetNo == nil || *assetNo != test.asset {
 			t.Errorf("decodeCompressedTxOut (%s): did not get expected script - got %x, want %x",
-				test.name, assetNo, test.assets)
+				test.name, assetNo, test.asset)
 			continue
 		}
 		if gotBytesRead != len(test.compressed) {

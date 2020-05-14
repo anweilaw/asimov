@@ -8,17 +8,17 @@ import (
 func FindAsset(fvm *FVM, coinId uint32, caller common.Address, gas uint64) (uint32, uint32, uint64, error) {
 	registryCenterAddr, _, registryCenterABI := fvm.GetSystemContractInfo(common.RegistryCenter)
 	findAsset := common.ContractRegistryCenter_FindAssetFunction()
-	assetTypeInput, err := fvm.PackFunctionArgs(registryCenterABI, findAsset, coinId)
+	input, err := fvm.PackFunctionArgs(registryCenterABI, findAsset, coinId)
 	if err != nil {
 		return 0, 0, gas, err
 	}
-	assetTypeResult, leftOverGas, _, err := fvm.Call(AccountRef(caller), registryCenterAddr, assetTypeInput, gas, common.Big0, nil, true)
+	result, leftOverGas, _, err := fvm.Call(AccountRef(caller), registryCenterAddr, input, gas, common.Big0, nil, true)
 	if err != nil {
 		return 0, 0, leftOverGas, err
 	}
 
 	returnData := []interface{}{new(uint32), new(uint32), new(bool)}
-	err = fvm.UnPackFunctionResult(registryCenterABI, &returnData, findAsset, assetTypeResult)
+	err = fvm.UnPackFunctionResult(registryCenterABI, &returnData, findAsset, result)
 	if err != nil {
 		return 0, 0, leftOverGas, err
 	}

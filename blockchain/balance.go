@@ -9,20 +9,20 @@ import (
 	"github.com/AsimovNetwork/asimov/protos"
 )
 
-// fetch the balance of one assets for address,
+// fetch the balance of one asset for address,
 // if it's erc721, return voucher id if there's voucherId in the balance and voucherId > 0.
-// otherwise return the count of assets.
-func (b *BlockChain) CalculateBalance(block *asiutil.Block, address common.Address, assets *protos.Assets, voucherId int64) (int64, error) {
+// otherwise return the count of asset.
+func (b *BlockChain) CalculateBalance(block *asiutil.Block, address common.Address, asset *protos.Asset, voucherId int64) (int64, error) {
 	view := NewUtxoViewpoint()
-	_, err := b.fetchAssetByAddress(block, view, address, assets)
+	_, err := b.fetchAssetByAddress(block, view, address, asset)
 	if err != nil {
 		return 0, err
 	}
-	if assets == nil {
+	if asset == nil {
 		return 0, nil
 	}
 
-	if !assets.IsIndivisible() {
+	if !asset.IsIndivisible() {
 		var balance int64
 		for _, entry := range view.entries {
 			if !entry.IsSpent() {

@@ -42,7 +42,7 @@ type UtxoEntry struct {
 	// since it was loaded.  This approach is used in order to reduce memory
 	// usage since there will be a lot of these in memory.
 	packedFlags txoFlags
-	assets      *protos.Assets
+	asset       *protos.Asset
 	lockItem    *LockItem
 }
 
@@ -108,9 +108,9 @@ func (entry *UtxoEntry) SetPkScript(pkscript []byte) {
 	entry.pkScript = pkscript
 }
 
-// Assets returns the assets for the output.
-func (entry *UtxoEntry) Assets() *protos.Assets {
-	return entry.assets
+// Asset returns the asset for the output.
+func (entry *UtxoEntry) Asset() *protos.Asset {
+	return entry.asset
 }
 
 func (entry *UtxoEntry) LockItem() *LockItem {
@@ -122,7 +122,7 @@ func (entry *UtxoEntry) SetLockItem(lockItem *LockItem)  {
 }
 
 func (entry *UtxoEntry) Update(amount int64, pkScript []byte, blockHeight int32, coinbase bool,
-	assets *protos.Assets, lockItem *LockItem) {
+	asset *protos.Asset, lockItem *LockItem) {
 	entry.amount = amount
 	entry.pkScript = pkScript
 	entry.blockHeight = blockHeight
@@ -130,7 +130,7 @@ func (entry *UtxoEntry) Update(amount int64, pkScript []byte, blockHeight int32,
 	if coinbase {
 		entry.packedFlags |= tfCoinBase
 	}
-	entry.assets = assets
+	entry.asset = asset
 	entry.lockItem = lockItem
 }
 
@@ -145,13 +145,13 @@ func (entry *UtxoEntry) Clone() *UtxoEntry {
 		pkScript:    entry.pkScript,
 		blockHeight: entry.blockHeight,
 		packedFlags: entry.packedFlags,
-		assets:      entry.assets,
+		asset:       entry.asset,
 		lockItem:    entry.lockItem,
 	}
 }
 
 func NewUtxoEntry(amount int64, pkScript []byte, blockHeight int32, coinbase bool,
-	assets *protos.Assets, lockItem *LockItem) *UtxoEntry {
+	asset *protos.Asset, lockItem *LockItem) *UtxoEntry {
 
 	packedFlags := txoFlags(0)
 	if coinbase {
@@ -162,7 +162,7 @@ func NewUtxoEntry(amount int64, pkScript []byte, blockHeight int32, coinbase boo
 		pkScript:    pkScript,
 		blockHeight: blockHeight,
 		packedFlags: packedFlags,
-		assets:      assets,
+		asset:       asset,
 		lockItem:    lockItem,
 	}
 }

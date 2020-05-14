@@ -101,7 +101,7 @@ func varifyCase(tx *protos.MsgTx, prevOuts map[protos.OutPoint]scriptWithInputVa
 		}
 		vm, err := txscript.NewEngine(prevOut.pkScript, tx, k,
 			txscript.ScriptBip16 | txscript.ScriptVerifyStrictEncoding, prevOut.inputVal,
-			&tx.TxOut[0].Assets, 100)
+			&tx.TxOut[0].Asset, 100)
 		if err != nil {
 			fmt.Printf("test (%v:%d) failed to create "+
 				"script: %v\n", tx, k, err)

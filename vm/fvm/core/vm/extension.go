@@ -41,7 +41,7 @@ func FlowCreateAsset(amount *big.Int, contract *Contract, fvm *FVM, assetType ui
 	}
 
 	// create asset and append the result to VTX
-	assets := protos.NewAssets(assetType, orgId, coinIndex)
+	assets := protos.NewAsset(assetType, orgId, coinIndex)
 	fvm.Vtx.AppendVCreation(orgAddr, amount, assets, virtualtx.VTransferTypeCreation)
 
 	return nil
@@ -71,13 +71,13 @@ func FlowMintAsset(amount *big.Int, contract *Contract, fvm *FVM, coinIndex uint
 	if err != nil {
 		return err
 	}
-	if coinType & protos.InDivisibleAssets == protos.InDivisibleAssets {
+	if coinType & protos.InDivisibleAsset == protos.InDivisibleAsset {
 		if amount.Cmp(common.BigMaxint64) > 0 || amount.Cmp(common.Big0) <= 0 {
-			return errors.New("mint indivisible assets, amount out of bounds (0, 2^63)")
+			return errors.New("mint indivisible asset, amount out of bounds (0, 2^63)")
 		}
 	} else {
 		if amount.Cmp(common.BigMaxxing) > 0 || amount.Cmp(common.Big0) <= 0 {
-			return errors.New("mint divisible assets, amount out of bounds (0, bigMaxxing 1e18]")
+			return errors.New("mint divisible asset, amount out of bounds (0, bigMaxxing 1e18]")
 		}
 	}
 
@@ -96,7 +96,7 @@ func FlowMintAsset(amount *big.Int, contract *Contract, fvm *FVM, coinIndex uint
 	if err != nil {
 		return errors.New("error unpacking function result for `getAssetInfoByAssetId`")
 	}
-	if coinType & protos.InDivisibleAssets == protos.InDivisibleAssets {
+	if coinType & protos.InDivisibleAsset == protos.InDivisibleAsset {
 		historyIssued := *((*getAssetInfoByAssetIdOutType)[5]).(*[]*big.Int)
 		historyIssued = historyIssued[:len(historyIssued)-1]
 		for _, issued := range historyIssued {
@@ -107,12 +107,12 @@ func FlowMintAsset(amount *big.Int, contract *Contract, fvm *FVM, coinIndex uint
 	} else {
 		totalIssued := *((*getAssetInfoByAssetIdOutType)[4]).(**big.Int)
 		if totalIssued.Cmp(common.BigMaxxing) > 0 || totalIssued.Cmp(common.Big0) <= 0 {
-			return errors.New("mint divisible assets, total amount out of bounds (0, bigMaxxing 1e18]")
+			return errors.New("mint divisible asset, total amount out of bounds (0, bigMaxxing 1e18]")
 		}
 	}
 
 	// mint asset and append the result to VTX
-	assets := protos.NewAssets(coinType, orgId, coinIndex)
+	assets := protos.NewAsset(coinType, orgId, coinIndex)
 	fvm.Vtx.AppendVCreation(orgAddr, amount, assets, virtualtx.VTransferTypeMint)
 
 	return nil

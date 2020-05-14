@@ -38,8 +38,8 @@ import (
 
 	nl            = []byte("\n")
 
-	assetBytes = []*protos.Assets{
-		protos.NewAssets(protos.DivisibleAssets, protos.DefaultOrgId, protos.DefaultCoinId),
+	assetBytes = []*protos.Asset{
+		protos.NewAsset(protos.DivisibleAsset, protos.DefaultOrgId, protos.DefaultCoinId),
 	}
 )
 
@@ -114,8 +114,8 @@ var coinbaseTx = &protos.MsgTx{
 				0x8d, 0x57, 0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, /* |.W.Lp+k.| */
 				0x1d, 0x5f, 0xac, /* |._.| */
 			},
-			Assets: *assetBytes[0],
-			Data:   newData1(),
+			Asset: *assetBytes[0],
+			Data:  newData1(),
 		},
 	},
 	LockTime: 0,
@@ -175,14 +175,14 @@ func createChainState() common.Hash {
 	cMap := chaincfg.TransferGenesisData(beneficiary.Data)
 	for k, v := range cMap {
 		fmt.Println("init system contracts, contract name = " + v[0].Name + "；delegate contract = " + string(k))
-		_, addr, _, _, err := vmenv.Create(sender, common.Hex2Bytes(v[0].Code), uint64(4604216000), common.Big0, &beneficiary.Assets, nil, nil, true)
+		_, addr, _, _, err := vmenv.Create(sender, common.Hex2Bytes(v[0].Code), uint64(4604216000), common.Big0, &beneficiary.Asset, nil, nil, true)
 		if err != nil {
 			panic(err)
 		}
 		fmt.Println("contract address = ", addr.Hex())
 
 		if v[0].InitCode != "" {
-			_, _, _, err := vmenv.Call(sender, vm.ConvertSystemContractAddress(k), common.Hex2Bytes(v[0].InitCode), uint64(4604216000), common.Big0, &beneficiary.Assets, true)
+			_, _, _, err := vmenv.Call(sender, vm.ConvertSystemContractAddress(k), common.Hex2Bytes(v[0].InitCode), uint64(4604216000), common.Big0, &beneficiary.Asset, true)
 			if err != nil {
 				panic(err)
 			}

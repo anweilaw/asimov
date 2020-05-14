@@ -55,13 +55,13 @@ func TestCheckBlockScripts(t *testing.T) {
                     break
                 }
             }
-            normalTx, _ := chain.createNormalTx(parivateKeyList[index], protos.Assets{0, 0}, *validators[0],
+            normalTx, _ := chain.createNormalTx(parivateKeyList[index], protos.Asset{0, 0}, *validators[0],
                 2000000000, 5000000, 100000, nil)
             normalTxList = append(normalTxList, normalTx)
         }
 
         block, _, err := createAndSignBlock(netParam, accList, validators, filters, chain, epoch, slot, int32(i),
-            protos.Assets{0, 0}, 0, validators[slot], normalTxList,
+            protos.Asset{0, 0}, 0, validators[slot], normalTxList,
             0, chain.bestChain.tip())
         if err != nil {
             t.Errorf("create block error %v", err)

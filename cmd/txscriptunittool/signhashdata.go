@@ -168,7 +168,7 @@ func oldDeserialize(r io.Reader) (*protos.MsgTx, error) {
 		if err != nil {
 			return nil, err
 		}
-		to.Assets = asiutil.FlowCoinAsset
+		to.Asset = asiutil.AsimovAsset
 	}
 
 	err = serialization.ReadUint32(r, &msg.LockTime)
@@ -188,7 +188,7 @@ func createSpendingTx(sigScript, pkScript []byte,
 
 	outPoint := protos.NewOutPoint(&common.Hash{}, ^uint32(0))
 	txIn := protos.NewTxIn(outPoint, []byte{txscript.OP_0, txscript.OP_0})
-	txOut := protos.NewTxOut(outputValue, pkScript, protos.Assets{})
+	txOut := protos.NewTxOut(outputValue, pkScript, protos.Asset{})
 	coinbaseTx.AddTxIn(txIn)
 	coinbaseTx.AddTxOut(txOut)
 
@@ -196,7 +196,7 @@ func createSpendingTx(sigScript, pkScript []byte,
 	coinbaseTxSha := coinbaseTx.TxHash()
 	outPoint = protos.NewOutPoint(&coinbaseTxSha, 0)
 	txIn = protos.NewTxIn(outPoint, sigScript)
-	txOut = protos.NewTxOut(outputValue, nil, protos.Assets{})
+	txOut = protos.NewTxOut(outputValue, nil, protos.Asset{})
 
 	spendingTx.AddTxIn(txIn)
 	spendingTx.AddTxOut(txOut)

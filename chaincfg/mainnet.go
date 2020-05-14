@@ -8,8 +8,6 @@ import (
 	"github.com/AsimovNetwork/asimov/common"
 )
 
-// Asimov coin assetid
-
 // mainnetGenesisHash is the hash of the first block in the block chain for the main
 // network (genesis block).
 var mainnetGenesisHash = common.Hash([common.HashLength]byte{

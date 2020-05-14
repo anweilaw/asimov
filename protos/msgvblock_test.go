@@ -284,8 +284,8 @@ var vblockOne = MsgVBlock{
 						0xee, // 65-byte signature
 						0xac, // OP_CHECKSIG
 					},
-					Assets: Assets{0,0},
-					Data:   []byte{},
+					Asset: Asset{0,0},
+					Data:  []byte{},
 				},
 			},
 			TxContract:TxContract{0},

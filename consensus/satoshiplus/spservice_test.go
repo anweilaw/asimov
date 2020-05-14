@@ -7,7 +7,6 @@ import (
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/crypto"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -143,7 +142,7 @@ func TestGenblock(t *testing.T) {
 	if err != nil {
 		t.Errorf("tests NewSatoshiPlusService error %v", err)
 	}
-	ps.timer = time.NewTimer(time.Hour)
+	ps.blockTimer = time.NewTimer(time.Hour)
 	ps.context.Round = 0
 	ps.context.Slot = int64(chaincfg.ActiveNetParams.RoundSize) - 1
 	acc := ps.config.Account
@@ -192,324 +191,114 @@ func TestGetRoundInfo(t *testing.T) {
 	roundSizei64 := int64(chaincfg.ActiveNetParams.RoundSize)
 	tests := []struct {
 		blockRound int64
-		blockSlot  int64
 		targetTime int64
 		wantRound  int64
 		wantSlot   int64
-		wantErr    bool
-	}{
-		{
-			1,
-			10,
-			blockTime + common.DefaultBlockInterval*51 - 1,
-			1,
-			60,
-			false,
-		}, {
-			1,
-			0,
-			blockTime,
-			1,
-			0,
-			false,
-		}, {
-			1,
-			roundSizei64 - 1,
-			blockTime,
-			1,
-			roundSizei64 - 1,
-			false,
-		}, {
-			2,
-			0,
-			blockTime,
-			2,
-			0,
-			false,
-		}, {
-			1,
-			0,
-			blockTime + 1,
-			1,
-			0,
-			false,
-		}, {
-			1,
-			roundSizei64 - 1,
-			blockTime + 1,
-			1,
-			roundSizei64 - 1,
-			false,
-		}, {
-			2,
-			0,
-			blockTime + 1,
-			2,
-			0,
-			false,
-		}, {
-			1,
-			0,
-			blockTime + common.DefaultBlockInterval,
-			1,
-			1,
-			false,
-		}, {
-			1,
-			roundSizei64 - 1,
-			blockTime + common.DefaultBlockInterval,
-			2,
-			0,
-			false,
-		}, {
-			2,
-			0,
-			blockTime + common.DefaultBlockInterval,
-			2,
-			1,
-			false,
-		}, {
-			1,
-			0,
-			blockTime + common.DefaultBlockInterval*(roundSizei64-1),
-			1,
-			roundSizei64 - 1,
-			false,
-		}, {
-			1,
-			0,
-			blockTime + common.DefaultBlockInterval*(roundSizei64-1) + 1,
-			1,
-			roundSizei64 - 1,
-			false,
-		}, {
-			1,
-			0,
-			blockTime + common.DefaultBlockInterval*roundSizei64,
-			2,
-			0,
-			false,
-		}, {
-			1,
-			0,
-			blockTime + 5337,
-			12,
-			11,
-			false,
-		}, {
-			1,
-			roundSizei64 - 1,
-			blockTime + 4742,
-			12,
-			11,
-			false,
-		}, {
-			2,
-			33,
-			blockTime + 4638,
-			12,
-			11,
-			false,
-		}, {
-			3,
-			44,
-			blockTime + 4245,
-			12,
-			11,
-			false,
-		}, {
-			2,
-			0,
-			blockTime + 76665,
-			64,
-			roundSizei64 - 1,
-			false,
-		}, {
-			2,
-			0,
-			blockTime + 76665 + common.MaxBlockInterval - 1,
-			64,
-			roundSizei64 - 1,
-			false,
-		}, {
-			64,
-			roundSizei64 - 1,
-			blockTime - 76665,
-			0,
-			0,
-			true,
-		}, {
-			2,
-			0,
-			blockTime + 76665 + common.MaxBlockInterval,
-			0,
-			0,
-			true, //test only 64 round
-		},
-	}
-	t.Logf("Running %d tests", len(tests))
-	for i, test := range tests {
-		round, slot, err := ps.getRoundInfo(blockTime, test.blockRound, test.blockSlot, test.targetTime)
-		if round != test.wantRound || slot != test.wantSlot || test.wantErr != (err != nil) {
-			t.Errorf("tests #%d error,round : %v,slot: %v,err: %v", i, round, slot, err)
-		}
-	}
-}
-
-func TestGetRoundStartTime(t *testing.T) {
-	privString := "0x224828e95689e30a8e668418f968260edc6aa78ae03eed607f49288d99123c25"
-	consensusConfig, teardownFunc, err := createPoaConfig(privString, &chaincfg.DevelopNetParams)
-	if err != nil {
-		t.Errorf("createPoaConfig error %v", err)
-	}
-	defer teardownFunc()
-
-	ps, err := NewSatoshiPlusService(consensusConfig)
-	if err != nil {
-		t.Errorf("tests NewSatoshiPlusService error %v", err)
-	}
-
-	blockTime := time.Now().Unix()
-	blockTime = 0
-	roundSizei64 := int64(chaincfg.ActiveNetParams.RoundSize)
-	tests := []struct {
-		BlockRound int64
-		BlockSlot  int64
-		round      int64
-		slot       int64
 		wantTime   int64
 		wantErr    bool
 	}{
 		{
 			1,
-			0,
+			blockTime + common.DefaultBlockInterval*51 - 1,
+			1,
+			50,
+			blockTime,
+			false,
+		}, {
+			1,
+			blockTime,
 			1,
 			0,
 			blockTime,
 			false,
 		}, {
+			2,
+			blockTime,
+			2,
+			0,
+			blockTime,
+			false,
+		}, {
 			1,
-			roundSizei64 - 1,
+			blockTime + 1,
 			1,
 			0,
-			blockTime - (roundSizei64-1)*common.DefaultBlockInterval,
+			blockTime,
 			false,
 		}, {
 			2,
+			blockTime + 1,
+			2,
 			0,
-			1,
-			0,
-			blockTime - roundSizei64*common.DefaultBlockInterval,
+			blockTime,
 			false,
 		}, {
-			1,
-			0,
-			0,
-			0,
-			blockTime - roundSizei64*common.DefaultBlockInterval,
-			false,
-		}, {
-			1,
-			0,
-			1,
 			1,
 			blockTime + common.DefaultBlockInterval,
+			1,
+			1,
+			blockTime,
 			false,
 		}, {
 			1,
+			blockTime + common.DefaultBlockInterval * roundSizei64,
+			2,
 			0,
+			blockTime + common.DefaultBlockInterval * roundSizei64,
+			false,
+		}, {
+			2,
+			blockTime + common.DefaultBlockInterval,
+			2,
 			1,
-			roundSizei64 - 1,
-			blockTime + common.DefaultBlockInterval*(roundSizei64-1),
+			blockTime,
 			false,
 		}, {
 			1,
-			roundSizei64 - 1,
+			blockTime + common.DefaultBlockInterval*(roundSizei64-1),
 			1,
 			roundSizei64 - 1,
 			blockTime,
 			false,
 		}, {
-			2,
-			0,
+			1,
+			blockTime + common.DefaultBlockInterval*(roundSizei64-1) + 1,
 			1,
 			roundSizei64 - 1,
-			blockTime - common.DefaultBlockInterval,
+			blockTime,
 			false,
 		}, {
 			1,
-			0,
-			0,
-			roundSizei64 - 1,
-			blockTime - common.DefaultBlockInterval,
-			false,
-		}, {
-			1,
-			roundSizei64 - 1,
-			0,
-			roundSizei64 - 1,
-			blockTime - common.DefaultBlockInterval*roundSizei64,
-			false,
-		}, {
-			2,
-			0,
-			0,
-			roundSizei64 - 1,
-			blockTime - common.DefaultBlockInterval*(roundSizei64+1),
-			false,
-		}, {
-			1,
-			0,
-			2,
-			0,
-			blockTime + common.DefaultBlockInterval*roundSizei64,
-			false,
-		}, {
-			1,
-			0,
-			12,
-			11,
 			blockTime + 5337,
-			false,
-		}, {
-			1,
-			roundSizei64 - 1,
 			12,
 			11,
-			blockTime + 4742,
+			blockTime + 5280,
 			false,
 		}, {
 			2,
-			33,
-			12,
-			11,
-			blockTime + 4638,
-			false,
-		}, {
-			3,
-			44,
-			12,
-			11,
-			blockTime + 4245,
-			false,
-		}, {
-			2,
-			0,
-			64,
-			roundSizei64 - 1,
 			blockTime + 76665,
+			64,
+			roundSizei64 - 1,
+			blockTime + 74880,
+			false,
+		}, {
+			2,
+			blockTime + 76665 + common.MaxBlockInterval - 1,
+			64,
+			roundSizei64 - 1,
+			blockTime + 74880,
 			false,
 		}, {
 			64,
-			roundSizei64 - 1,
-			2,
-			0,
 			blockTime - 76665,
-			false,
-		}, {
-			1,
 			0,
-			65,
+			0,
+			0,
+			true,
+		}, {
+			2,
+			blockTime + 76665 + common.MaxBlockInterval,
+			0,
 			0,
 			0,
 			true, //test only 64 round
@@ -517,9 +306,15 @@ func TestGetRoundStartTime(t *testing.T) {
 	}
 	t.Logf("Running %d tests", len(tests))
 	for i, test := range tests {
-		roundtime, err := ps.getRoundStartTime(blockTime, test.BlockRound, test.BlockSlot, test.round, test.slot)
-		if roundtime != test.wantTime || test.wantErr != (err != nil) {
-			t.Errorf("TestRoundStartTime #%d %d expect %d, got %d, err: %v", i, blockTime, test.wantTime, roundtime, err)
+		round, slot, roundStartTime, err := ps.getRoundInfo(blockTime, test.blockRound, test.targetTime)
+		if test.wantErr != (err != nil) {
+			t.Errorf("tests #%d error: %v", i, err)
+			continue
+		}
+		if round != test.wantRound || slot != test.wantSlot || roundStartTime != test.wantTime {
+			t.Errorf("tests #%d fail, get round:%v, slot:%v, roundtime:%v;" +
+				" want round:%v, slot:%v, roundtime:%v", i, round, slot, roundStartTime,
+				test.wantRound, test.wantSlot, test.wantTime)
 		}
 	}
 }
@@ -563,43 +358,6 @@ func TestGetRoundIntervalByRound(t *testing.T) {
 		if interval != test.wantInterval {
 			t.Errorf("TestGetRoundIntervalByRound #%d want %v, interval: %v",
 				i, test.wantInterval, interval)
-		}
-	}
-}
-
-func TestRand(t *testing.T) {
-	privString := "0x224828e95689e30a8e668418f968260edc6aa78ae03eed607f49288d99123c25"
-	consensusConfig, teardownFunc, err := createPoaConfig(privString, &chaincfg.DevelopNetParams)
-	if err != nil {
-		t.Errorf("createPoaConfig error %v", err)
-	}
-	defer teardownFunc()
-
-	ps, err := NewSatoshiPlusService(consensusConfig)
-	if err != nil {
-		t.Errorf("tests NewSatoshiPlusService error %v", err)
-	}
-
-	for i:= 0; i < 100; i++{
-		round := rand.Int63n(65)
-		slot := rand.Int63n(120)
-		blockTime := time.Now().Unix()
-		targetRound := rand.Int63n(65 - round) + round
-		var targetSlot int64
-		if targetRound == round{
-			targetSlot = rand.Int63n(120 - slot) + slot
-		}else{
-			targetSlot = rand.Int63n(120)
-		}
-
-
-		roundtime, _ := ps.getRoundStartTime(blockTime, round, slot, targetRound, targetSlot)
-		r,s,_ := ps.getRoundInfo(blockTime,round,slot,roundtime)
-		if r!=targetRound || targetSlot != s {
-			t.Errorf("test rand result error when " +
-				"round : %v, slot: %v, blockTime : %v, targetRound : %v, targetSlot : %v, getRound : %v, getSlot : %v",
-				round,slot,blockTime,targetRound,targetSlot,r,s,
-			)
 		}
 	}
 }

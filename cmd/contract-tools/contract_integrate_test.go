@@ -41,7 +41,7 @@ type ContractRes struct {
 type ContractContext struct {
 	gasLimit  uint64
 	value     *big.Int
-	asset     *protos.Assets
+	asset     *protos.Asset
 	fvmInst   *vm.FVM
 	sender    *common.Address
 	contracts map[string]*ContractRes
@@ -241,7 +241,7 @@ func (action *DeployEvmSystemContractAction) execute(ctx *ContractContext) ([]by
 				common.Hex2Bytes(v.Code+v.InitCode),
 				ctx.gasLimit,
 				common.Big0,
-				&beneficiary.Assets,
+				&beneficiary.Asset,
 				nil,
 				nil,
 				false)
@@ -710,7 +710,7 @@ type ContractContainer struct {
 
 func NewContractContainer(
 	callerAddrHex string,
-	asset *protos.Assets,
+	asset *protos.Asset,
 	isSupportWasm bool) (*ContractContainer, error) {
 	cc := &ContractContainer{
 		nil,

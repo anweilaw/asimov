@@ -118,7 +118,7 @@ func (s *Server) WaitForShutdown() {
 }
 
 type mergeUtxoData struct {
-    Asset       protos.Assets
+    Asset       protos.Asset
     Value       int64
     PreOutsList []protos.OutPoint
 }
@@ -194,7 +194,7 @@ func (s *Server) mergeUtxo(signUpPreOutList []protos.OutPoint, signUpBalance int
             ascoinIdx := 0
             var mergePreOutList []protos.OutPoint
             for idx, utxoInfo := range mergeList {
-                if utxoInfo.Asset == asiutil.FlowCoinAsset {
+                if utxoInfo.Asset == asiutil.AsimovAsset {
                     ascoinIdx = idx
                     mergePreOutList = utxoInfo.PreOutsList
                 }

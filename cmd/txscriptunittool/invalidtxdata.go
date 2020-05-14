@@ -27,7 +27,7 @@ func varifyInvalidCase(tx *protos.MsgTx, prevOuts map[protos.OutPoint]scriptWith
 		}
 		vm, err := txscript.NewEngine(prevOut.pkScript, tx, k,
 			txscript.ScriptBip16 | txscript.ScriptVerifyStrictEncoding | txscript.ScriptVerifyCleanStack,
-			prevOut.inputVal, &tx.TxOut[0].Assets, 100)
+			prevOut.inputVal, &tx.TxOut[0].Asset, 100)
 		if err != nil {
 			fmt.Println("OK" + err.Error())
 			return

@@ -16,8 +16,6 @@
 
 package params
 
-import "math/big"
-
 var (
 	TargetGasLimit = GenesisGasLimit // The artificial target
 )
@@ -25,8 +23,7 @@ var (
 const (
 	GasLimitBoundDivisor uint64 = 1024 // The bound divisor of the gas limit, used in update calculations.
 	MinGasLimit          uint64 = 50000000 // Minimum the gas limit may ever be.
-	// GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
-	GenesisGasLimit uint64 = 471238800
+	GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
 
 	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
 	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.
@@ -47,7 +44,6 @@ const (
 	SstoreClearGas   uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
 	SstoreRefundGas  uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
 	JumpdestGas      uint64 = 1     // Refunded gas, once per SSTORE operation if the zeroness changes to zero.
-	EpochDuration    uint64 = 30000 // Duration between proof-of-work epochs.
 	CallGas          uint64 = 40    // Once per CALL operation & message call transaction.
 	CreateDataGas    uint64 = 200   //
 	CallCreateDepth  uint64 = 1024  // Maximum depth of call/create stack.
@@ -63,8 +59,7 @@ const (
 	MemoryGas        uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 	TxDataNonZeroGas uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
 
-	// TODO original 24576
-	MaxCodeSize = 24576 * 10 // Maximum bytecode to permit for a contract
+	MaxCodeSize = 49152 // Maximum bytecode to permit for a contract
 
 	// Precompiled contract gas prices
 
@@ -81,11 +76,4 @@ const (
 	Bn256PairingBaseGas     uint64 = 100000 // Base price for an elliptic curve pairing check
 	Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
 	SystemDelegateCall uint64 = 0
-)
-
-var (
-	DifficultyBoundDivisor = big.NewInt(2048)   // The bound divisor of the difficulty, used in the update calculations.
-	GenesisDifficulty      = big.NewInt(131072) // Difficulty of the Genesis block.
-	MinimumDifficulty      = big.NewInt(131072) // The minimum that the difficulty may ever be.
-	DurationLimit          = big.NewInt(13)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 )

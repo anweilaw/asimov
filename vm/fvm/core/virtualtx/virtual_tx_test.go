@@ -14,8 +14,8 @@ var (
 	add3 = common.BytesToAddress([]byte{0x00, 0x00, 0x00, 0x03})
 	add4 = common.BytesToAddress([]byte{0x00, 0x00, 0x00, 0x04})
 
-	ass1 = protos.NewAssets(0, 0, 100)
-	ass2 = protos.NewAssets(1, 0, 200)
+	ass1 = protos.NewAsset(0, 0, 100)
+	ass2 = protos.NewAsset(1, 0, 200)
 )
 
 func TestAppendVTransfer(t *testing.T) {

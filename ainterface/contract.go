@@ -70,7 +70,7 @@ type ContractManager interface {
 	// Get fees from state
 	GetFees(block *asiutil.Block,
 		stateDB vm.StateDB,
-		chainConfig *params.ChainConfig) (map[protos.Assets]int32, error, uint64)
+		chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64)
 
 	// Get template from state
 	GetTemplate(block *asiutil.Block,
@@ -99,8 +99,8 @@ type ContractManager interface {
 		miners []string) ([]common.Address, []uint32, error)
 
 	IsLimit(block *asiutil.Block,
-		stateDB vm.StateDB, assets *protos.Assets) int
+		stateDB vm.StateDB, asset *protos.Asset) int
 
 	IsSupport(block *asiutil.Block,
-		stateDB vm.StateDB, gasLimit uint64, assets *protos.Assets, address []byte) (bool, uint64)
+		stateDB vm.StateDB, gasLimit uint64, asset *protos.Asset, address []byte) (bool, uint64)
 }

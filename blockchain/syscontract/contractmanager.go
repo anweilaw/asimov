@@ -21,7 +21,7 @@ type Manager struct {
 	// genesis transaction data cache
 	genesisDataCache map[common.ContractCode][]chaincfg.ContractInfo
 	// unrestricted assets cache
-	assetsUnrestrictedCache map[protos.Assets]struct{}
+	assetsUnrestrictedCache map[protos.Asset]struct{}
 }
 
 // Init manager by genesis data.

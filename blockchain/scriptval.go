@@ -71,7 +71,7 @@ out:
 			pkScript := utxo.PkScript()
 			inputAmount := utxo.Amount()
 			vm, err := txscript.NewEngine(pkScript, txVI.tx.MsgTx(),
-				txVI.txInIndex, v.flags, inputAmount, utxo.Assets(), utxo.BlockHeight())
+				txVI.txInIndex, v.flags, inputAmount, utxo.Asset(), utxo.BlockHeight())
 			if err != nil {
 				str := fmt.Sprintf("failed to parse input "+
 					"%s:%d which references output %v - "+

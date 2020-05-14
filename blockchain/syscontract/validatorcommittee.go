@@ -18,20 +18,14 @@ import (
 
 var validatorCommitteeAddress = vm.ConvertSystemContractAddress(common.ValidatorCommittee)
 
-// FeeItem defines assets and their effective heights
-type FeeItem struct {
-	Assets *protos.Assets
-	Height int32
-}
-
 // GetFees returns an asset list and their valid heights
-// assets in list are used as transaction fees
+// asset in list are used as transaction fees
 // heights describe the assets formally effective
 // the asset list is submitted by members of validator committee
 func (m *Manager) GetFees(
 	block *asiutil.Block,
 	stateDB vm.StateDB,
-	chainConfig *params.ChainConfig) (map[protos.Assets]int32, error, uint64) {
+	chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64) {
 
 	officialAddr := chaincfg.OfficialAddress
 	contract := m.GetActiveContractByHeight(block.Height(), common.ValidatorCommittee)
@@ -67,10 +61,10 @@ func (m *Manager) GetFees(
 		return nil, errors.New(errStr), leftOverGas
 	}
 
-	fees := make(map[protos.Assets]int32)
+	fees := make(map[protos.Asset]int32)
 	for i := 0; i < len(assets); i++ {
-		pAssets := protos.AssetFromBytes(assets[i].Bytes())
-		fees[*pAssets] = int32(height[i].Int64())
+		asset := protos.AssetFromBytes(assets[i].Bytes())
+		fees[*asset] = int32(height[i].Int64())
 	}
 
 	return fees, nil, leftOverGas

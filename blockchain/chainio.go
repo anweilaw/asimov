@@ -70,7 +70,7 @@ var (
 	// fields for storage in the database.
 	byteOrder = binary.LittleEndian
 
-	//assetsSetBucketName is the nane of the db bucket used to house the created assets data
+	//assetsSetBucketName is the nane of the db bucket used to house the created asset data
 	assetsSetBucketName = []byte("assetsSet")
 
 	signatureSetBucketName = []byte("signatureSet")
@@ -240,7 +240,7 @@ type SpentTxOut struct {
 	// Denotes if the creating tx is a coinbase.
 	IsCoinBase bool
 
-	Assets *protos.Assets
+	Asset *protos.Asset
 }
 
 // FetchSpendJournal attempts to retrieve the spend journal, or the set of
@@ -284,7 +284,7 @@ func SpentTxOutHeaderCode(stxo *SpentTxOut) uint64 {
 // serialize the passed stxo according to the format described above.
 func SpentTxOutSerializeSize(stxo *SpentTxOut) int {
 	size := serializeSizeVLQ(SpentTxOutHeaderCode(stxo))
-	return size + compressedTxOutSize(uint64(stxo.Amount), stxo.PkScript, stxo.Assets)
+	return size + compressedTxOutSize(uint64(stxo.Amount), stxo.PkScript, stxo.Asset)
 }
 
 // putSpentTxOut serializes the passed stxo according to the format described
@@ -295,7 +295,7 @@ func putSpentTxOut(target []byte, stxo *SpentTxOut) int {
 	headerCode := SpentTxOutHeaderCode(stxo)
 	offset := putVLQ(target, headerCode)
 	return offset + putCompressedTxOut(target[offset:], uint64(stxo.Amount),
-		stxo.PkScript, stxo.Assets)
+		stxo.PkScript, stxo.Asset)
 }
 
 // decodeSpentTxOut decodes the passed serialized stxo entry, possibly followed
@@ -331,7 +331,7 @@ func decodeSpentTxOut(serialized []byte, stxo *SpentTxOut) (int, error) {
 	}
 	stxo.Amount = int64(amount)
 	stxo.PkScript = pkScript
-	stxo.Assets = assetNo
+	stxo.Asset = assetNo
 	return offset, nil
 }
 
@@ -620,14 +620,14 @@ func serializeUtxoEntry(entry *txo.UtxoEntry) ([]byte, error) {
 
 	// Calculate the size needed to serialize the entry.
 	size := serializeSizeVLQ(headerCode) +
-		compressedTxOutSize(uint64(entry.Amount()), entry.PkScript(), entry.Assets())
+		compressedTxOutSize(uint64(entry.Amount()), entry.PkScript(), entry.Asset())
 
 	// Serialize the header code followed by the compressed unspent
 	// transaction output.
 	serialized := make([]byte, size)
 	offset := putVLQ(serialized, headerCode)
 	offset += putCompressedTxOut(serialized[offset:], uint64(entry.Amount()),
-		entry.PkScript(), entry.Assets())
+		entry.PkScript(), entry.Asset())
 
 	return serialized, nil
 }
@@ -650,13 +650,13 @@ func DeserializeUtxoEntry(serialized []byte) (*txo.UtxoEntry, error) {
 	blockHeight := int32(code >> 1)
 
 	// Decode the compressed unspent transaction output.
-	amount, pkScript, assets, _, err := decodeCompressedTxOut(serialized[offset:])
+	amount, pkScript, asset, _, err := decodeCompressedTxOut(serialized[offset:])
 	if err != nil {
 		return nil, common.DeserializeError(fmt.Sprintf("unable to decode "+
 			"utxo: %v", err))
 	}
 
-	entry := txo.NewUtxoEntry(int64(amount), pkScript, blockHeight, isCoinBase, assets, nil)
+	entry := txo.NewUtxoEntry(int64(amount), pkScript, blockHeight, isCoinBase, asset, nil)
 
 	return entry, nil
 }
@@ -1032,7 +1032,7 @@ func dbFetchBalance(dbTx database.Tx, address []byte) (*EntryPairList, error) {
 		})
 
 		if len(entry.PkScript()) <= 1 {
-			log.Debugf("dbFetchBalance entry pkScript is invalid, %v", entry.Assets())
+			log.Debugf("dbFetchBalance entry pkScript is invalid, %v", entry.Asset())
 		}
 		return nil
 	})
@@ -1222,7 +1222,7 @@ func (b *BlockChain) createChainState(chainStartTime int64) error {
 	sender := vm.AccountRef(chaincfg.OfficialAddress)
 	cMap := chaincfg.TransferGenesisData(beneficiary.Data)
 	for k, v := range cMap {
-		_, addr, _, _, err := vmenv.Create(sender, common.Hex2Bytes(v[0].Code), uint64(4604216000), common.Big0, &beneficiary.Assets, nil, nil, true)
+		_, addr, _, _, err := vmenv.Create(sender, common.Hex2Bytes(v[0].Code), uint64(4604216000), common.Big0, &beneficiary.Asset, nil, nil, true)
 		if err != nil {
 			log.Errorf("Deploy genesis contract failed when create %s", k)
 			panic(err)
@@ -1230,7 +1230,7 @@ func (b *BlockChain) createChainState(chainStartTime int64) error {
 		log.Info("init genesis system contract ", k, "contract address = ", addr.Hex())
 
 		if v[0].InitCode != "" {
-			_, _, _, err = vmenv.Call(sender, vm.ConvertSystemContractAddress(k), common.Hex2Bytes(v[0].InitCode), uint64(4604216000), common.Big0, &beneficiary.Assets, true)
+			_, _, _, err = vmenv.Call(sender, vm.ConvertSystemContractAddress(k), common.Hex2Bytes(v[0].InitCode), uint64(4604216000), common.Big0, &beneficiary.Asset, true)
 			if err != nil {
 				log.Error("Deploy genesis contract failed when init code")
 				panic(err)
@@ -1297,13 +1297,13 @@ func (b *BlockChain) createChainState(chainStartTime int64) error {
 			return err
 		}
 
-		// Create the bucket that house the created assets
+		// Create the bucket that house the created asset
 		assetsBucket, err := meta.CreateBucket(assetsSetBucketName)
 		if err != nil {
 			return err
 		}
-		mainAssets := asiutil.FlowCoinAsset.FixedBytes()
-		if err = assetsBucket.Put(mainAssets[:], []byte{1}); err != nil {
+		mainAsset := asiutil.AsimovAsset.FixedBytes()
+		if err = assetsBucket.Put(mainAsset[:], []byte{1}); err != nil {
 			return err
 		}
 

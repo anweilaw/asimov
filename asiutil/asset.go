@@ -6,8 +6,8 @@ package asiutil
 import "github.com/AsimovNetwork/asimov/protos"
 
 
-// AssetsList defines o list of asset
-type AssetsList []protos.Assets
+// assetList defines o list of asset
+type AssetsList []protos.Asset
 
 func (al AssetsList) Swap(i, j int) {
 	al[i], al[j] = al[j], al[i]

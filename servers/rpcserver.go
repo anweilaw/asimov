@@ -302,8 +302,8 @@ func (s *PublicRpcAPI) getBalance(address string) ([]rpcjson.GetBalanceResult, e
 	_, err = s.cfg.Chain.FetchUtxoViewByAddress(view, byte)
 	if err == nil {
 		for _, e := range view.Entries() {
-			assets := hex.EncodeToString(e.Assets().Bytes())
-			if e.Assets().IsIndivisible() {
+			assets := hex.EncodeToString(e.Asset().Bytes())
+			if e.Asset().IsIndivisible() {
 				b := rpcjson.GetBalanceResult{
 					Asset: assets,
 					Value: strconv.FormatInt(e.Amount(), 10),
@@ -387,11 +387,11 @@ func getBlockListByHashes(s *PublicRpcAPI, blkHashes []common.Hash) (interface{}
 			totalRewardValue = tmpReward
 			for _, txOut := range block.MsgBlock().Transactions[0].TxOut {
 				v := txOut.Value
-				if txOut.Assets.Equal(&asiutil.FlowCoinAsset) {
+				if txOut.Asset.Equal(&asiutil.AsimovAsset) {
 					v -= tmpReward
 				}
 				if v > 0 {
-					totalFees.Asset = hex.EncodeToString(txOut.Assets.Bytes())
+					totalFees.Asset = hex.EncodeToString(txOut.Asset.Bytes())
 					totalFees.Value = v
 					FeesList = append(FeesList, totalFees)
 				}
@@ -493,7 +493,7 @@ func (s *PublicRpcAPI) makeupUTXO(out protos.OutPoint, e *txo.UtxoEntry, addr *c
 	r := &rpcjson.ListUnspentResult{
 		TxID:          out.Hash.UnprefixString(),
 		Vout:          out.Index,
-		Assets:        hex.EncodeToString(e.Assets().Bytes()),
+		Assets:        hex.EncodeToString(e.Asset().Bytes()),
 		ScriptPubKey:  hex.EncodeToString(e.PkScript()),
 		Amount:        e.Amount(),
 		Address:       addr.String(),
@@ -516,7 +516,7 @@ func (s *PublicRpcAPI) makeupUTXO(out protos.OutPoint, e *txo.UtxoEntry, addr *c
 // Get list of UTXO of a given asset for all address in the array.
 // If asset is not specified, all assets will be fetched.
 func (s *PublicRpcAPI) GetUtxoByAddress(addresses []string, asset string) (interface{}, error) {
-	var a protos.Assets
+	var a protos.Asset
 	if asset != "" {
 		aa, err := hex.DecodeString(asset)
 		if err != nil {
@@ -549,7 +549,7 @@ func (s *PublicRpcAPI) GetUtxoByAddress(addresses []string, asset string) (inter
 					break
 				}
 
-				if asset == "" || e.Assets().Equal(&a) {
+				if asset == "" || e.Asset().Equal(&a) {
 					r := s.makeupUTXO(out, e, addr)
 					utxos = append(utxos, r)
 				}
@@ -614,7 +614,7 @@ func quickSort(arr []*tempItem) {
 // If asset is not specified, all assets will be fetched.
 // The qualified UTXO is sorted and the page [from, from+count] will be retrieved.
 func (s *PublicRpcAPI) GetUtxoInPage(address string, asset string, from, count int32) (interface{}, error) {
-	var a protos.Assets
+	var a protos.Asset
 	if asset != "" {
 		aa, err := hex.DecodeString(asset)
 		if err != nil {
@@ -653,7 +653,7 @@ func (s *PublicRpcAPI) GetUtxoInPage(address string, asset string, from, count i
 	for i := int(0); i < len(tempList); i++ {
 		e := tempList[i].entry
 		out := tempList[i].outPoint
-		if asset == "" || e.Assets().Equal(&a) {
+		if asset == "" || e.Asset().Equal(&a) {
 			idx++
 			if idx <= from || idx > from+count {
 				continue
@@ -1245,7 +1245,7 @@ func (s *PublicRpcAPI) Call(callerAddress string, contractAddress string, data s
 	context := fvm.NewFVMContext(callerAddr, new(big.Int).SetInt64(1), block, chain, nil, nil, nil)
 	vmInstance := vm.NewFVM(context, stateDB, chaincfg.ActiveNetParams.FvmParam, *chain.GetVmConfig())
 
-	var assets *protos.Assets
+	var assets *protos.Asset
 	if asset != "" {
 		assetBytes := common.Hex2Bytes(asset)
 		assets = protos.AssetFromBytes(assetBytes)
@@ -1345,7 +1345,7 @@ func (s *PublicRpcAPI) Test(callerAddress string, byteCode string, argStr string
 		inputHash := []byte(idxStr)
 		caller := vm.AccountRef(callerAddr)
 		amount := big.NewInt(0)
-		asset := &asiutil.FlowCoinAsset
+		asset := &asiutil.AsimovAsset
 		if callData.Caller != "" {
 			callerBytes, err := hexutil.Decode(callData.Caller)
 			if err != nil {
@@ -1379,7 +1379,7 @@ func (s *PublicRpcAPI) Test(callerAddress string, byteCode string, argStr string
 
 		_, contractAddr, _, _, err := vmInstance.Create(
 			vm.AccountRef(callerAddr), byteCodeHash, uint64(1000000000), big.NewInt(0),
-			&asiutil.FlowCoinAsset, inputHash, argHash, false)
+			&asiutil.AsimovAsset, inputHash, argHash, false)
 
 		if err != nil {
 			return nil, err
@@ -1631,7 +1631,7 @@ func (s *PublicRpcAPI) RunTransaction(hexTx string, utxos []*rpcjson.ListUnspent
 			vout := &result.VTX.Vout[i]
 			vout.Value = out.Value
 			vout.ScriptPubKey.Hex = hex.EncodeToString(out.PkScript)
-			vout.Asset = hex.EncodeToString(out.Assets.Bytes())
+			vout.Asset = hex.EncodeToString(out.Asset.Bytes())
 		}
 	}
 
@@ -2413,7 +2413,7 @@ func (s *PublicRpcAPI) GetFeeList() (interface{}, error) {
 	for assets, height := range fees {
 		feeList = append(feeList, rpcjson.FeeItemResult{Assets: hex.EncodeToString(assets.Bytes()), Height: height})
 	}
-	feeList = append(feeList, rpcjson.FeeItemResult{Assets:hex.EncodeToString(asiutil.FlowCoinAsset.Bytes()), Height:0})
+	feeList = append(feeList, rpcjson.FeeItemResult{Assets:hex.EncodeToString(asiutil.AsimovAsset.Bytes()), Height:0})
 	return feeList, nil
 }
 
@@ -2609,8 +2609,8 @@ func (s *PublicRpcAPI) GetMergeUtxoStatus(address string, mergeCount int32) ([]r
 				if addUtxoCnt >= 600 {
 					break
 				}
-				assets := hex.EncodeToString(e.Assets().Bytes())
-				if !e.Assets().IsIndivisible() {
+				assets := hex.EncodeToString(e.Asset().Bytes())
+				if !e.Asset().IsIndivisible() {
 					findSpentInTxPool := false
 					for _, spentPreOut := range hasSpentInTxPool {
 						if spentPreOut == preOut {
@@ -2694,7 +2694,7 @@ func (s *PublicRpcAPI) GetSignUpStatus(address string) (interface{}, error) {
 	if createSignUpFlag {
 		view := blockchain.NewUtxoViewpoint()
 		var prevOuts *[]protos.OutPoint
-		prevOuts, err = chain.FetchUtxoViewByAddressAndAsset(view, addr.ScriptAddress(), &asiutil.FlowCoinAsset)
+		prevOuts, err = chain.FetchUtxoViewByAddressAndAsset(view, addr.ScriptAddress(), &asiutil.AsimovAsset)
 		if err != nil {
 			context := "Failed to fetch utxo View by addr and asset"
 			return nil, internalRPCError(err.Error(), context)

@@ -60,7 +60,7 @@ func (s *Server) createSignUpTx(prevOuts *[]protos.OutPoint, totalAmount int64, 
     txMsg.AddTxOut(&protos.TxOut{
         Value:    int64(0),
         PkScript: contractPkScript,
-        Assets:   asiutil.FlowCoinAsset,
+        Asset:    asiutil.AsimovAsset,
         Data:     Data,
     })
 
@@ -69,7 +69,7 @@ func (s *Server) createSignUpTx(prevOuts *[]protos.OutPoint, totalAmount int64, 
         txMsg.AddTxOut(&protos.TxOut{
             Value:    changeValue,
             PkScript: senderPkScript,
-            Assets:   asiutil.FlowCoinAsset,
+            Asset:    asiutil.AsimovAsset,
             Data:     nil,
         })
     }

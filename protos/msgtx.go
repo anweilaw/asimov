@@ -68,7 +68,7 @@ const (
 	MaxTxInPerMessage = MaxMessagePayload / minTxInPayload
 
 	// MinTxOutPayload is the minimum payload size for a transaction output.
-	// Value 8 bytes + Assets 12 bytes + Varint for Assets 1 byte +
+	// Value 8 bytes + Asset 12 bytes + Varint for Asset 1 byte +
 	// Varint for PkScript length 1 byte + Varint for Data 1 byte.
 	minTxOutPayload = 23
 
@@ -100,8 +100,8 @@ const (
 	// 6,400,000 bytes.
 	freeListMaxItems = 12500
 
-	// DivisibleAssets is the default divisible property of asimov coin
-	DivisibleAssets uint32 = 0
+	// DivisibleAsset is the default divisible property of asimov coin
+	DivisibleAsset uint32 = 0
 
 	// DefaultCoinId is the default coin id of asimov coin
 	DefaultCoinId uint32 = 0
@@ -111,7 +111,7 @@ const (
 )
 
 const (
-	InDivisibleAssets = 1 << iota
+	InDivisibleAsset = 1 << iota
 )
 
 // scriptFreeList defines a free list of byte slices (up to the maximum number
@@ -234,55 +234,55 @@ func NewTxIn(prevOut *OutPoint, signatureScript []byte) *TxIn {
 	}
 }
 
-// Assets defines an asimov data type that is used to distinguish different assets.
-// Property: represents assets property. Currently 0th bit represents
+// Asset defines an asimov data type that is used to distinguish different asset.
+// Property: represents asset property. Currently 0th bit represents
 //    divisible or not (1 indivisible),
 //    the first bit of the second byte represents votable or not (1 votable);
-// Id:[0-4) bytes represents the organization which creates this assets;
-//    [4-8) bytes unique id distinguish different assets in the organization.
-type Assets struct {
+// Id:[0-4) bytes represents the organization which creates this asset;
+//    [4-8) bytes unique id distinguish different asset in the organization.
+type Asset struct {
 	Property uint32
 	Id       uint64
 }
 
-func (a *Assets) String() string {
+func (a *Asset) String() string {
 	return fmt.Sprintf("(%d, %d)", a.Property, a.Id)
 }
 
 // FixedBytes returns an asset with type of byte array
-func (a *Assets) FixedBytes() [common.AssetsLength]byte {
-	var serialized [common.AssetsLength]byte
+func (a *Asset) FixedBytes() [common.AssetLength]byte {
+	var serialized [common.AssetLength]byte
 	binary.BigEndian.PutUint32(serialized[:], a.Property)
 	binary.BigEndian.PutUint64(serialized[4:], a.Id)
 	return serialized
 }
 
 // Bytes returns an asset with type of byte slice
-func (a *Assets) Bytes() []byte {
+func (a *Asset) Bytes() []byte {
 	serialized := a.FixedBytes()
 	return serialized[:]
 }
 
 // IsFlowCoin checks if an asset is default asimov coin
-func (a *Assets) IsFlowCoin() bool {
+func (a *Asset) IsFlowCoin() bool {
 	return DefaultOrgId == uint32(a.Id >> 32)
 }
 
-// AssetsFields returns three parts of an asset.
+// assetFields returns three parts of an asset.
 // property + orgId + coinId
-func (a *Assets) AssetsFields() (uint32, uint32, uint32) {
+func (a *Asset) AssetFields() (uint32, uint32, uint32) {
 	orgId := uint32(a.Id >> 32)
 	coinId := uint32(a.Id & 0xFFFFFFFF)
 	return a.Property, orgId, coinId
 }
 
 // IsIndivisible returns an asset is divisible or indivisible
-func (a *Assets) IsIndivisible() bool {
-	return (a.Property & InDivisibleAssets) == InDivisibleAssets
+func (a *Asset) IsIndivisible() bool {
+	return (a.Property & InDivisibleAsset) == InDivisibleAsset
 }
 
 // Equal checks one asset if equal to another
-func (a *Assets) Equal(other *Assets) bool {
+func (a *Asset) Equal(other *Asset) bool {
 	if other == nil && a == nil {
 		return true
 	}
@@ -292,81 +292,81 @@ func (a *Assets) Equal(other *Assets) bool {
 	return a.Property == other.Property && a.Id == other.Id
 }
 
-// NewAssets returns struct of Assets, which combine of property, orgId and coinId
-func NewAssets(property uint32, orgId uint32, coinId uint32) *Assets {
-	return &Assets{
+// NewAsset returns struct of Asset, which combine of property, orgId and coinId
+func NewAsset(property uint32, orgId uint32, coinId uint32) *Asset {
+	return &Asset{
 		Property: property,
 		Id: (uint64(orgId) << 32) | uint64(coinId),
 	}
 }
 
-// AssetFromInt returns struct of Assets from the given value
-func AssetFromInt(val *big.Int) *Assets {
-	assets := val.Bytes()
-	paddingLength := common.AssetsLength - len(assets)
+// AssetFromInt returns struct of Asset from the given value
+func AssetFromInt(val *big.Int) *Asset {
+	asset := val.Bytes()
+	paddingLength := common.AssetLength - len(asset)
 	if paddingLength > 0 {
 		padding := make([]byte, paddingLength)
-		padding = append(padding, assets[:]...)
-		assets = padding
+		padding = append(padding, asset[:]...)
+		asset = padding
 	}
-	property := binary.BigEndian.Uint32(assets[:4])
-	id := binary.BigEndian.Uint64(assets[4:])
-	return &Assets{
+	property := binary.BigEndian.Uint32(asset[:4])
+	id := binary.BigEndian.Uint64(asset[4:])
+	return &Asset{
 		Property: property,
 		Id: id,
 	}
 }
 
 // AssetFromBytes transfers byte asset to property asset
-func AssetFromBytes(assets []byte) *Assets {
-	paddingLength := common.AssetsLength - len(assets)
+func AssetFromBytes(asset []byte) *Asset {
+	paddingLength := common.AssetLength - len(asset)
 	if paddingLength > 0 {
 		padding := make([]byte, paddingLength)
-		padding = append(padding, assets[:]...)
-		assets = padding
+		padding = append(padding, asset[:]...)
+		asset = padding
 	}
-	property := binary.BigEndian.Uint32(assets[:4])
-	id := binary.BigEndian.Uint64(assets[4:common.AssetsLength])
-	return &Assets{
+	property := binary.BigEndian.Uint32(asset[:4])
+	id := binary.BigEndian.Uint64(asset[4:common.AssetLength])
+	return &Asset{
 		Property: property,
 		Id: id,
 	}
 }
 
 // AssetDetailFromBytes transfers byte asset to asset detail
-func AssetDetailFromBytes(assets []byte) (uint32, uint32, uint32) {
-	paddingLength := common.AssetsLength - len(assets)
+func AssetDetailFromBytes(asset []byte) (uint32, uint32, uint32) {
+	paddingLength := common.AssetLength - len(asset)
 	if paddingLength > 0 {
 		padding := make([]byte, paddingLength)
-		padding = append(padding, assets[:]...)
-		assets = padding
+		padding = append(padding, asset[:]...)
+		asset = padding
 	}
-	property := binary.BigEndian.Uint32(assets[:4])
-	organizationId := binary.BigEndian.Uint32(assets[4:8])
-	assetIndex := binary.BigEndian.Uint32(assets[8:common.AssetsLength])
+	property := binary.BigEndian.Uint32(asset[:4])
+	organizationId := binary.BigEndian.Uint32(asset[4:8])
+	assetIndex := binary.BigEndian.Uint32(asset[8:common.AssetLength])
 
 	return property, organizationId, assetIndex
 }
 
 // TxOut defines an asimov transaction output.
-// Value: The amount of assets
+// Value: The amount of asset
 // PkScript: The public key script
 // Data: it may contains contract parameters, or it can be nil.
 type TxOut struct {
 	Value    int64
 	PkScript []byte
-	Assets   Assets
+	Asset    Asset
 	Data     []byte
 }
 
 func (to *TxOut) toString() string {
-	return fmt.Sprintf("(Value:%v, PkScript:%v, Assets:%v, Data:%v)", to.Value, to.PkScript, to.Assets, to.Data)
+	return fmt.Sprintf("(Value:%v, PkScript:%v, Asset:%v, Data:%v)", to.Value, to.PkScript, to.Asset, to.Data)
 }
 
 // SerializeSize returns the number of bytes it would take to serialize the
 // the transaction output.
 func (to *TxOut) SerializeSize() int {
-	// Value 8 bytes + assetsLength + Assets 12 byte
+	// Value 8 bytes + assetLength + Asset 12 byte
 	// + serialized varint size for the length of PkScript +
 	// PkScript bytes.
 	// + serialized varint size for the length of Data +
@@ -378,21 +378,21 @@ func (to *TxOut) SerializeSize() int {
 
 // NewTxOut returns a new asimov transaction output with the provided
 // transaction value and public key script.
-func NewTxOut(value int64, pkScript []byte, assets Assets) *TxOut {
+func NewTxOut(value int64, pkScript []byte, asset Asset) *TxOut {
 	return &TxOut{
 		Value:    value,
 		PkScript: pkScript,
-		Assets:   assets,
+		Asset:    asset,
 	}
 }
 
 // NewContractTxOut returns a new asimov contract transaction output
 // with the provides transaction value, public key script and data
-func NewContractTxOut(value int64, pkScript []byte, assets Assets, data []byte) *TxOut {
+func NewContractTxOut(value int64, pkScript []byte, asset Asset, data []byte) *TxOut {
 	return &TxOut{
 		Value:    value,
 		PkScript: pkScript,
-		Assets:   assets,
+		Asset:    asset,
 		Data:     data,
 	}
 }
@@ -520,10 +520,10 @@ func (msg *MsgTx) Copy() *MsgTx {
 			copy(newScript, oldScript[:oldScriptLen])
 		}
 
-		// Deep copy the old assets
-		newAssets := Assets{}
-		newAssets.Property = oldTxOut.Assets.Property
-		newAssets.Id = oldTxOut.Assets.Id
+		// Deep copy the old asset
+		newAsset := Asset{}
+		newAsset.Property = oldTxOut.Asset.Property
+		newAsset.Id = oldTxOut.Asset.Id
 
 		// Deep copy the old data
 		var newData []byte
@@ -539,7 +539,7 @@ func (msg *MsgTx) Copy() *MsgTx {
 		newTxOut := TxOut{
 			Value:    oldTxOut.Value,
 			PkScript: newScript,
-			Assets:   newAssets,
+			Asset:    newAsset,
 			Data:     newData,
 		}
 		newTx.TxOut = append(newTx.TxOut, &newTxOut)
@@ -867,7 +867,7 @@ func (msg *MsgTx) PkScriptLocs() []int {
 		// PkScript.
 		n += 8 + serialization.VarIntSerializeSize(uint64(len(txOut.PkScript)))
 		pkScriptLocs[i] = n
-		n += len(txOut.PkScript) + serialization.VarIntSerializeSize(uint64(common.AssetsLength)) + common.AssetsLength
+		n += len(txOut.PkScript) + serialization.VarIntSerializeSize(uint64(common.AssetLength)) + common.AssetLength
 		n += serialization.VarIntSerializeSize(uint64(len(txOut.Data))) + len(txOut.Data)
 	}
 
@@ -895,10 +895,10 @@ func (msg *MsgTx) DataLoc() int {
 
 	txOut := msg.TxOut[0]
 	// Value 8 bytes + serialized varint size for the length of PkScript
-	// + the length of PkScript + serialized varint size for the length of Assets
-	// + the length of Assets + serialized varint size for the length of Data
+	// + the length of PkScript + serialized varint size for the length of Asset
+	// + the length of Asset + serialized varint size for the length of Data
 	n += 8 + serialization.VarIntSerializeSize(uint64(len(txOut.PkScript))) + len(txOut.PkScript)
-	n += common.AssetsLength + serialization.VarIntSerializeSize(uint64(common.AssetsLength))
+	n += common.AssetLength + serialization.VarIntSerializeSize(uint64(common.AssetLength))
 	n += serialization.VarIntSerializeSize(uint64(len(txOut.Data)))
 
 	return n
@@ -1031,11 +1031,11 @@ func readTxOut(r io.Reader, pver uint32, to *TxOut) error {
 		return err
 	}
 
-	err = serialization.ReadUint32B(r, (*uint32)(unsafe.Pointer(&to.Assets.Property)))
+	err = serialization.ReadUint32B(r, (*uint32)(unsafe.Pointer(&to.Asset.Property)))
 	if err != nil {
 		return err
 	}
-	err = serialization.ReadUint64B(r, &to.Assets.Id)
+	err = serialization.ReadUint64B(r, &to.Asset.Id)
 	if err != nil {
 		return err
 	}
@@ -1061,16 +1061,16 @@ func writeTxOut(w io.Writer, pver uint32, to *TxOut) error {
 		return err
 	}
 
-	err = serialization.WriteVarInt(w, 0, common.AssetsLength)
+	err = serialization.WriteVarInt(w, 0, common.AssetLength)
 	if err != nil {
 		return err
 	}
 
-	err = serialization.WriteUint32B(w, to.Assets.Property)
+	err = serialization.WriteUint32B(w, to.Asset.Property)
 	if err != nil {
 		return err
 	}
-	err = serialization.WriteUint64B(w, to.Assets.Id)
+	err = serialization.WriteUint64B(w, to.Asset.Id)
 	if err != nil {
 		return err
 	}

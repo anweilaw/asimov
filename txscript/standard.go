@@ -27,14 +27,11 @@ const (
 	// package.
 	StandardVerifyFlags = ScriptBip16 |
 		ScriptVerifyStrictEncoding |
-		ScriptVerifyMinimalData |
-		ScriptDiscourageUpgradableNops |
 		ScriptVerifyCleanStack |
 		ScriptVerifyNullFail |
 		ScriptVerifyCheckLockTimeVerify |
 		ScriptVerifyCheckSequenceVerify |
-		ScriptVerifyLowS |
-		ScriptVerifyMinimalIf
+		ScriptVerifyLowS
 )
 
 // ScriptClass is an enumeration for the list of standard types of script.

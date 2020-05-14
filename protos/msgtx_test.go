@@ -91,7 +91,7 @@ func TestTx(t *testing.T) {
 		0xa6, // 65-byte signature
 		0xac, // OP_CHECKSIG
 	}
-	txOut := NewTxOut(txValue, pkScript, *NewAssets(0, 1, 2))
+	txOut := NewTxOut(txValue, pkScript, *NewAsset(0, 1, 2))
 	if txOut.Value != txValue {
 		t.Errorf("NewTxOut: wrong pk script - got %v, want %v",
 			txOut.Value, txValue)
@@ -240,7 +240,7 @@ func TestTxHash(t *testing.T) {
 			0xa6, // 65-byte signature
 			0xac, // OP_CHECKSIG
 		},
-		Assets: Assets{0,0},
+		Asset: Asset{0,0},
 	}
 	msgTx.AddTxIn(&txIn)
 	msgTx.AddTxOut(&txOut)
@@ -282,7 +282,7 @@ func TestTxSha(t *testing.T) {
 			0x8e, 0x53, 0x2a, 0x22, 0xc4, 0x1b, 0xa1, 0x89,
 			0x40, 0x6a, 0x85, 0x23, // 20-byte pub key hash
 		},
-		Assets: Assets{0,0},
+		Asset: Asset{0,0},
 	}
 	msgTx.AddTxIn(&txIn)
 	msgTx.AddTxOut(&txOut)
@@ -704,7 +704,7 @@ var multiTx = &MsgTx{
 			PkScript: []byte{
 				0xc0, // OP_TEMPLATE
 			},
-			Assets: Assets{0,0},
+			Asset: Asset{0,0},
 			Data: []byte{
 				0x00, 0x01, // type
 				0x04, 0x00, 0x00, 0x00, // name length
@@ -732,8 +732,8 @@ var multiTx = &MsgTx{
 				0xa6, // 65-byte signature
 				0xac, // OP_CHECKSIG
 			},
-			Assets: Assets{0,0},
-			Data:   []byte{},
+			Asset: Asset{0,0},
+			Data:  []byte{},
 		},
 		{
 			Value: 0x5f5e100,
@@ -750,8 +750,8 @@ var multiTx = &MsgTx{
 				0xa6, // 65-byte signature
 				0xac, // OP_CHECKSIG
 			},
-			Assets: Assets{0,0},
-			Data:   []byte{},
+			Asset: Asset{0,0},
+			Data:  []byte{},
 		},
 	},
 	TxContract: TxContract{
@@ -778,7 +778,7 @@ var multiTxEncoded = []byte{
 	0xc0, // OP_TEMPLATE
 	0x0c,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, // assets
+	0x00, 0x00, 0x00, 0x00, // asset
 	0x28,       // OP_DATA_40
 	0x00, 0x01, // type
 	0x04, 0x00, 0x00, 0x00, // name length
@@ -804,7 +804,7 @@ var multiTxEncoded = []byte{
 	0xac, // OP_CHECKSIG
 	0x0c,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, // assets
+	0x00, 0x00, 0x00, 0x00, // asset
 	0x00,                                           // Data
 	0x00, 0xe1, 0xf5, 0x05, 0x00, 0x00, 0x00, 0x00, // Transaction amount
 	0x43, // Varint for length of pk script
@@ -821,7 +821,7 @@ var multiTxEncoded = []byte{
 	0xac, // OP_CHECKSIG
 	0x0c,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, // assets
+	0x00, 0x00, 0x00, 0x00, // asset
 	0x00,                   // Data
 	0x00, 0x00, 0x00, 0x00, // GasLimit
 	0x00, 0x00, 0x00, 0x00, // Lock time

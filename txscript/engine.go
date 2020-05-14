@@ -22,14 +22,6 @@ const (
 	// pay-to-script hash transactions will be fully validated.
 	ScriptBip16 ScriptFlags = 1 << iota
 
-	// ScriptDiscourageUpgradableNops defines whether to verify that
-	// NOP1 through NOP10 are reserved for future soft-fork upgrades.  This
-	// flag must not be used for consensus critical code nor applied to
-	// blocks as this flag is only for stricter standard transaction
-	// checks.  This flag is only applied when the above opcodes are
-	// executed.
-	ScriptDiscourageUpgradableNops
-
 	// ScriptVerifyCheckLockTimeVerify defines whether to verify that
 	// a transaction output is spendable based on the locktime.
 	// This is BIP0065.
@@ -52,10 +44,6 @@ const (
 	// of BIP0062.
 	ScriptVerifyLowS
 
-	// ScriptVerifyMinimalData defines that signatures must use the smallest
-	// push operator. This is both rules 3 and 4 of BIP0062.
-	ScriptVerifyMinimalData
-
 	// ScriptVerifyNullFail defines that signatures must be empty if
 	// a CHECKSIG or CHECKMULTISIG operation fails.
 	ScriptVerifyNullFail
@@ -63,10 +51,6 @@ const (
 	// ScriptVerifyStrictEncoding defines that signature scripts and
 	// public keys must follow the strict encoding requirements.
 	ScriptVerifyStrictEncoding
-
-	// ScriptVerifyMinimalIf makes a script with an OP_IF/OP_NOTIF whose
-	// operand is anything other than empty vector or [0x01] non-standard.
-	ScriptVerifyMinimalIf
 )
 
 const (
@@ -83,22 +67,22 @@ var halfOrder = new(big.Int).Rsh(crypto.S256().N, 1)
 
 // Engine is the virtual machine that executes scripts.
 type Engine struct {
-	scripts     [][]parsedOpcode
-	scriptIdx   int
-	scriptOff   int
-	lastCodeSep int
-	dstack      stack // data stack
-	astack      stack // alt stack
-	tx          protos.MsgTx
-	txIdx       int
-	condStack   []int
-	numOps      int
-	flags       ScriptFlags
-	scriptHashFlag bool
+	scripts         [][]parsedOpcode
+	scriptIdx       int
+	scriptOff       int
+	lastCodeSep     int
+	dstack          stack // data stack
+	astack          stack // alt stack
+	tx              protos.MsgTx
+	txIdx           int
+	condStack       []int
+	numOps          int
+	flags           ScriptFlags
+	scriptHashFlag  bool
 	savedFirstStack [][]byte // stack from first script for bip16 scripts
-	inputAmount int64
-	assets      *protos.Assets
-	height      int32
+	inputAmount     int64
+	asset           *protos.Asset
+	height          int32
 }
 
 // hasFlag returns whether the script engine instance has the passed flag set.
@@ -652,7 +636,7 @@ func (vm *Engine) SetAltStack(data [][]byte) {
 // transaction, and input index.  The flags modify the behavior of the script
 // engine according to the description provided by each flag.
 func NewEngine(scriptPubKey []byte, tx *protos.MsgTx, txIdx int, flags ScriptFlags,
-	inputAmount int64, assets *protos.Assets, height int32) (*Engine, error) {
+	inputAmount int64, assets *protos.Asset, height int32) (*Engine, error) {
 
 	// The provided transaction input index must refer to a valid input.
 	if txIdx < 0 || txIdx >= len(tx.TxIn) {
@@ -726,7 +710,7 @@ func NewEngine(scriptPubKey []byte, tx *protos.MsgTx, txIdx int, flags ScriptFla
 
 	vm.tx = *tx
 	vm.txIdx = txIdx
-	vm.assets = assets
+	vm.asset = assets
 
 	return &vm, nil
 }

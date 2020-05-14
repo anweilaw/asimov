@@ -60,7 +60,7 @@ func TestHaveBlock(t *testing.T) {
 		var frokBlock *asiutil.Block
 		if i == (orphanBlkHeightIdx - 1) {
 			block, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
-				uint16(curSlot), chain.bestChain.height(), protos.Assets{0, 0}, 0,
+				uint16(curSlot), chain.bestChain.height(), protos.Asset{0, 0}, 0,
 				validators[curSlot], nil, 0, chain.bestChain.tip())
 			if err != nil {
 				t.Errorf("create block error %v", err)
@@ -72,7 +72,7 @@ func TestHaveBlock(t *testing.T) {
 		} else {
 			//create block:
 			block, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
-				uint16(curSlot), chain.bestChain.height(), protos.Assets{0, 0}, 0,
+				uint16(curSlot), chain.bestChain.height(), protos.Asset{0, 0}, 0,
 				validators[curSlot], nil, 0, chain.bestChain.tip())
 			if err != nil {
 				t.Errorf("create block error %v", err)
@@ -80,7 +80,7 @@ func TestHaveBlock(t *testing.T) {
 
 			if i == int(forkBlkHeightIdx - 1) {
 				frokBlock, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
-					uint16(curSlot), chain.bestChain.height(), protos.Assets{0, 0}, 0,
+					uint16(curSlot), chain.bestChain.height(), protos.Asset{0, 0}, 0,
 					validators[curSlot], nil, int32(i+1), chain.bestChain.tip())
 				if err != nil {
 					t.Errorf("create block error %v", err)
@@ -750,12 +750,12 @@ func TestReorganizeChain(t *testing.T) {
 					break
 				}
 			}
-			normalTx, _ := chain.createNormalTx(parivateKeyList[index], protos.Assets{0, 0}, *validators[0],
+			normalTx, _ := chain.createNormalTx(parivateKeyList[index], protos.Asset{0, 0}, *validators[0],
 			2000000000, 5000000, 100000, nil)
 			normalTxList = append(normalTxList, normalTx)
 		}
 		block, _, err := createAndSignBlock(netParam, accList, validators, filters, chain, epoch, slot, int32(i),
-			protos.Assets{0, 0}, 0, validators[slot], normalTxList,
+			protos.Asset{0, 0}, 0, validators[slot], normalTxList,
 			0, chain.bestChain.tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
@@ -788,7 +788,7 @@ func TestReorganizeChain(t *testing.T) {
 				}
 			}
 			sideChainBlock, sideChainNode, err := createAndSignBlock(netParam, accList, tmpValidator, tmpFilters,
-				chain, tmpEpoch, tmpSlotIndex, int32(i), protos.Assets{0,0}, 0,
+				chain, tmpEpoch, tmpSlotIndex, int32(i), protos.Asset{0,0}, 0,
 				tmpValidator[tmpSlotIndex],nil,int32(i+1),sideChainBestNode)
 			if err != nil {
 				t.Errorf("create block error %v", err)
@@ -831,7 +831,7 @@ func TestReorganizeChain(t *testing.T) {
 		var prevOuts *[]protos.OutPoint
 		node1, _ := chain.GetNodeByHeight(1)
 		coinbaseAddr := node1.coinbase
-		prevOuts, err = chain.fetchUtxoViewByAddressAndAsset(view, coinbaseAddr[:], &protos.Assets{0, 0})
+		prevOuts, err = chain.fetchUtxoViewByAddressAndAsset(view, coinbaseAddr[:], &protos.Asset{0, 0})
 		if err != nil {
 			t.Errorf("FetchUtxoViewByAddressAndAsset error %v", err)
 		}
@@ -862,7 +862,7 @@ func TestConnectTransactions(t *testing.T) {
 	weight := filters[*validators[0]]
 	validatorPrivateKey := parivateKeyList[0]
 
-	var testAsset = []protos.Assets{
+	var testAsset = []protos.Asset{
 		{0, 0},
 		{1, 1},
 	}
@@ -908,12 +908,12 @@ func TestConnectTransactions(t *testing.T) {
 		blocks = append(blocks, block)
 	}
 
-	//test spend divisible assets tx:--------------------------------------------------
-	normalTx, _ := chain.createNormalTx(validatorPrivateKey, protos.Assets{0, 0}, *validators[0],
+	//test spend divisible asset tx:--------------------------------------------------
+	normalTx, _ := chain.createNormalTx(validatorPrivateKey, protos.Asset{0, 0}, *validators[0],
 	2000000000, 5000000, 100000, nil)
 	normalTxList := make([]*asiutil.Tx, 0)
 	normalTxList = append(normalTxList, normalTx)
-	block2, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
+	block2, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Asset{0, 0},
 		0, validators[2], normalTxList, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -922,7 +922,7 @@ func TestConnectTransactions(t *testing.T) {
 	block2.MsgBlock().Header.GasUsed = gasUsed
 	block2.MsgBlock().Header.StateRoot = *stateRoot
 
-	//test spend indivisible assets tx:------------------------------------------------
+	//test spend indivisible asset tx:------------------------------------------------
 	view := NewUtxoViewpoint()
 	var prevOuts *[]protos.OutPoint
 	prevOuts, err = chain.FetchUtxoViewByAddressAndAsset(view, validators[0].ScriptAddress(), &testAsset[1])
@@ -934,7 +934,7 @@ func TestConnectTransactions(t *testing.T) {
 		0, 100000, &usePreOut)
 	inDivTxList := make([]*asiutil.Tx, 0)
 	inDivTxList = append(inDivTxList, inDivTx)
-	block3, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
+	block3, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Asset{0, 0},
 		0, validators[2], inDivTxList, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -950,7 +950,7 @@ func TestConnectTransactions(t *testing.T) {
 	}
 	siguUpTxList := make([]*asiutil.Tx, 0)
 	siguUpTxList = append(siguUpTxList, siguUpTx)
-	block4, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
+	block4, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Asset{0, 0},
 		0, validators[2], siguUpTxList, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -962,14 +962,14 @@ func TestConnectTransactions(t *testing.T) {
 	//test error tx:
 	inputNormalTx2 := []int64{20000010, 20000020}
 	outputNormalTx2 := []int64{20000010, 20000020}
-	inputAssetListTx2 := []*protos.Assets{&testAsset[0], &testAsset[1]}
+	inputAssetListTx2 := []*protos.Asset{&testAsset[0], &testAsset[1]}
 	outputAssetListTx2 := inputAssetListTx2
 	errTxMsg, _, _, err := createTestTx(validatorPrivateKey, payAddrPkScript, payAddrPkScript,
 		100000, inputNormalTx2, inputAssetListTx2, outputNormalTx2, outputAssetListTx2)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
-	block5, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Assets{0, 0},
+	block5, err := createTestBlock(chain, uint32(1), uint16(2), 0, protos.Asset{0, 0},
 		0, validators[2], nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -1015,7 +1015,7 @@ func TestConnectTransactions(t *testing.T) {
 		var receipts types.Receipts
 		var allLogs []*types.Log
 		var msgvblock protos.MsgVBlock
-		var feeLockItems map[protos.Assets]*txo.LockItem
+		var feeLockItems map[protos.Asset]*txo.LockItem
 		gasUsed = uint64(0)
 		view = NewUtxoViewpoint()
 		view.SetBestHash(&chain.bestChain.tip().hash)

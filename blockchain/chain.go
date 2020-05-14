@@ -564,7 +564,7 @@ func (b *BlockChain) getReorganizeNodes(node *blockNode) (*list.List, *list.List
 func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 	view *UtxoViewpoint, stxos []SpentTxOut, vblock *asiutil.VBlock,
 	stateDB *state.StateDB, receipts types.Receipts, allLogs []*types.Log,
-	feeLockItems map[protos.Assets]*txo.LockItem) error {
+	feeLockItems map[protos.Asset]*txo.LockItem) error {
 
 	// Make sure it's extending the end of the best chain.
 	prevHash := &block.MsgBlock().Header.PrevBlock
@@ -582,7 +582,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 			if feeLockItems != nil && txOut.Value > 0 {
 				prevOut.Index = uint32(txOutIdx)
 				var lockItem *txo.LockItem
-				if item, ok := feeLockItems[txOut.Assets]; ok {
+				if item, ok := feeLockItems[txOut.Asset]; ok {
 					lockItem = item.Clone()
 					for id, entry := range lockItem.Entries {
 						if entry.Amount > txOut.Value {
@@ -598,7 +598,6 @@ func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 		}
 	}
 
-	//assets
 	vtxSpentNum := countVtxSpentOutpus(vblock)
 	spentNum := countSpentOutputs(block)
 	if len(stxos) != spentNum+vtxSpentNum {
@@ -735,8 +734,8 @@ func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 	// The caller would typically want to react with actions such as
 	// updating wallets.
 	b.chainLock.Unlock()
-	data := []interface{}{block, vblock}
-	b.sendNotification(NTBlockConnected, &data)
+	data := []interface{}{block, vblock, node}
+	b.sendNotification(NTBlockConnected, data)
 	b.updateFees(block)
 	b.chainLock.Lock()
 
@@ -885,7 +884,7 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *asiutil.Block, view
 	// chain.  The caller would typically want to react with actions such as
 	// updating wallets.
 	b.chainLock.Unlock()
-	b.sendNotification(NTBlockDisconnected, []interface{}{block, vblock})
+	b.sendNotification(NTBlockDisconnected, []interface{}{block, vblock, node.parent})
 	b.chainLock.Lock()
 
 	return nil
@@ -1243,7 +1242,7 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	return nil
 }
 
-func (b *BlockChain) sendFee(fees map[protos.Assets]int32) {
+func (b *BlockChain) sendFee(fees map[protos.Asset]int32) {
 	b.feesChan <- fees
 }
 
@@ -1255,7 +1254,7 @@ func (b *BlockChain) updateFees(block *asiutil.Block) {
 		log.Errorf("handleBlockPersistCompleted GetFees error:", err)
 		return
 	}
-	fees[asiutil.FlowCoinAsset] = 0
+	fees[asiutil.AsimovAsset] = 0
 
 	select {
 	case <-b.feesChan:
@@ -1337,7 +1336,7 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 		var receipts types.Receipts
 		var allLogs []*types.Log
 		var msgvblock protos.MsgVBlock
-		var feeLockItems map[protos.Assets]*txo.LockItem
+		var feeLockItems map[protos.Asset]*txo.LockItem
 		if !fastAdd {
 			receipts, allLogs, feeLockItems, err = b.checkConnectBlock(node, block, view, &stxos, &msgvblock, stateDB, feepool)
 			if err == nil {
@@ -1455,12 +1454,12 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 // append an entry for each spent txout.
 func (b *BlockChain) connectTransactions(view *UtxoViewpoint, block *asiutil.Block, stxos *[]SpentTxOut,
 	msgvblock *protos.MsgVBlock, statedb *state.StateDB) (
-	types.Receipts, []*types.Log, error, uint64, map[protos.Assets]*txo.LockItem) {
+	types.Receipts, []*types.Log, error, uint64, map[protos.Asset]*txo.LockItem) {
 
 	var (
 		receipts          types.Receipts
 		allLogs           []*types.Log
-		totalFeeLockItems map[protos.Assets]*txo.LockItem
+		totalFeeLockItems map[protos.Asset]*txo.LockItem
 	)
 	totalGasUsed := uint64(0)
 	for i, tx := range block.Transactions() {
@@ -1504,7 +1503,7 @@ func (b *BlockChain) connectTransactions(view *UtxoViewpoint, block *asiutil.Blo
 // view does not contain the required utxos.
 func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *UtxoViewpoint, tx *asiutil.Tx,
 	stxos *[]SpentTxOut, stateDB *state.StateDB, fee int64) (
-	receipt *types.Receipt, err error, gasUsed uint64, vtx *protos.MsgTx, feeLockItems map[protos.Assets]*txo.LockItem) {
+	receipt *types.Receipt, err error, gasUsed uint64, vtx *protos.MsgTx, feeLockItems map[protos.Asset]*txo.LockItem) {
 
 	scriptClass := txscript.NonStandardTy
 	txbaseGas := uint64(tx.MsgTx().SerializeSize() * common.GasPerByte)
@@ -1588,7 +1587,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 				PkScript:   entry.PkScript(),
 				Height:     entry.BlockHeight(),
 				IsCoinBase: entry.IsCoinBase(),
-				Assets:     entry.Assets(),
+				Asset:      entry.Asset(),
 			}
 			*stxos = append(*stxos, stxo)
 		}
@@ -1784,7 +1783,7 @@ func (b *BlockChain) connectVTX(view *UtxoViewpoint, vtx *asiutil.Tx, height int
 		// never happen unless there is a bug is introduced in the code.
 		isVtxMint := asiutil.IsMintOrCreateInput(txIn)
 		if isVtxMint {
-			log.Info("mint assets.!!!")
+			log.Info("mint asset.!!!")
 			continue
 		}
 		entry := view.entries[txIn.PreviousOutPoint]
@@ -1796,7 +1795,7 @@ func (b *BlockChain) connectVTX(view *UtxoViewpoint, vtx *asiutil.Tx, height int
 				PkScript:   entry.PkScript(),
 				Height:     entry.BlockHeight(),
 				IsCoinBase: entry.IsCoinBase(),
-				Assets:     entry.Assets(),
+				Asset:      entry.Asset(),
 			}
 			*stxos = append(*stxos, stxo)
 		}
@@ -1837,7 +1836,7 @@ func (b *BlockChain) connectContract(
 		voteValue = func() int64 {
 			id := pickVoteArgument(out.Data)
 			voteId := txo.NewVoteId(targetContractAddr, id)
-			return getVoteValue(view, tx, voteId, &out.Assets)
+			return getVoteValue(view, tx, voteId, &out.Asset)
 		}
 	}
 
@@ -1851,7 +1850,7 @@ func (b *BlockChain) connectContract(
 	case txscript.VoteTy:
 		fallthrough
 	case txscript.CallTy:
-		leftOverGas, snapshot, err = b.executeContract(vmenv, caller, targetContractAddr, out.Data, &out.Assets, out.Value, leftOverGas)
+		leftOverGas, snapshot, err = b.executeContract(vmenv, caller, targetContractAddr, out.Data, &out.Asset, out.Value, leftOverGas)
 		if err != nil {
 			return
 		}
@@ -1894,11 +1893,11 @@ func (b *BlockChain) connectContractRollback(
 func (b *BlockChain) executeContract(
 	vmenv *vm.FVM,
 	callerAddr, contractAddr common.Address,
-	data []byte, assets *protos.Assets,
+	data []byte, asset *protos.Asset,
 	value int64,
 	gasLimit uint64) (leftOverGas uint64, snapshot int, err error) {
 	t1 := time.Now()
-	_, leftOverGas, snapshot, err = vmenv.Call(vm.AccountRef(callerAddr), contractAddr, data, gasLimit, big.NewInt(value), assets, false)
+	_, leftOverGas, snapshot, err = vmenv.Call(vm.AccountRef(callerAddr), contractAddr, data, gasLimit, big.NewInt(value), asset, false)
 	t2 := time.Now()
 
 	log.Trace("contract exec result:", leftOverGas, (t2.Nanosecond()-t1.Nanosecond())/1000000)
@@ -1940,7 +1939,7 @@ func (b *BlockChain) createContract(
 
 	t1 := time.Now()
 	// append(byteCode, constructor...) concat in Create
-	_, newAddr, leftOverGas, snapshot, err = vmenv.Create(vm.AccountRef(callerAddr), byteCode, leftOverGas, big.NewInt(out.Value), &out.Assets, inputHash, constructor, false)
+	_, newAddr, leftOverGas, snapshot, err = vmenv.Create(vm.AccountRef(callerAddr), byteCode, leftOverGas, big.NewInt(out.Value), &out.Asset, inputHash, constructor, false)
 	if err != nil {
 		errStr := fmt.Sprint("create contract error ", err)
 		err = ruleError(ErrFailedCreateContract, errStr)
@@ -1948,7 +1947,7 @@ func (b *BlockChain) createContract(
 	}
 
 	// Init Template
-	err, leftOverGas = b.InitTemplate(category, templateName, newAddr, leftOverGas, &out.Assets, vmenv)
+	err, leftOverGas = b.InitTemplate(category, templateName, newAddr, leftOverGas, &out.Asset, vmenv)
 	if err != nil {
 		errStr := fmt.Sprint("init template error ", category, templateName, newAddr, err)
 		err = ruleError(ErrFailedInitTemplate, errStr)
@@ -1979,7 +1978,7 @@ func (b *BlockChain) commitTemplateContract(
 	createFunc := common.ContractTemplateWarehouse_CreateFunction()
 	runCode, err := fvm.PackFunctionArgs(createTemplateABI, createFunc, category, string(templateName), tx.Hash())
 
-	_, leftOverGas, snapshot, err = vmenv.Call(vm.AccountRef(callerAddr), createTemplateAddr, runCode, gasLimit, big.NewInt(out.Value), &out.Assets, false)
+	_, leftOverGas, snapshot, err = vmenv.Call(vm.AccountRef(callerAddr), createTemplateAddr, runCode, gasLimit, big.NewInt(out.Value), &out.Asset, false)
 	if err != nil {
 		errStr := fmt.Sprint("create template error:" + err.Error() + "," + tx.Hash().String())
 		err = ruleError(ErrFailedCreateTemplate, errStr)
@@ -2005,7 +2004,7 @@ func (b *BlockChain) checkAssetForbidden(
 			continue
 		}
 
-		limit := b.contractManager.IsLimit(block, stateDB, utxo.Assets())
+		limit := b.contractManager.IsLimit(block, stateDB, utxo.Asset())
 		if limit <= 0 {
 			continue
 		}
@@ -2015,14 +2014,14 @@ func (b *BlockChain) checkAssetForbidden(
 			str := fmt.Sprintf("checkAssetForbidden: can not extract utxo pkScript: %v", err)
 			return ruleError(ErrInvalidPkScript, str)
 		}
-		key := utxo.Assets().String() + string(addrBytes)
+		key := utxo.Asset().String() + string(addrBytes)
 		if _, ok := assetsCache[key]; ok {
 			continue
 		}
-		support, _ := b.contractManager.IsSupport(block, stateDB, common.SupportCheckGas, utxo.Assets(), addrBytes)
+		support, _ := b.contractManager.IsSupport(block, stateDB, common.SupportCheckGas, utxo.Asset(), addrBytes)
 		if !support {
-			str := fmt.Sprintf("checkAssetForbidden: assets %v forbid utxo %v", utxo.Assets(), addrBytes)
-			return ruleError(ErrForbiddenAssets, str)
+			str := fmt.Sprintf("checkAssetForbidden: asset %v forbid utxo %v", utxo.Asset(), addrBytes)
+			return ruleError(ErrForbiddenAsset, str)
 		}
 		assetsCache[key] = struct{}{}
 	}
@@ -2031,35 +2030,35 @@ func (b *BlockChain) checkAssetForbidden(
 		if txout.Value == 0 {
 			continue
 		}
-		limit := b.contractManager.IsLimit(block, stateDB, &txout.Assets)
+		limit := b.contractManager.IsLimit(block, stateDB, &txout.Asset)
 		if limit <= 0 {
 			continue
 		}
 		addrBytes, err := pkScriptToAddr(txout.PkScript)
 		if err != nil {
 			if i == 0 && scriptClass == txscript.CreateTy {
-				str := fmt.Sprintf("checkAssetForbidden: assets %v forbid to create ty", txout.Assets)
-				return ruleError(ErrForbiddenAssets, str)
+				str := fmt.Sprintf("checkAssetForbidden: asset %v forbid to create ty", txout.Asset)
+				return ruleError(ErrForbiddenAsset, str)
 			} else {
 				str := fmt.Sprintf("checkAssetForbidden: can not extract out pkScript: %v",err)
 				return ruleError(ErrInvalidPkScript, str)
 			}
 		}
-		key := txout.Assets.String() + string(addrBytes)
+		key := txout.Asset.String() + string(addrBytes)
 		if _, ok := assetsCache[key]; ok {
 			continue
 		}
-		support, _ := b.contractManager.IsSupport(block, stateDB, common.SupportCheckGas, &txout.Assets, addrBytes)
+		support, _ := b.contractManager.IsSupport(block, stateDB, common.SupportCheckGas, &txout.Asset, addrBytes)
 		if !support {
-			str := fmt.Sprintf("checkAssetForbidden: assets %v forbid out %v", txout.Assets, addrBytes)
-			return ruleError(ErrForbiddenAssets, str)
+			str := fmt.Sprintf("checkAssetForbidden: asset %v forbid out %v", txout.Asset, addrBytes)
+			return ruleError(ErrForbiddenAsset, str)
 		}
 		assetsCache[key] = struct{}{}
 	}
 	return nil
 }
 
-//validate the assets in the tx.
+// validate asset in the tx.
 func (b *BlockChain) CheckTransferValidate(
 	stateDB *state.StateDB,
 	vtx *virtualtx.VirtualTransaction,
@@ -2072,36 +2071,36 @@ func (b *BlockChain) CheckTransferValidate(
 		if transfer.Amount == 0 {
 			continue
 		}
-		limit := b.contractManager.IsLimit(block, stateDB, transfer.Assets)
+		limit := b.contractManager.IsLimit(block, stateDB, transfer.Asset)
 		if limit <= 0 {
 			continue
 		}
-		key := transfer.Assets.String() + string(transfer.From)
+		key := transfer.Asset.String() + string(transfer.From)
 		if transfer.VTransferType == virtualtx.VTransferTypeNormal {
 			if _, ok := assetsCache[key]; ok {
 				continue
 			}
-			support, leftOverGas = b.contractManager.IsSupport(block, stateDB, gasLimit, transfer.Assets, transfer.From)
+			support, leftOverGas = b.contractManager.IsSupport(block, stateDB, gasLimit, transfer.Asset, transfer.From)
 			if !support {
-				str := fmt.Sprintf("assets %v are forbidden to transferAssets from address %v: it is limited to use as txIn", transfer.Assets, transfer.From)
-				return leftOverGas, ruleError(ErrForbiddenAssets, str)
+				str := fmt.Sprintf("asset %v are forbidden to transferAsset from address %v: it is limited to use as txIn", transfer.Asset, transfer.From)
+				return leftOverGas, ruleError(ErrForbiddenAsset, str)
 			}
 		}
-		key = transfer.Assets.String() + string(transfer.To)
+		key = transfer.Asset.String() + string(transfer.To)
 		if _, ok := assetsCache[key]; ok {
 			continue
 		}
-		support, leftOverGas = b.contractManager.IsSupport(block, stateDB, leftOverGas, transfer.Assets, transfer.To)
+		support, leftOverGas = b.contractManager.IsSupport(block, stateDB, leftOverGas, transfer.Asset, transfer.To)
 		if !support {
-			str := fmt.Sprintf("assets %v are forbidden to transferAssets to address %v: it is limited to use as txOut", transfer.Assets, transfer.To)
-			return leftOverGas, ruleError(ErrForbiddenAssets, str)
+			str := fmt.Sprintf("asset %v are forbidden to transferAsset to address %v: it is limited to use as txOut", transfer.Asset, transfer.To)
+			return leftOverGas, ruleError(ErrForbiddenAsset, str)
 		}
 	}
 
 	return leftOverGas, nil
 }
 
-// GenVtxMsg process createAssets, addAssets, transferAssets
+// GenVtxMsg process createAsset, addAsset, transferAsset
 func (b *BlockChain) GenVtxMsg(
 	block *asiutil.Block,
 	view *UtxoViewpoint,
@@ -2123,13 +2122,13 @@ func (b *BlockChain) GenVtxMsg(
 
 	//sorted, keep all peers the same order.
 	assetsKeys := make(asiutil.AssetsList, 0, len(transferInfos))
-	for assets, _ := range transferInfos {
-		assetsKeys = append(assetsKeys, assets)
+	for asset, _ := range transferInfos {
+		assetsKeys = append(assetsKeys, asset)
 	}
 	sort.Sort(assetsKeys)
 
-	for _, assets := range assetsKeys {
-		transferInfo := transferInfos[assets]
+	for _, asset := range assetsKeys {
+		transferInfo := transferInfos[asset]
 		if transferInfo.Mint {
 			//make sure there's only one TransferCreationOut in the virtual tx.
 			has := false
@@ -2158,10 +2157,10 @@ func (b *BlockChain) GenVtxMsg(
 					if err != nil {
 						return txMsg, err
 					}
-					txMsg.AddTxOut(protos.NewTxOut(amount, pkScript, assets))
+					txMsg.AddTxOut(protos.NewTxOut(amount, pkScript, asset))
 				} else if amount < 0 { // outcome
 					amount = -amount
-					outs, err := b.fetchAssetBalance(block, view, addr, &assets)
+					outs, err := b.fetchAssetBalance(block, view, addr, &asset)
 					if err != nil {
 						return txMsg, err
 					}
@@ -2171,15 +2170,15 @@ func (b *BlockChain) GenVtxMsg(
 						if filled >= amount {
 							break
 						}
-						filled, err = b.tryUseOneOut(view, txMsg, out, addr, &assets, amount, filled, mintsig)
+						filled, err = b.tryUseOneOut(view, txMsg, out, addr, &asset, amount, filled, mintsig)
 						if err != nil {
 							return txMsg, err
 						}
 					}
 
 					if filled < amount {
-						log.Error("transferAssets: not enough coin")
-						errStr := fmt.Sprintf("transferAssets: not enough coin")
+						log.Error("transferAsset: not enough coin")
+						errStr := fmt.Sprintf("transferAsset: not enough coin")
 						return txMsg, ruleError(ErrSpendTooHigh, errStr)
 					}
 				}
@@ -2200,24 +2199,24 @@ func (b *BlockChain) GenVtxMsg(
 						if err != nil {
 							return txMsg, err
 						}
-						txMsg.AddTxOut(protos.NewTxOut(voucherId, pkScript, assets))
+						txMsg.AddTxOut(protos.NewTxOut(voucherId, pkScript, asset))
 
 					} else if voucherId < 0 {
 						voucherId = -voucherId
-						outs, err := b.fetchAssetBalance(block, view, addr, &assets)
+						outs, err := b.fetchAssetBalance(block, view, addr, &asset)
 						if err != nil {
 							return txMsg, err
 						}
 
 						hasVoucherId := false
 						for _, out := range outs {
-							if hasVoucherId = b.tryAddToTxin(view, txMsg, out, addr, &assets, voucherId, mintsig); hasVoucherId {
+							if hasVoucherId = b.tryAddToTxin(view, txMsg, out, addr, &asset, voucherId, mintsig); hasVoucherId {
 								break
 							}
 						}
 
 						if !hasVoucherId {
-							errStr := fmt.Sprintf("handle the erc721 transfer error: no voucherId for assets to transfer.")
+							errStr := fmt.Sprintf("handle the erc721 transfer error: no voucherId for asset to transfer.")
 							return txMsg, ruleError(ErrBadTxOutValue, errStr)
 						}
 					}
@@ -2260,10 +2259,10 @@ func (b *BlockChain) FilterPackagedSignatures(signList []*asiutil.BlockSign) []*
 func (b *BlockChain) GenRollbackMsg(view *UtxoViewpoint, tx *asiutil.Tx) (*protos.MsgTx, error) {
 	txMsg := protos.NewMsgTx(0)
 
-	assetsmap := make(map[protos.Assets]int64)
+	assetsmap := make(map[protos.Asset]int64)
 	for idx, txout := range tx.MsgTx().TxOut {
 		if txout.Value > 0 {
-			assetsmap[txout.Assets] += txout.Value
+			assetsmap[txout.Asset] += txout.Value
 			//add sig to extinct the virtual tx from different contract calls.
 			sig, err := txscript.NewScriptBuilder().AddOp(txscript.OP_SPEND).AddData(tx.Hash().Bytes()).Script()
 			if err != nil {
@@ -2286,7 +2285,7 @@ func (b *BlockChain) GenRollbackMsg(view *UtxoViewpoint, tx *asiutil.Tx) (*proto
 			return txMsg, ruleError(ErrMissingTxOut, errStr)
 		}
 		pkscript := entry.PkScript()
-		assets := entry.Assets()
+		assets := entry.Asset()
 		if amount, exist := assetsmap[*assets]; exist {
 			if amount > entry.Amount() {
 				assetsmap[*assets] -= entry.Amount()
@@ -2303,13 +2302,13 @@ func (b *BlockChain) GenRollbackMsg(view *UtxoViewpoint, tx *asiutil.Tx) (*proto
 
 // spend one utxo for virutal tx.
 func (b *BlockChain) tryAddToTxin(view *UtxoViewpoint, txMsg *protos.MsgTx, out protos.OutPoint,
-	addr common.Address, assets *protos.Assets, voucherId int64, mintsig []byte) bool {
+	addr common.Address, assets *protos.Asset, voucherId int64, mintsig []byte) bool {
 	entry := view.LookupEntry(out)
 	if entry == nil || entry.IsSpent() {
 		return false
 	}
 
-	if entry.Amount() == voucherId && entry.Assets().Equal(assets) {
+	if entry.Amount() == voucherId && entry.Asset().Equal(assets) {
 		newOutPoint := protos.OutPoint{}
 		newOutPoint.Hash.SetBytes(out.Hash[:])
 		newOutPoint.Index = out.Index
@@ -2323,7 +2322,7 @@ func (b *BlockChain) tryAddToTxin(view *UtxoViewpoint, txMsg *protos.MsgTx, out 
 // spend one utxo for virutal tx.
 // if the amount of utxo is larger than needed, generate a change.
 func (b *BlockChain) tryUseOneOut(view *UtxoViewpoint, txMsg *protos.MsgTx, out protos.OutPoint,
-	addr common.Address, assets *protos.Assets, amount int64, filled int64, mintsig []byte) (int64, error) {
+	addr common.Address, assets *protos.Asset, amount int64, filled int64, mintsig []byte) (int64, error) {
 	entry := view.LookupEntry(out)
 	if entry == nil || entry.IsSpent() {
 		return filled, nil
@@ -2335,7 +2334,7 @@ func (b *BlockChain) tryUseOneOut(view *UtxoViewpoint, txMsg *protos.MsgTx, out 
 		}
 	}
 
-	if entry.Assets().Equal(assets) {
+	if entry.Asset().Equal(assets) {
 		newOutPoint := protos.OutPoint{}
 		newOutPoint.Hash.SetBytes(out.Hash[:])
 		newOutPoint.Index = out.Index
@@ -3146,11 +3145,11 @@ func DecodeTemplateContractData(data []byte) (uint16, []byte, []byte, []byte, []
 
 // get the vote value of current vote.
 // this method is only invoked when the method is in vote tx.
-func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, assets *protos.Assets) int64 {
+func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset *protos.Asset) int64 {
 	if view == nil {
 		return 0
 	}
-	if assets.IsIndivisible() {
+	if asset.IsIndivisible() {
 		return 0
 	}
 	usedvalue := int64(0)
@@ -3159,7 +3158,7 @@ func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset
 		if utxo == nil {
 			continue
 		}
-		if !utxo.Assets().Equal(assets) {
+		if !utxo.Asset().Equal(asset) {
 			continue
 		}
 		if utxo.LockItem() == nil || utxo.LockItem().Entries == nil {
@@ -3172,7 +3171,7 @@ func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset
 
 	value := int64(0)
 	for _, txOut := range tx.MsgTx().TxOut {
-		if !txOut.Assets.Equal(assets) {
+		if !txOut.Asset.Equal(asset) {
 			continue
 		}
 		value += txOut.Value
@@ -3187,7 +3186,7 @@ func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset
 // rules of a particular engine. The changes are executed inline.
 // This method will lock the chain, and it will be released in Commit or Rollback method.
 func (b *BlockChain) Prepare(header *protos.BlockHeader, gasFloor, gasCeil uint64) (
-	stateDB *state.StateDB, feepool map[protos.Assets]int32, contractOut *protos.TxOut, err error) {
+	stateDB *state.StateDB, feepool map[protos.Asset]int32, contractOut *protos.TxOut, err error) {
 	b.chainLock.RLock()
 	parent := b.GetTip()
 	if parent.Round() > header.Round || (parent.Round() == header.Round && parent.slot >= header.SlotIndex) {

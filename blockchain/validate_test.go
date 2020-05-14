@@ -35,7 +35,7 @@ func TestIsCoinBaseTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	preOutNilTx := &protos.MsgTx{
@@ -43,7 +43,7 @@ func TestIsCoinBaseTx(t *testing.T) {
 			protos.NewTxIn(&protos.OutPoint{}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -54,7 +54,7 @@ func TestIsCoinBaseTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	preOutIdxTx := &protos.MsgTx{
@@ -64,7 +64,7 @@ func TestIsCoinBaseTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestIsCoinBaseTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -127,7 +127,7 @@ func TestIsTransferCreateOrMintTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	preOutNilTx := &protos.MsgTx{
@@ -135,7 +135,7 @@ func TestIsTransferCreateOrMintTx(t *testing.T) {
 			protos.NewTxIn(&protos.OutPoint{}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -146,7 +146,7 @@ func TestIsTransferCreateOrMintTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	preOutIdxTx := &protos.MsgTx{
@@ -156,7 +156,7 @@ func TestIsTransferCreateOrMintTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -167,7 +167,7 @@ func TestIsTransferCreateOrMintTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	transferMintTx := &protos.MsgTx{
@@ -177,7 +177,7 @@ func TestIsTransferCreateOrMintTx(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -231,7 +231,7 @@ func TestIsFinalizedTransaction(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   0,
@@ -245,7 +245,7 @@ func TestIsFinalizedTransaction(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   123,
@@ -259,7 +259,7 @@ func TestIsFinalizedTransaction(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   1234567890,
@@ -276,7 +276,7 @@ func TestIsFinalizedTransaction(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   3234567890,
@@ -295,7 +295,7 @@ func TestIsFinalizedTransaction(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   3234567890,
@@ -359,7 +359,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 		TxIn: []*protos.TxIn {
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   123,
@@ -374,7 +374,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract: protos.TxContract{21000},
 		LockTime:   0,
@@ -384,7 +384,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 		Index:protos.MaxPrevOutIndex-2,
 	}, nil)
 	tmpTxIn.Sequence = 123456
-	tmpTxOut := protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset)
+	tmpTxOut := protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset)
 	tmpTxOut.Data = []byte{0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,}
 	for k:=0; k<30000; k++ {
 		maxSerializeTx.TxIn = append(maxSerializeTx.TxIn,tmpTxIn)
@@ -400,7 +400,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(-1, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(-1, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -413,7 +413,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(common.MaxXing+1, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(common.MaxXing+1, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -426,10 +426,10 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Assets{1,0}),
-			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Assets{1,0}),
-			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Assets{0,0}),
-			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Assets{0,0}),
+			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Asset{1,0}),
+			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Asset{1,0}),
+			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Asset{0,0}),
+			protos.NewTxOut(common.MaxXing-1, []byte{txscript.OP_1}, protos.Asset{0,0}),
 		},
 	}
 
@@ -446,7 +446,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(123456, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(123456, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -459,7 +459,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(123456, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(123456, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -476,7 +476,7 @@ func TestCheckTransactionSanity(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(123456, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(123456, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 		TxContract:protos.TxContract{
 			GasLimit:1000000,
@@ -547,7 +547,7 @@ func TestCountP2SHSigOps(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	coinbaseView := NewUtxoViewpoint()
@@ -559,7 +559,7 @@ func TestCountP2SHSigOps(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	noUtxoView := NewUtxoViewpoint()
@@ -574,7 +574,7 @@ func TestCountP2SHSigOps(t *testing.T) {
 				[]byte{0x04, 0x31, 0xdc, 0x00, 0x1b, 0x01, 0x62},),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 	hasUtxoView := NewUtxoViewpoint()
@@ -583,14 +583,14 @@ func TestCountP2SHSigOps(t *testing.T) {
 		nil,
 		0,
 		false,
-		&asiutil.FlowCoinAsset,
+		&asiutil.AsimovAsset,
 		nil)
 	hasUtxoView.entries[hasUtxoTx.TxIn[1].PreviousOutPoint] = txo.NewUtxoEntry(
 		300000000,
 		hexToBytes("a915731018853670f9f3b0582c5b9ee8ce93764ac32b93c4"),
 		0,
 		false,
-		&asiutil.FlowCoinAsset,
+		&asiutil.AsimovAsset,
 		nil)
 
 	tests := []struct {
@@ -653,7 +653,7 @@ func TestExtractCoinbaseHeight(t *testing.T) {
 			}, nil),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -664,7 +664,7 @@ func TestExtractCoinbaseHeight(t *testing.T) {
 			}, []byte{0x00}),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -676,7 +676,7 @@ func TestExtractCoinbaseHeight(t *testing.T) {
 			}, coinbaseScript),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -687,7 +687,7 @@ func TestExtractCoinbaseHeight(t *testing.T) {
 			}, []byte{0x03,0x02}),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -700,7 +700,7 @@ func TestExtractCoinbaseHeight(t *testing.T) {
 			}, coinbaseScript),
 		},
 		TxOut: []*protos.TxOut {
-			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.FlowCoinAsset),
+			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
 
@@ -872,7 +872,7 @@ func TestCheckBlockContext(t *testing.T) {
 	tmpAddress := tmpAcc.Address
 
 	//create empty block: checkBlockHeaderContext error:
-	timestampErrBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
+	timestampErrBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Asset{0,0},
 	0, tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -880,7 +880,7 @@ func TestCheckBlockContext(t *testing.T) {
 	timestampErrBlock.MsgBlock().Header.Timestamp = time.Now().Unix() + 1000
 
 	//not validator:
-	notValidatorBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
+	notValidatorBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Asset{0,0},
 	0, tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -894,7 +894,7 @@ func TestCheckBlockContext(t *testing.T) {
 		coinBaseAddr = tmpAddress
 	}
 	//signature error:
-	signatureErrBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
+	signatureErrBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Asset{0,0},
 	0, coinBaseAddr,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -960,7 +960,7 @@ func TestCheckSignatures(t *testing.T) {
 	tmpAddress := tmpAcc.Address
 
 	//signature error:
-	emptyBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
+	emptyBlock, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Asset{0,0},
 	0, tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -1080,7 +1080,7 @@ func TestCheckSignaturesWeight(t *testing.T) {
 	validators, filters, _ := chain.GetValidatorsByNode(1,genesisNode)
 
 	// check block coinbase addr:
-	CoinbaseAddrErrblock, err := createTestBlock(chain,1, 0, 0, protos.Assets{0,0},
+	CoinbaseAddrErrblock, err := createTestBlock(chain,1, 0, 0, protos.Asset{0,0},
 	0,tmpAddress,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("create block error %v", err)
@@ -1109,7 +1109,7 @@ func TestCheckSignaturesWeight(t *testing.T) {
 
 	//preSign blockHeight is too small: The max height depth is 10
 	// check block coinbase addr:
-	sigHeightErrblock, err := createTestBlock(chain,1, 20, 20, protos.Assets{0,0},
+	sigHeightErrblock, err := createTestBlock(chain,1, 20, 20, protos.Asset{0,0},
 	0,validators[20],nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("create block error %v", err)
@@ -1149,7 +1149,7 @@ func TestCheckSignaturesWeight(t *testing.T) {
 	blockList := make([]*asiutil.Block,0)
 	//添加4个block到bestChain:
 	for i:=int32(0); i<4; i++ {
-		block, err := createTestBlock(chain,1, uint16(i), i, protos.Assets{0,0}, 0,
+		block, err := createTestBlock(chain,1, uint16(i), i, protos.Asset{0,0}, 0,
 		validators[i],nil,chain.bestChain.Tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
@@ -1500,7 +1500,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	bestNode0, _ := chain.GetNodeByHeight(best.Height)
 
 	//timeStamp check test:
-	errHeaderBlock, errHeaderErr := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
+	errHeaderBlock, errHeaderErr := createTestBlock(chain, uint32(1), 0, 0, protos.Asset{0,0},
 	500000000, tmpAcc.Address,nil,chain.bestChain.Tip())
 	if errHeaderErr != nil {
 		t.Errorf("create errHeaderBlock error %v", errHeaderErr)
@@ -1527,7 +1527,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	emptyBlock := asiutil.NewBlock(&msgBlock)
 
 	//first tx check test:
-	errCoinBaseBlock, errCoinbase := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
+	errCoinBaseBlock, errCoinbase := createTestBlock(chain, uint32(1), 0, 0, protos.Asset{0,0},
 	500000000, tmpAcc.Address,nil, chain.bestChain.Tip())
 	if errCoinbase != nil {
 		t.Errorf("create errCoinBaseBlock error %v", errCoinbase)
@@ -1537,7 +1537,7 @@ func TestCheckBlockSanity(t *testing.T) {
 
 	//PoaHash check test:
 	poaHashBlock, poaHashBlockErr := createTestBlock(chain, uint32(1), 0, 0,
-		protos.Assets{0,0},500000000, tmpAcc.Address,nil, chain.bestChain.Tip())
+		protos.Asset{0,0},500000000, tmpAcc.Address,nil, chain.bestChain.Tip())
 	if poaHashBlockErr != nil {
 		t.Errorf("create poaHashBlockErr error %v", poaHashBlockErr)
 	}
@@ -1557,11 +1557,11 @@ func TestCheckBlockSanity(t *testing.T) {
 	extraNonce := uint64(0)
 	coinbaseScript, err := StandardCoinbaseScript(best.Height + 1, extraNonce)
 	coinBaseTxTmp, _, _ := createTestCoinbaseTx(chaincfg.ActiveNetParams.Params,
-		coinbaseScript, best.Height + 1, tmpAcc.Address, protos.Assets{0,0},50000, nil)
+		coinbaseScript, best.Height + 1, tmpAcc.Address, protos.Asset{0,0},50000, nil)
 	coinBaseTxList := make([]*asiutil.Tx, 0)
 	coinBaseTxList = append(coinBaseTxList,coinBaseTxTmp)
 	dupCoinBaseBlock, dupCoinBaseBlockErr := createTestBlock(chain, uint32(1), 0, 0,
-		protos.Assets{0,0},500000000,
+		protos.Asset{0,0},500000000,
 		tmpAcc.Address,coinBaseTxList, chain.bestChain.Tip())
 	if dupCoinBaseBlockErr != nil {
 		t.Errorf("create dupCoinBaseBlockErr error %v", dupCoinBaseBlockErr)
@@ -1573,9 +1573,9 @@ func TestCheckBlockSanity(t *testing.T) {
 	//create txs for maxSizeBlock test:
 	for m:=0; m<10000; m++ {
 		inputAmountList := []int64{100000000}
-		inputAssetList := []*protos.Assets{{0,0}}
+		inputAssetList := []*protos.Asset{{0,0}}
 		outputAmountList := []int64{20000000}
-		outputAssetsList := []*protos.Assets{{0,0}}
+		outputAssetsList := []*protos.Asset{{0,0}}
 		tmpTx,_,_, tmpTxErr := createTestTx(privateKey, payAddrPkScript, payAddrPkScript,100000,
 			inputAmountList,inputAssetList,outputAmountList,outputAssetsList)
 		if tmpTxErr != nil {
@@ -1585,7 +1585,7 @@ func TestCheckBlockSanity(t *testing.T) {
 		txLists = append(txLists,maxTx)
 	}
 	var maxSizeBlockErr error
-	maxSizeBlock, maxSizeBlockErr = createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
+	maxSizeBlock, maxSizeBlockErr = createTestBlock(chain, uint32(1), 0, 0, protos.Asset{0,0},
 	0, tmpAcc.Address,txLists, chain.bestChain.Tip())
 	if maxSizeBlockErr != nil {
 		t.Errorf("create maxSizeBlockErr error %v", maxSizeBlockErr)
@@ -1596,7 +1596,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	}
 
 	//create block:
-	block, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Assets{0,0},
+	block, err := createTestBlock(chain, uint32(1), uint16(0), 0, protos.Asset{0,0},
 	0, tmpAcc.Address,nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)
@@ -1623,9 +1623,9 @@ func TestCheckBlockSanity(t *testing.T) {
 	//dup tx test:
 	var dupTxBlock *asiutil.Block
 	inputAmountList := []int64{100000000}
-	inputAssetList := []*protos.Assets{{0,0}}
+	inputAssetList := []*protos.Asset{{0,0}}
 	outputAmountList := []int64{1000000}
-	outputAssetsList := []*protos.Assets{{0,0}}
+	outputAssetsList := []*protos.Asset{{0,0}}
 	normalTx, _, _, err := createTestTx(privateKey, payAddrPkScript, payAddrPkScript,100000,
 		inputAmountList,inputAssetList,outputAmountList,outputAssetsList)
 	if err != nil {
@@ -1637,7 +1637,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	merkleTxList := make([]*asiutil.Tx, 0)
 	merkleTxList = append(merkleTxList,tx)
 	merklesErrBlock, merklesErr := createTestBlock(chain, uint32(1), 0, 0,
-		protos.Assets{0,0},500000000, tmpAcc.Address, merkleTxList,
+		protos.Asset{0,0},500000000, tmpAcc.Address, merkleTxList,
 		chain.bestChain.Tip())
 	if merklesErr != nil {
 		t.Errorf("create merklesErrBlock error %v", merklesErr)
@@ -1652,7 +1652,7 @@ func TestCheckBlockSanity(t *testing.T) {
 	dupTxList = append(dupTxList,tx)
 
 	var dupTxBlockErr error
-	dupTxBlock, dupTxBlockErr = createTestBlock(chain, uint32(1), 2, 0, protos.Assets{0,0},
+	dupTxBlock, dupTxBlockErr = createTestBlock(chain, uint32(1), 2, 0, protos.Asset{0,0},
 	0, tmpAcc.Address, dupTxList, chain.bestChain.Tip())
 	if dupTxBlockErr != nil {
 		t.Errorf("create dupTxBlockErr error %v", dupTxBlockErr)
@@ -1806,35 +1806,35 @@ func TestCheckSerializedHeight(t *testing.T) {
 	}
 }
 
-var FlowAsset = protos.Assets{
+var FlowAsset = protos.Asset{
 	0,0,
 }
 
-var DivisibleAsset1 = protos.Assets{
+var DivisibleAsset1 = protos.Asset{
 	0,1,
 }
-var DivisibleAsset2 = protos.Assets{
+var DivisibleAsset2 = protos.Asset{
 	0,2,
 }
-var DivisibleAsset3 = protos.Assets{
+var DivisibleAsset3 = protos.Asset{
 	0,3,
 }
 
-var DivisibleAsset4 = protos.Assets{
+var DivisibleAsset4 = protos.Asset{
 	0,4,
 }
 
-var UnDivisibleAsset1 = protos.Assets{
+var UnDivisibleAsset1 = protos.Asset{
 	1,1,
 }
-var UnDivisibleAsset2 = protos.Assets{
+var UnDivisibleAsset2 = protos.Asset{
 	1,2,
 }
-var UnDivisibleAsset3 = protos.Assets{
+var UnDivisibleAsset3 = protos.Asset{
 	1,3,
 }
 
-var UnDivisibleAsset4 = protos.Assets{
+var UnDivisibleAsset4 = protos.Asset{
 	1,4,
 }
 
@@ -1842,10 +1842,10 @@ var UnDivisibleAsset4 = protos.Assets{
 func createSpentUtxoErrTx(
 	privString		string,
 	payAddrPkScript	[]byte,
-	receiverPkScript []byte) (*protos.MsgTx, map[protos.Assets]int64, *UtxoViewpoint, error) {
+	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
 	var err error
 	var ErrMultTx2 *protos.MsgTx
-	ErrFees2 := make(map[protos.Assets]int64)
+	ErrFees2 := make(map[protos.Asset]int64)
 	ErrView2 := NewUtxoViewpoint()
 	{
 		//input list:
@@ -1868,11 +1868,11 @@ func createSpentUtxoErrTx(
 func createUnMaturityTx(
 	privString		string,
 	payAddrPkScript	[]byte,
-	receiverPkScript []byte) (*protos.MsgTx, map[protos.Assets]int64, *UtxoViewpoint, error) {
+	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
 
 	var err error
 	var ErrMultTx2 *protos.MsgTx
-	ErrFees2 := make(map[protos.Assets]int64)
+	ErrFees2 := make(map[protos.Asset]int64)
 	ErrView2 := NewUtxoViewpoint()
 	{
 		//input list:
@@ -1896,11 +1896,11 @@ func createUnMaturityTx(
 func createErrorOpcodeTx(
 	privString string,
 	payAddrPkScript []byte,
-	receiverPkScript []byte) (*protos.MsgTx, map[protos.Assets]int64, *UtxoViewpoint, error) {
+	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
 
 	var err error
 	var normalTx1 *protos.MsgTx
-	resultFees1 := make(map[protos.Assets]int64)
+	resultFees1 := make(map[protos.Asset]int64)
 	utxoViewPoint1 := NewUtxoViewpoint()
 	{
 		transferAmount := []int64{10000000,9000000}
@@ -1910,19 +1910,19 @@ func createErrorOpcodeTx(
 		//input utxo list:
 		for i := 0; i < 2; i++ {
 			utxo := txo.NewUtxoEntry(10000000+int64(i)*10, payAddrPkScript,1,
-				false, &asiutil.FlowCoinAsset, nil)
+				false, &asiutil.AsimovAsset, nil)
 			utxoList = append(utxoList, utxo)
 			totalInput += utxo.Amount()
 		}
 		//output list:
 		outputList := make([]protos.TxOut, 0)
-		txOut := protos.NewContractTxOut(transferAmount[0], receiverPkScript, asiutil.FlowCoinAsset, nil)
+		txOut := protos.NewContractTxOut(transferAmount[0], receiverPkScript, asiutil.AsimovAsset, nil)
 
 		tmpAcc, _ := crypto.NewAccount(privString)
 		tmpAcc.Address[0] = 99
 		contractScript, _ := txscript.PayToContractHash(tmpAcc.Address[:])
 
-		txOut1 := protos.NewContractTxOut(transferAmount[1], contractScript, asiutil.FlowCoinAsset, nil)
+		txOut1 := protos.NewContractTxOut(transferAmount[1], contractScript, asiutil.AsimovAsset, nil)
 		outputList = append(outputList, *txOut)
 		outputList = append(outputList, *txOut1)
 
@@ -1930,7 +1930,7 @@ func createErrorOpcodeTx(
 		createUtxoView(utxoList, utxoViewPoint1, &preOutPoints)
 		normalTx1, err = createTxByParams(privString, 100000, &preOutPoints, &outputList)
 
-		resultFees1[asiutil.FlowCoinAsset] = totalInput - totalOutPut
+		resultFees1[asiutil.AsimovAsset] = totalInput - totalOutPut
 	}
 	return normalTx1, resultFees1, utxoViewPoint1, err
 }
@@ -1959,7 +1959,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 	nextBlkHeight := best.Height + 1
 	coinbaseScript, err := StandardCoinbaseScript(nextBlkHeight, extraNonce)
 	coinBaseTx, _, _ := createTestCoinbaseTx(chaincfg.ActiveNetParams.Params,
-		coinbaseScript, nextBlkHeight, acc.Address, protos.Assets{0,1},0, nil)
+		coinbaseScript, nextBlkHeight, acc.Address, protos.Asset{0,1},0, nil)
 
 	//Test1:gen VTX tx:-----------
 	vtx := protos.NewMsgTx(protos.TxVersion)
@@ -1969,104 +1969,104 @@ func TestCheckTransactionInputs(t *testing.T) {
 	vtxMsg := asiutil.NewTx(vtx)
 	vtxMsg.Type()
 
-	//----------------------------test normal tx of Divisible assets:---------------------------------------------------
-	//Test2: gen tx with only one kind of assets: two input，two output: input > output
+	//----------------------------test normal tx of Divisible asset:---------------------------------------------------
+	//Test2: gen tx with only one kind of asset: two input，two output: input > output
 	inputNormalTx1 := []int64{100000010,100000020}
 	outputNormalTx1 := []int64{10000000,9000000}
-	assetListNormalTx1 := []*protos.Assets{&FlowAsset,&FlowAsset}
+	assetListNormalTx1 := []*protos.Asset{&FlowAsset,&FlowAsset}
 	normalTx1, resultFees1, utxoViewPoint1, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputNormalTx1,assetListNormalTx1,outputNormalTx1,assetListNormalTx1)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//Test3:gen tx with only one kind of assets: two input，one output: input = output
+	//Test3:gen tx with only one kind of asset: two input，one output: input = output
 	inputNormalTx2 := []int64{20000010,20000020}
 	outputNormalTx2 := []int64{20000010,20000020}
-	inputAssetListTx2 := []*protos.Assets{&FlowAsset, &FlowAsset}
+	inputAssetListTx2 := []*protos.Asset{&FlowAsset, &FlowAsset}
 	outputAssetListTx2 := inputAssetListTx2
 	normalTx2, resultFees2, utxoViewPoint2, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputNormalTx2,inputAssetListTx2,outputNormalTx2,outputAssetListTx2)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//Test4:gen tx with only one kind of assets: two input，no output:
+	//Test4:gen tx with only one kind of asset: two input，no output:
 	inputNormalTx3 := []int64{20000010,20000020}
 	outputNormalTx3 := []int64{}
-	inputAssetListTx3 := []*protos.Assets{&FlowAsset, &FlowAsset}
-	outputAssetListTx3 := []*protos.Assets{}
+	inputAssetListTx3 := []*protos.Asset{&FlowAsset, &FlowAsset}
+	outputAssetListTx3 := []*protos.Asset{}
 	normalTx3, resultFees3, utxoViewPoint3, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputNormalTx3,inputAssetListTx3,outputNormalTx3,outputAssetListTx3)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//Test5: gen tx with multi assets: three input，three output: input > output
+	//Test5: gen tx with multi asset: three input，three output: input > output
 	inputMultTx4 := []int64{100000010, 200000020, 300000030}
 	outputMultTx4 := []int64{90000000, 19000000, 29000000}
-	inputAssetMultTx4 := []*protos.Assets{&DivisibleAsset1,&DivisibleAsset2,&DivisibleAsset3}
-	outputAssetMultTx4 := []*protos.Assets{&DivisibleAsset1,&DivisibleAsset2,&DivisibleAsset3}
+	inputAssetMultTx4 := []*protos.Asset{&DivisibleAsset1,&DivisibleAsset2,&DivisibleAsset3}
+	outputAssetMultTx4 := []*protos.Asset{&DivisibleAsset1,&DivisibleAsset2,&DivisibleAsset3}
 	multTx4, resultFees4, utxoViewPoint4, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputMultTx4,inputAssetMultTx4,outputMultTx4,outputAssetMultTx4)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//----------------------------test normal tx with unDivisible assets:
-	//gen tx with multi assets:
+	//----------------------------test normal tx with unDivisible asset:
+	//gen tx with multi asset:
 	inputUndMultTx := []int64{9000000, 19000000, 29000000, 39000000}
 	outputUndMultTx := []int64{9000000, 19000000, 29000000, 39000000}
-	inputAssetUndMultTx := []*protos.Assets{&UnDivisibleAsset1,&UnDivisibleAsset2,&UnDivisibleAsset3,&UnDivisibleAsset4}
+	inputAssetUndMultTx := []*protos.Asset{&UnDivisibleAsset1,&UnDivisibleAsset2,&UnDivisibleAsset3,&UnDivisibleAsset4}
 	outputAssetUndMultTx := inputAssetUndMultTx
 	UndMultTx1, UndFees1, UndView1, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputUndMultTx,inputAssetUndMultTx,outputUndMultTx,outputAssetUndMultTx)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//----------------------------test multi assets tx-----------------------------------------------------
-	//gen multi assets tx:
+	//----------------------------test multi asset tx-----------------------------------------------------
+	//gen multi asset tx:
 	inputMixTx1 := []int64{10000010, 20000020, 29000000, 39000000}
 	outputMixTx1 := []int64{9000000, 18000000, 29000000,39000000}
-	inputAssetMixTx1 := []*protos.Assets{&DivisibleAsset1,&DivisibleAsset2,&UnDivisibleAsset2,&UnDivisibleAsset3}
+	inputAssetMixTx1 := []*protos.Asset{&DivisibleAsset1,&DivisibleAsset2,&UnDivisibleAsset2,&UnDivisibleAsset3}
 	outputAssetMixTx1 := inputAssetMixTx1
 	MixTx1, MixFees1, MixView1, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputMixTx1,inputAssetMixTx1,outputMixTx1,outputAssetMixTx1)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//----------------------------test err tx with unDivisible assets:---------------------------------------------------
+	//----------------------------test err tx with unDivisible asset:---------------------------------------------------
 	//生成错误交易，input.amount < output.amount
 	inputErrMultTx1 := []int64{10000010}
 	outputErrMultTx1 := []int64{20000010}
-	inputAssetErrMultTx1 := []*protos.Assets{&UnDivisibleAsset1}
+	inputAssetErrMultTx1 := []*protos.Asset{&UnDivisibleAsset1}
 	outputAssetErrMultTx1 := inputAssetErrMultTx1
 	ErrMultTx1, ErrFees1, ErrView1, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputErrMultTx1,inputAssetErrMultTx1,outputErrMultTx1,outputAssetErrMultTx1)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//gen err tx: input.assets != output.assets
+	//gen err tx: input.asset != output.asset
 	inputErrMultTx2 := []int64{10000010}
 	outputErrMultTx2 := []int64{10000010}
-	inputAssetErrMultTx2 := []*protos.Assets{&UnDivisibleAsset1}
-	outputAssetErrMultTx2 := []*protos.Assets{&UnDivisibleAsset2}
+	inputAssetErrMultTx2 := []*protos.Asset{&UnDivisibleAsset1}
+	outputAssetErrMultTx2 := []*protos.Asset{&UnDivisibleAsset2}
 	ErrMultTx2, ErrFees2, ErrView2, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputErrMultTx2,inputAssetErrMultTx2,outputErrMultTx2,outputAssetErrMultTx2)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//----------------------------test err tx with Divisible assets:-----------------------------------------------------
+	//----------------------------test err tx with Divisible asset:-----------------------------------------------------
 	//gen err tx: input.amount < output.amount
 	inputErrMultTx3 := []int64{10000010}
 	outputErrMultTx3 := []int64{20000010}
-	assetListErrMultTx3 := []*protos.Assets{&DivisibleAsset1}
+	assetListErrMultTx3 := []*protos.Asset{&DivisibleAsset1}
 	ErrMultTx3, ErrFees3, ErrView3, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputErrMultTx3,assetListErrMultTx3,outputErrMultTx3,assetListErrMultTx3)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	//gen err tx: input.assets != output.assets
+	//gen err tx: input.asset != output.asset
 	inputErrMultTx4 := []int64{10000010}
 	outputErrMultTx4 := []int64{10000010}
-	inputAssetListErrMultTx4 := []*protos.Assets{&DivisibleAsset1}
-	outputAssetListErrMultTx4 := []*protos.Assets{&DivisibleAsset2}
+	inputAssetListErrMultTx4 := []*protos.Asset{&DivisibleAsset1}
+	outputAssetListErrMultTx4 := []*protos.Asset{&DivisibleAsset2}
 	ErrMultTx4, ErrFees4, ErrView4, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputErrMultTx4,inputAssetListErrMultTx4,outputErrMultTx4,outputAssetListErrMultTx4)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
@@ -2082,7 +2082,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 	//utxo.amount = 0:
 	inputNegativeUtxoTx := []int64{0}
 	outputNegativeUtxoTx := []int64{10000010}
-	inputAssetNegativeUtxoTx := []*protos.Assets{&DivisibleAsset1}
+	inputAssetNegativeUtxoTx := []*protos.Asset{&DivisibleAsset1}
 	outputAssetNegativeUtxoTx := inputAssetNegativeUtxoTx
 	negativeUtxoTx, negativeUtxoFees, negativeUtxoViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputNegativeUtxoTx,inputAssetNegativeUtxoTx,outputNegativeUtxoTx,outputAssetNegativeUtxoTx)
 	if err != nil {
@@ -2093,7 +2093,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 	amount := common.MaxXing
 	inputMaxUtxoTx := []int64{int64(amount + 1000)}
 	outputMaxUtxoTx := []int64{2}
-	inputAssetMaxUtxoTx := []*protos.Assets{&DivisibleAsset1}
+	inputAssetMaxUtxoTx := []*protos.Asset{&DivisibleAsset1}
 	outputAssetMaxUtxoTx := inputAssetMaxUtxoTx
 	MaxUtxoTx, MaxUtxoFees, MaxUtxoViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputMaxUtxoTx,inputAssetMaxUtxoTx,outputMaxUtxoTx,outputAssetMaxUtxoTx)
 	if err != nil {
@@ -2103,8 +2103,8 @@ func TestCheckTransactionInputs(t *testing.T) {
 	// Indivisible utxo duplicate spent: have the same input:
 	inputDuplicateIndividTx := []int64{10000010,10000010}
 	outputDuplicateIndividTx := []int64{10000010}
-	inputAssetDuplicateIndividTx := []*protos.Assets{&UnDivisibleAsset1,&UnDivisibleAsset1}
-	outputAssetDuplicateIndividTx := []*protos.Assets{&UnDivisibleAsset1}
+	inputAssetDuplicateIndividTx := []*protos.Asset{&UnDivisibleAsset1,&UnDivisibleAsset1}
+	outputAssetDuplicateIndividTx := []*protos.Asset{&UnDivisibleAsset1}
 	duplicateIndividTx, duplicateIndividFees, duplicateIndividUtxoViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputDuplicateIndividTx,inputAssetDuplicateIndividTx,outputDuplicateIndividTx,outputAssetDuplicateIndividTx)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
@@ -2113,28 +2113,28 @@ func TestCheckTransactionInputs(t *testing.T) {
 	// Indivisible utxo duplicate spent: have the same output:
 	inputDuplicateIndividOutTx := []int64{10000010,10000020}
 	outputDuplicateIndividOutTx := []int64{10000010,10000010}
-	inputAssetDuplicateIndividOutTx := []*protos.Assets{&UnDivisibleAsset1,&UnDivisibleAsset1}
-	outputAssetDuplicateIndividOutTx := []*protos.Assets{&UnDivisibleAsset1,&UnDivisibleAsset1}
+	inputAssetDuplicateIndividOutTx := []*protos.Asset{&UnDivisibleAsset1,&UnDivisibleAsset1}
+	outputAssetDuplicateIndividOutTx := []*protos.Asset{&UnDivisibleAsset1,&UnDivisibleAsset1}
 	duplicateIndividOutTx, duplicateIndividOutFees, duplicateIndividOutUtxoViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputDuplicateIndividOutTx,inputAssetDuplicateIndividOutTx,outputDuplicateIndividOutTx,outputAssetDuplicateIndividOutTx)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	// Indivisible : the number of assets do not equal:
+	// Indivisible : the number of asset do not equal:
 	inputIndividNoEqualTx := []int64{10000010,10000020,10000030}
 	outputIndividNoEqualTx := []int64{10000010,10000020}
-	inputAssetIndividNoEqualTx := []*protos.Assets{&DivisibleAsset1,&UnDivisibleAsset2,&UnDivisibleAsset3}
-	outputAssetIndividNoEqualTx := []*protos.Assets{&DivisibleAsset1,&UnDivisibleAsset2}
+	inputAssetIndividNoEqualTx := []*protos.Asset{&DivisibleAsset1,&UnDivisibleAsset2,&UnDivisibleAsset3}
+	outputAssetIndividNoEqualTx := []*protos.Asset{&DivisibleAsset1,&UnDivisibleAsset2}
 	individNoEqualTx, individNoEqualFees, individNoEqualViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputIndividNoEqualTx,inputAssetIndividNoEqualTx,outputIndividNoEqualTx,outputAssetIndividNoEqualTx)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
 	}
 
-	// Indivisible : the number amounts with same assets do not equal:
+	// Indivisible : the number amounts with same asset do not equal:
 	inputIndividNoEqualAmountTx := []int64{10000010,20000010,10000020}
 	outputIndividNoEqualAmountTx := []int64{10000010,10000020}
-	inputAssetIndividNoEqualAmountTx := []*protos.Assets{&UnDivisibleAsset1,&UnDivisibleAsset1,&UnDivisibleAsset2}
-	outputAssetIndividNoEqualAmountTx := []*protos.Assets{&UnDivisibleAsset1,&UnDivisibleAsset2}
+	inputAssetIndividNoEqualAmountTx := []*protos.Asset{&UnDivisibleAsset1,&UnDivisibleAsset1,&UnDivisibleAsset2}
+	outputAssetIndividNoEqualAmountTx := []*protos.Asset{&UnDivisibleAsset1,&UnDivisibleAsset2}
 	individNoEqualAmountTx, individNoEqualAmountFees, individNoEqualAmountViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,100000, inputIndividNoEqualAmountTx,inputAssetIndividNoEqualAmountTx,outputIndividNoEqualAmountTx,outputAssetIndividNoEqualAmountTx)
 	if err != nil {
 		t.Errorf("create createNormalTx error %v", err)
@@ -2146,7 +2146,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 	tests := []struct {
 		tx                 *asiutil.Tx
 		utxoView           *UtxoViewpoint
-		expectedResultFees map[protos.Assets]int64
+		expectedResultFees map[protos.Asset]int64
 		testErr            string
 	}{
 		//normal tx test://////////////////////////////////////////////////////////
@@ -2164,7 +2164,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 			nil,
 			"",
 		},
-		//tx with divisible assets:
+		//tx with divisible asset:
 		//Test2:
 		{
 			asiutil.NewTx(normalTx1),
@@ -2212,7 +2212,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 		},
 
 		/////////////////////////////////////////////////////////////////
-		//err tx with Undivisible assets: input.amount != output.amount
+		//err tx with Undivisible asset: input.amount != output.amount
 		{
 			asiutil.NewTx(ErrMultTx1),
 			ErrView1,
@@ -2220,7 +2220,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 			"ErrNoTxInputs",
 		},
 
-		//input.assets != output.assets
+		//input.asset != output.asset
 		{
 			asiutil.NewTx(ErrMultTx2),
 			ErrView2,
@@ -2236,7 +2236,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 			"ErrSpendTooHigh",
 		},
 
-		//input.assets != output.assets
+		//input.asset != output.asset
 		{
 			asiutil.NewTx(ErrMultTx4),
 			ErrView4,
@@ -2374,7 +2374,7 @@ func TestCheckVTransactionInputs(t *testing.T) {
 	//utxo.amount < 0:
 	inputNegativeUtxoTx := []int64{-100000000}
 	outputNegativeUtxoTx := []int64{10000010}
-	inputAssetNegativeUtxoTx := []*protos.Assets{&DivisibleAsset1}
+	inputAssetNegativeUtxoTx := []*protos.Asset{&DivisibleAsset1}
 	outputAssetNegativeUtxoTx := inputAssetNegativeUtxoTx
 	negativeUtxoTx, negativeUtxoFees, negativeUtxoViews, err := createTestTx(privString, payAddrPkScript,
 		payAddrPkScript,100000, inputNegativeUtxoTx, inputAssetNegativeUtxoTx,
@@ -2387,7 +2387,7 @@ func TestCheckVTransactionInputs(t *testing.T) {
 	amount := common.MaxXing
 	inputMaxUtxoTx := []int64{int64(amount + 1000)}
 	outputMaxUtxoTx := []int64{2}
-	inputAssetMaxUtxoTx := []*protos.Assets{&DivisibleAsset1}
+	inputAssetMaxUtxoTx := []*protos.Asset{&DivisibleAsset1}
 	outputAssetMaxUtxoTx := inputAssetMaxUtxoTx
 	MaxUtxoTx, MaxUtxoFees, MaxUtxoViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,
 		100000, inputMaxUtxoTx,inputAssetMaxUtxoTx,outputMaxUtxoTx,outputAssetMaxUtxoTx)
@@ -2398,7 +2398,7 @@ func TestCheckVTransactionInputs(t *testing.T) {
 	//txOut.value < 0:
 	inputNegativeOutTx := []int64{10000000000}
 	outputNegativeOutTx := []int64{-100000000}
-	inputAssetNegativeOutTx := []*protos.Assets{&DivisibleAsset1}
+	inputAssetNegativeOutTx := []*protos.Asset{&DivisibleAsset1}
 	outputAssetNegativeOutTx := inputAssetNegativeOutTx
 	negativeOutTx, negativeOutFees, negativeOutViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,
 		100000, inputNegativeOutTx,inputAssetNegativeOutTx,outputNegativeOutTx,outputAssetNegativeOutTx)
@@ -2409,7 +2409,7 @@ func TestCheckVTransactionInputs(t *testing.T) {
 	// txOut value is bigger than MaxXing:
 	inputMaxOutTx := []int64{10000000000}
 	outputMaxOutTx := []int64{int64(amount + 1000)}
-	inputAssetMaxOutTx := []*protos.Assets{&DivisibleAsset1}
+	inputAssetMaxOutTx := []*protos.Asset{&DivisibleAsset1}
 	outputAssetMaxOutTx := inputAssetMaxOutTx
 	MaxOutTx, MaxOutFees, MaxOutViews, err := createTestTx(privString, payAddrPkScript, payAddrPkScript,
 		100000, inputMaxOutTx,inputAssetMaxOutTx,outputMaxOutTx,outputAssetMaxOutTx)
@@ -2420,7 +2420,7 @@ func TestCheckVTransactionInputs(t *testing.T) {
 	tests := []struct {
 		tx                 *asiutil.Tx
 		utxoView           *UtxoViewpoint
-		expectedResultFees map[protos.Assets]int64
+		expectedResultFees map[protos.Asset]int64
 		errCodeStr         string
 	}{
 		//test0: txIn is IsMintOrCreateInput
@@ -2527,13 +2527,13 @@ func TestCheckConnectBlock(t *testing.T) {
 		}
 		//test block with tx:
 		if i == 5 || i == 6 {
-			normalTx,_ := chain.createNormalTx(parivateKeyList[0], protos.Assets{0,0} ,
+			normalTx,_ := chain.createNormalTx(parivateKeyList[0], protos.Asset{0,0} ,
 			accList[0].Address.StandardAddress(), 20000000, 500000, txGasLimit, nil)
 			log.Infof("height = %d, txIn.PreviousOutPoint = %v",i+1,normalTx.MsgTx().TxIn[0].PreviousOutPoint)
 			normalTxList = append(normalTxList,normalTx)
 		}
 		block, newNode, err := createAndSignBlock(netParam, accList, tmpValidator, tmpFilters, chain, tmpEpoch,
-			tmpSlotIndex, int32(i), protos.Assets{0,0}, 0,
+			tmpSlotIndex, int32(i), protos.Asset{0,0}, 0,
 			tmpValidator[tmpSlotIndex],normalTxList,0,chain.GetTip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
@@ -2567,15 +2567,15 @@ func TestCheckConnectBlock(t *testing.T) {
 	log.Infof("gasUsedErrNode = %v",gasUsedErrNode)
 
 	//test FeesPool is error:
-	testFeesPool := make(map[protos.Assets]int32)
-	testAsset := protos.Assets{1,1}
+	testFeesPool := make(map[protos.Asset]int32)
+	testAsset := protos.Asset{1,1}
 	testFeesPool[testAsset] = chain.GetTip().height + 100
 
 	tests := []struct {
 		block			*asiutil.Block
 		node      		*blockNode
 		view      		*UtxoViewpoint
-		feespool        map[protos.Assets]int32
+		feespool        map[protos.Asset]int32
 		errCodeString	string
 	} {
 		//block with only coinbaseTx:
@@ -2623,7 +2623,7 @@ func TestCheckConnectBlock(t *testing.T) {
 			nodeList[6],
 			nil,
 			testFeesPool,
-			"ErrForbiddenAssets",
+			"ErrForbiddenAsset",
 		},
 	}
 
@@ -2657,7 +2657,7 @@ func TestCheckConnectBlock(t *testing.T) {
 		var receipts types.Receipts
 		var allLogs []*types.Log
 		var msgvblock protos.MsgVBlock
-		var feeLockItems map[protos.Assets]*txo.LockItem
+		var feeLockItems map[protos.Asset]*txo.LockItem
 		receipts, allLogs, feeLockItems, err = chain.checkConnectBlock(test.node, test.block, view,
 			nil, nil, stateDB, test.feespool)
 		if err != nil {

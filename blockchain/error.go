@@ -182,8 +182,8 @@ const (
 	// for block proposals submitted via getblocktemplate RPC.
 	ErrPrevBlockNotBest
 
-	//ErrForbiddenAssets indicates the asset is forbidden to transfer as input or output
-	ErrForbiddenAssets
+	//ErrForbiddenAsset indicates the asset is forbidden to transfer as input or output
+	ErrForbiddenAsset
 
 	//ErrStateRootNotMatch indicates that the state root of block do not match we expect
 	ErrStateRootNotMatch
@@ -325,19 +325,19 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrScriptValidation:      "ErrScriptValidation",
 	ErrPreviousBlockUnknown:  "ErrPreviousBlockUnknown",
 	ErrInvalidAncestorBlock:  "ErrInvalidAncestorBlock",
-	ErrPrevBlockNotBest:     "ErrPrevBlockNotBest",
-	ErrForbiddenAssets:      "ErrForbiddenAssets",
-	ErrStateRootNotMatch:    "ErrStateRootNotMatch",
-	ErrSignDuplicate:        "ErrSignDuplicate",
-	ErrSignMiss:             "ErrSignMiss",
-	ErrBadSigLength:         "ErrBadSigLength",
-	ErrBadPreSigHeight:      "ErrBadPreSigHeight",
-	ErrPreSigOrder:          "ErrPreSigOrder",
-	ErrInvalidSigData:       "ErrInvalidSigData",
-	ErrSigAndKeyMismatch:    "ErrSigAndKeyMismatch",
-	ErrValidatorMismatch:    "ErrValidatorMismatch",
-	ErrNodeUnknown:          "ErrNodeUnknown",
-	ErrInvalidSlotIndex:     "ErrInvalidSlotIndex",
+	ErrPrevBlockNotBest:      "ErrPrevBlockNotBest",
+	ErrForbiddenAsset:        "ErrForbiddenAsset",
+	ErrStateRootNotMatch:     "ErrStateRootNotMatch",
+	ErrSignDuplicate:         "ErrSignDuplicate",
+	ErrSignMiss:              "ErrSignMiss",
+	ErrBadSigLength:          "ErrBadSigLength",
+	ErrBadPreSigHeight:       "ErrBadPreSigHeight",
+	ErrPreSigOrder:           "ErrPreSigOrder",
+	ErrInvalidSigData:        "ErrInvalidSigData",
+	ErrSigAndKeyMismatch:     "ErrSigAndKeyMismatch",
+	ErrValidatorMismatch:     "ErrValidatorMismatch",
+	ErrNodeUnknown:           "ErrNodeUnknown",
+	ErrInvalidSlotIndex:      "ErrInvalidSlotIndex",
 	ErrBadHashLength:        "ErrBadHashLength",
 	ErrBadSlotOrRound:       "ErrBadSlotOrRound",
 	ErrInvalidBlockHash:     "ErrInvalidBlockHash",

@@ -26,7 +26,7 @@ func TestNotifications(t *testing.T) {
 	var block *asiutil.Block
 	//create block:
 	block, _, err = createAndSignBlock(netParam, accList, validators, filters, chain, uint32(1), uint16(0),
-		chain.bestChain.Tip().height, protos.Assets{0,0}, 0,
+		chain.bestChain.Tip().height, protos.Asset{0,0}, 0,
 		validators[0],nil,0,chain.bestChain.tip())
 	if err != nil {
 		t.Errorf("create block error %v", err)

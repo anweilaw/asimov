@@ -64,12 +64,12 @@ type Contract struct {
 
 	DelegateCall bool
 
-	// Assets
-	assets *protos.Assets
+	// Asset
+	asset *protos.Asset
 }
 
 // NewContract returns a new contract environment for the execution of FVM.
-func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uint64, assets *protos.Assets) *Contract {
+func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uint64, assets *protos.Asset) *Contract {
 	c := &Contract{CallerAddress: caller.Address(), caller: caller, self: object, Args: nil}
 
 	if parent, ok := caller.(*Contract); ok {
@@ -85,7 +85,7 @@ func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uin
 	// ensures a value is set
 	c.value = value
 
-	c.assets = assets
+	c.asset = assets
 
 	return c
 }
@@ -99,7 +99,7 @@ func (c *Contract) AsDelegate() *Contract {
 	parent := c.caller.(*Contract)
 	c.CallerAddress = parent.CallerAddress
 	c.value = parent.value
-	c.assets = parent.assets
+	c.asset = parent.asset
 
 	return c
 }
@@ -146,8 +146,8 @@ func (c *Contract) Value() *big.Int {
 	return c.value
 }
 
-func (c *Contract) Asset() *protos.Assets {
-	return c.assets
+func (c *Contract) Asset() *protos.Asset {
+	return c.asset
 }
 
 // SetCode sets the code to the contract

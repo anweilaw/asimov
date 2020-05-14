@@ -25,7 +25,7 @@ const(
 	CPK = 1
 )
 
-var assetId = protos.Assets{
+var assetId = protos.Asset{
     0,0x01010101,
 }
 

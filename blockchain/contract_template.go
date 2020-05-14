@@ -61,7 +61,7 @@ func (b *BlockChain) InitTemplate(
 	templateName string,
 	contractAddr common.Address,
 	gas uint64,
-	asset *protos.Assets,
+	asset *protos.Asset,
 	vmenv *vm.FVM) (error, uint64) {
 	officialAddr := chaincfg.OfficialAddress
 	runCode, err := fvm.PackFunctionArgs(common.TemplateABI, common.InitTemplateFunc, category, templateName)

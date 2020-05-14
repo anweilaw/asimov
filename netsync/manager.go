@@ -1465,17 +1465,17 @@ func (sm *SyncManager) handleBlockchainNotification(notification *blockchain.Not
 
 	// A block has been connected to the main block chain.
 	case blockchain.NTBlockConnected:
-		dataarr, ok := notification.Data.(*[]interface{})
-		if !ok {
-			log.Warnf("Chain connected notification is not an array.")
+		dataarr, ok := notification.Data.([]interface{})
+		if !ok || len(dataarr) < 2 {
+			log.Warnf("Chain disconnected notification need block & vblock.")
 			break
 		}
-		block, ok := (*dataarr)[0].(*asiutil.Block)
+		block, ok := (dataarr)[0].(*asiutil.Block)
 		if !ok {
 			log.Warnf("Chain connected notification is not a block at first element.")
 			break
 		}
-		vblock, ok := (*dataarr)[1].(*asiutil.VBlock)
+		vblock, ok := (dataarr)[1].(*asiutil.VBlock)
 		if !ok {
 			log.Warnf("Chain connected notification is not a block at second element.")
 			break
@@ -1516,8 +1516,8 @@ func (sm *SyncManager) handleBlockchainNotification(notification *blockchain.Not
 	// A block has been disconnected from the main block chain.
 	case blockchain.NTBlockDisconnected:
 		blocks, ok := notification.Data.([]interface{})
-		if !ok || len(blocks) != 2 {
-			log.Warnf("Chain disconnected notification is not two block.")
+		if !ok || len(blocks) < 2 {
+			log.Warnf("Chain disconnected notification need block & vblock.")
 			break
 		}
 
@@ -1759,9 +1759,9 @@ func (sm *SyncManager) makeSignature(block *asiutil.Block) {
 		return
 	}
 	// self mined block is needn't make signature
-	//if header.CoinBase == *sm.account.Address {
-	//	return
-	//}
+	if header.CoinBase == *sm.account.Address {
+		return
+	}
 	//get the validators of current block:
 	validators, weightMap, err := sm.chain.GetValidators(header.Round)
 	if err != nil {
@@ -1779,7 +1779,7 @@ func (sm *SyncManager) makeSignature(block *asiutil.Block) {
 
 	signature, err := crypto.Sign(blockHash[:], (*ecdsa.PrivateKey)(&sm.account.PrivateKey))
 	if err != nil {
-		log.Errorf("[PoaService],Sign error:%s.", err)
+		log.Errorf("Sign error:%s.", err)
 		return
 	}
 

@@ -936,8 +936,8 @@ func newFrontierInstructionSet() [256]operation {
 			valid:         true,
 			writes:        true,
 		},
-		FLOWASSETTYPE: {
-			execute:       opFlowAssetType,
+		FLOWASSET: {
+			execute:       opFlowAssets,
 			gasCost:       constGasFunc(GasQuickStep),
 			validateStack: makeStackFunc(0, 1),
 			valid:         true,

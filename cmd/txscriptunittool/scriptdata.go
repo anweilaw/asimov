@@ -76,7 +76,7 @@ func createP2PK(privatekeys []*crypto.PrivateKey, addresses []common.IAddress,
 	tx.AddTxIn(in)
 
 	// Output
-	out := protos.NewTxOut(0, nil, asiutil.FlowCoinAsset)
+	out := protos.NewTxOut(0, nil, asiutil.AsimovAsset)
 	tx.AddTxOut(out)
 
 	prepk, _ := parseShortForm(mutxo.pkscript)
@@ -103,7 +103,7 @@ func createP2PKH(privatekeys []*crypto.PrivateKey, addresses []common.IAddress) 
 	tx.AddTxIn(in)
 
 	// Output
-	out := protos.NewTxOut(0, nil, asiutil.FlowCoinAsset)
+	out := protos.NewTxOut(0, nil, asiutil.AsimovAsset)
 	tx.AddTxOut(out)
 
 	hashType := txscript.SigHashAll
@@ -127,7 +127,7 @@ func createP2SHP2PK(privatekeys []*crypto.PrivateKey, addresses []common.IAddres
 	tx.AddTxIn(in)
 
 	// Output
-	out := protos.NewTxOut(0, nil, asiutil.FlowCoinAsset)
+	out := protos.NewTxOut(0, nil, asiutil.AsimovAsset)
 	tx.AddTxOut(out)
 
 	hashType := txscript.SigHashAll
@@ -164,7 +164,7 @@ func createP2SHP2PKH(privatekeys []*crypto.PrivateKey, addresses []common.IAddre
 	tx.AddTxIn(in)
 
 	// Output
-	out := protos.NewTxOut(0, nil, asiutil.FlowCoinAsset)
+	out := protos.NewTxOut(0, nil, asiutil.AsimovAsset)
 	tx.AddTxOut(out)
 
 	hashType := txscript.SigHashAll
@@ -207,7 +207,7 @@ func createMultisign(privatekeys []*crypto.PrivateKey, addresses []common.IAddre
 	prepk, _ := parseShortForm(mutxo.pkscript)
 	in := protos.NewTxIn(&outpoint, prepk)
 	tx.AddTxIn(in)
-	out := protos.NewTxOut(0, nil, asiutil.FlowCoinAsset)
+	out := protos.NewTxOut(0, nil, asiutil.AsimovAsset)
 	tx.AddTxOut(out)
 	hashType := txscript.SigHashAll
 	txhash, _ := txscript.CalcSignatureHash(prepk, hashType, tx, 0)
@@ -235,7 +235,7 @@ func createP2SH(privatekeys []*crypto.PrivateKey, addresses []common.IAddress) (
 	tx.AddTxIn(in)
 
 	// Output
-	out := protos.NewTxOut(0, nil, asiutil.FlowCoinAsset)
+	out := protos.NewTxOut(0, nil, asiutil.AsimovAsset)
 	tx.AddTxOut(out)
 
 	hashType := txscript.SigHashAll

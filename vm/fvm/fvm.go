@@ -18,7 +18,7 @@ import (
 // current blockchain, which is used during transaction processing.
 type ChainContext interface {
 
-	CalculateBalance(block *asiutil.Block, address common.Address, assets *protos.Assets, voucherId int64) (int64, error)
+	CalculateBalance(block *asiutil.Block, address common.Address, assets *protos.Asset, voucherId int64) (int64, error)
 	GetVmConfig() *fvm.Config
 	GetTemplateWarehouseInfo() (common.Address, string)
 	GetSystemContractInfo(delegateAddr common.ContractCode) (common.Address, []byte, string)
@@ -59,7 +59,7 @@ func NewFVMContext(from common.Address, gasPrice *big.Int, block *asiutil.Block,
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
 func CanTransfer(block *asiutil.Block, db fvm.StateDB, addr common.Address,
-	amount *big.Int, vtx *virtualtx.VirtualTransaction, calculateBalanceFunc fvm.CalculateBalanceFunc, assets *protos.Assets) bool {
+	amount *big.Int, vtx *virtualtx.VirtualTransaction, calculateBalanceFunc fvm.CalculateBalanceFunc, assets *protos.Asset) bool {
 	if amount.Cmp(common.Big0) == 0 {
 		return true
 	}
@@ -99,7 +99,7 @@ func CanTransfer(block *asiutil.Block, db fvm.StateDB, addr common.Address,
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
-func Transfer(db fvm.StateDB, sender, recipient common.Address, amount *big.Int, vtx *virtualtx.VirtualTransaction, assets *protos.Assets) {
+func Transfer(db fvm.StateDB, sender, recipient common.Address, amount *big.Int, vtx *virtualtx.VirtualTransaction, assets *protos.Asset) {
 	// append virtual transaction
 	if assets != nil && amount.Int64() > 0 {
 		vtx.AppendVTransfer(sender, recipient, amount, assets)

@@ -51,94 +51,94 @@ func TestErrNotInMainChain(t *testing.T) {
 
 
 var coinbaseStxo = SpentTxOut{
-	Amount:500000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 1,
-	IsCoinBase:true,
-	Assets:&protos.Assets{0,0},
+	Amount:     500000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     1,
+	IsCoinBase: true,
+	Asset:      &protos.Asset{0,0},
 }
 
 var coinbaseStxo2 = SpentTxOut{
-	Amount:500000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 2,
-	IsCoinBase:true,
-	Assets:&protos.Assets{0,0},
+	Amount:     500000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     2,
+	IsCoinBase: true,
+	Asset:      &protos.Asset{0,0},
 }
 
 var coinbaseStxo10001 = SpentTxOut{
-	Amount:500000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 10001,
-	IsCoinBase:false,
-	Assets:&protos.Assets{0,1},
+	Amount:     500000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     10001,
+	IsCoinBase: false,
+	Asset:      &protos.Asset{0,1},
 }
 
 var normalStxo = SpentTxOut{
-	Amount:100000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 1,
-	IsCoinBase:false,
-	Assets:&protos.Assets{0,0},
+	Amount:     100000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     1,
+	IsCoinBase: false,
+	Asset:      &protos.Asset{0,0},
 }
 
 var normalStxo2 = SpentTxOut{
-	Amount:100000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 2,
-	IsCoinBase:false,
-	Assets:&protos.Assets{0,0},
+	Amount:     100000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     2,
+	IsCoinBase: false,
+	Asset:      &protos.Asset{0,0},
 }
 
 var normalStxo10001 = SpentTxOut{
-	Amount:100000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 10001,
-	IsCoinBase:false,
-	Assets:&protos.Assets{0,0},
+	Amount:     100000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     10001,
+	IsCoinBase: false,
+	Asset:      &protos.Asset{0,0},
 }
 
 var normalStxoAmount123 = SpentTxOut{
-	Amount:123,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 2,
-	IsCoinBase:false,
-	Assets:&protos.Assets{0,0},
+	Amount:     123,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     2,
+	IsCoinBase: false,
+	Asset:      &protos.Asset{0,0},
 }
 
 var normalStxoAmountMax = SpentTxOut{
-	Amount:210000000000,
-	PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-	Height: 2,
-	IsCoinBase:false,
-	Assets:&protos.Assets{0,0},
+	Amount:     210000000000,
+	PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+	Height:     2,
+	IsCoinBase: false,
+	Asset:      &protos.Asset{0,0},
 }
 
 //spentTxOut PkScript is ScriptHash:
 var normalScriptHashStxo = SpentTxOut{
-	Amount:500000000,
-	PkScript:[]byte{169,21,115,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,196},
-	Height: 1,
-	IsCoinBase:true,
-	Assets:&protos.Assets{0,0},
+	Amount:     500000000,
+	PkScript:   []byte{169,21,115,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,196},
+	Height:     1,
+	IsCoinBase: true,
+	Asset:      &protos.Asset{0,0},
 }
 
 //spentTxOut PkScript is isContract:
 var contractStxo = SpentTxOut{
-	Amount:500000000,
-	PkScript:[]byte{194,21,99,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215},
-	Height: 1,
-	IsCoinBase:true,
-	Assets:&protos.Assets{0,0},
+	Amount:     500000000,
+	PkScript:   []byte{194,21,99,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215},
+	Height:     1,
+	IsCoinBase: true,
+	Asset:      &protos.Asset{0,0},
 }
 
 //spentTxOut PkScript is vote:
 var voteStxo = SpentTxOut{
-	Amount:500000000,
-	PkScript:[]byte{198,21,99,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215},
-	Height: 1,
-	IsCoinBase:true,
-	Assets:&protos.Assets{0,0},
+	Amount:     500000000,
+	PkScript:   []byte{198,21,99,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215},
+	Height:     1,
+	IsCoinBase: true,
+	Asset:      &protos.Asset{0,0},
 }
 
 // TestStxoSerialization ensures serializing and deserializing spent transaction
@@ -335,11 +335,11 @@ func TestSpendJournalSerialization(t *testing.T) {
 		{
 			name: "One tx with one input spends last output of coinbase",
 			entry: []SpentTxOut{{
-				Amount:500000000,
-				PkScript:[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-				Height: 1,
-				IsCoinBase:true,
-				Assets:&protos.Assets{0,0},
+				Amount:     500000000,
+				PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
+				Height:     1,
+				IsCoinBase: true,
+				Asset:      &protos.Asset{0,0},
 			}},
 			blockTxns: []*protos.MsgTx{{ // Coinbase omitted.
 				Version: 1,
@@ -354,11 +354,11 @@ func TestSpendJournalSerialization(t *testing.T) {
 				TxOut: []*protos.TxOut{{
 					Value:    100000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}, {
 					Value:    400000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}},
 				LockTime: 0,
 			}},
@@ -373,19 +373,19 @@ func TestSpendJournalSerialization(t *testing.T) {
 				PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 				Height:     2,
 				IsCoinBase: false,
-				Assets:&protos.Assets{0,0},
+				Asset:      &protos.Asset{0,0},
 			}, {
 				Amount:     400000000,
 				PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 				Height:     2,
 				IsCoinBase: false,
-				Assets:&protos.Assets{0,0},
+				Asset:      &protos.Asset{0,0},
 			}, {
 				Amount:     500000000,
 				PkScript:   []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 				Height:     2,
 				IsCoinBase: true,
-				Assets:&protos.Assets{0,0},
+				Asset:      &protos.Asset{0,0},
 			}},
 			blockTxns: []*protos.MsgTx{{ // Coinbase omitted.
 				Version: 1,
@@ -462,11 +462,11 @@ func TestSpendJournalSerialization(t *testing.T) {
 				TxOut: []*protos.TxOut{{
 					Value:    100000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}, {
 					Value:    400000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}},
 				LockTime: 0,
 			}},
@@ -490,11 +490,11 @@ func TestSpendJournalSerialization(t *testing.T) {
 				TxOut: []*protos.TxOut{{
 					Value:    100000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}, {
 					Value:    400000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}},
 				LockTime: 0,
 			}},
@@ -518,11 +518,11 @@ func TestSpendJournalSerialization(t *testing.T) {
 				TxOut: []*protos.TxOut{{
 					Value:    100000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}, {
 					Value:    400000000,
 					PkScript: []byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
-					Assets: protos.Assets{0,0},
+					Asset:    protos.Asset{0,0},
 				}},
 				LockTime: 0,
 			}},
@@ -634,62 +634,62 @@ func TestUtxoSerialization(t *testing.T) {
 		[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 		1,
 		true,
-		&protos.Assets{0,0},nil)
+		&protos.Asset{0,0},nil)
 	entry1 := txo.NewUtxoEntry(
 		5000000000,
 		[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 		1,
 		true,
-		&protos.Assets{0,0},nil)
+		&protos.Asset{0,0},nil)
 	entry1.Spend()
 	entry2 := txo.NewUtxoEntry(
 		1000000,
 		[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 		100001,
 		false,
-		&protos.Assets{0,0},nil)
+		&protos.Asset{0,0},nil)
 	entry3 := txo.NewUtxoEntry(
 		1000000,
 		[]byte{118,169,21,102,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,197,172},
 		100001,
 		false,
-		&protos.Assets{0,0},nil)
+		&protos.Asset{0,0},nil)
 	entry3.Spend()
 	entry4 := txo.NewUtxoEntry(
 		2100000000000000,
 		[]byte{169,21,115,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,196},
 		1,
 		false,
-		&protos.Assets{1,1},nil)
+		&protos.Asset{1,1},nil)
 	entry5 := txo.NewUtxoEntry(
 		1000000,
 		[]byte{194,21,99,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215},
 		2,
 		false,
-		&protos.Assets{0,0},nil)
+		&protos.Asset{0,0},nil)
 	entry6 := txo.NewUtxoEntry(
 		1000000,[]byte{198,21,99,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215},
 		3,
 		false,
-		&protos.Assets{0,1},nil)
+		&protos.Asset{0,1},nil)
 	entry7 := txo.NewUtxoEntry(
 		100,
 		[]byte{1,2,3,4,5,6},
 		3,
 		false,
-		&protos.Assets{0,1},nil)
+		&protos.Asset{0,1},nil)
 	entry8 := txo.NewUtxoEntry(
 		100,
 		nil,
 		3,
 		false,
-		&protos.Assets{0,1},nil)
+		&protos.Asset{0,1},nil)
 	entry9 := txo.NewUtxoEntry(
 		2,
 		[]byte{169,21,115,227,5,75,65,16,81,218,84,146,174,199,168,35,176,12,179,173,215,114,215,196},
 		688,
 		false,
-		&protos.Assets{0,4294967304},nil)
+		&protos.Asset{0,4294967304},nil)
 	tests := []struct {
 		name       string
 		entry      *txo.UtxoEntry
@@ -1029,7 +1029,7 @@ func TestDbFetchBalance(t *testing.T) {
 
 		//create block:
 		block, _, err := createAndSignBlock(netParam, accList, validators, filters, chain, uint32(curEpoch),
-			uint16(curSlot), chain.bestChain.height(), protos.Assets{0,0}, 0,
+			uint16(curSlot), chain.bestChain.height(), protos.Asset{0,0}, 0,
 			validators[curSlot],nil,0,chain.bestChain.tip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
@@ -1096,8 +1096,8 @@ func TestDbFetchBalance(t *testing.T) {
 			for _, data := range *mp {
 				op := data.Key
 				entity := data.Value
-				log.Infof("Outpoint hash %x, its index %d, utxo amount %d, height %d, flags %d, assets %v",
-					op.Hash, op.Index, entity.Amount(), entity.BlockHeight(), entity.PackedFlags(), entity.Assets())
+				log.Infof("Outpoint hash %x, its index %d, utxo amount %d, height %d, flags %d, asset %v",
+					op.Hash, op.Index, entity.Amount(), entity.BlockHeight(), entity.PackedFlags(), entity.Asset())
 			}
 			return nil
 		})

@@ -32,7 +32,7 @@ func (s *Server) autoMergeUtxo(mergeList []mergeUtxoData, utxoCnt int, account *
     txMsg := protos.NewMsgTx(protos.TxVersion)
     for _, data := range mergeList {
         outValue := data.Value
-        if data.Asset == asiutil.FlowCoinAsset {
+        if data.Asset == asiutil.AsimovAsset {
             outValue = outValue - fees
         }
         if outValue < 0 {
@@ -49,7 +49,7 @@ func (s *Server) autoMergeUtxo(mergeList []mergeUtxoData, utxoCnt int, account *
             txMsg.AddTxOut(&protos.TxOut{
                 Value:    outValue,
                 PkScript: senderPkScript,
-                Assets:   data.Asset,
+                Asset:    data.Asset,
                 Data:     nil,
             })
         }

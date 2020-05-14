@@ -60,8 +60,8 @@ type TxDesc struct {
 	// Fee is the total fee the transaction associated with the entry pays.
 	Fee int64
 
-	// FeeList is the list of all assets fee with the entry pays.
-	FeeList *map[protos.Assets]int64
+	// FeeList is the list of all asset fee with the entry pays.
+	FeeList *map[protos.Asset]int64
 
 	// GasPrice is the price of fee the transaction pays.
 	// GasPrice = fee / (size * common.GasPerByte + gaslimit)
@@ -256,7 +256,7 @@ func CreateCoinbaseTx(params *chaincfg.Params, coinbaseScript []byte, nextBlockH
 	stdTxOut := &protos.TxOut{
 		Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, params),
 		PkScript: pkScript,
-		Assets:   asiutil.FlowCoinAsset,
+		Asset:    asiutil.AsimovAsset,
 	}
 	tx.AddTxOut(stdTxOut)
 	tx.TxContract.GasLimit = common.CoinbaseTxGas
@@ -419,9 +419,9 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	// flag whether core team take reward
 	coreTeamRewardFlag := header.Height <= chaincfg.ActiveNetParams.Params.SubsidyReductionInterval ||
 		ts - chaincfg.ActiveNetParams.Params.GenesisBlock.Header.Timestamp < 86400*(365*4+1)
-	txoutSizePerAssets := stdTxout.SerializeSize()
+	txoutSizePerAsset := stdTxout.SerializeSize()
 	if coreTeamRewardFlag {
-		txoutSizePerAssets *= 2
+		txoutSizePerAsset *= 2
 	}
 
 	// Create a slice to hold the transactions to be included in the
@@ -436,7 +436,7 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	// possible transaction count size, plus the size of the coinbase
 	// transaction.
 	blockSize := BlockHeaderOverhead + coinbaseTx.MsgTx().SerializeSize() -
-		stdTxout.SerializeSize() + txoutSizePerAssets
+		stdTxout.SerializeSize() + txoutSizePerAsset
 	// add block body field ReceiptHash, bloom and three var size
 	blockSize += common.HashLength + types.BloomByteLength + serialization.MaxVarIntPayload*3
 
@@ -515,6 +515,7 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	txSigOpCosts := make([]int64, 0, len(sourceTxns))
 	txSigOpCosts = append(txSigOpCosts, coinbaseSigOpCost)
 
+	utxostart := getMilliSecond()
 mempoolLoop:
 	for _, txDesc := range sourceTxns {
 		// break loop if time out
@@ -597,16 +598,17 @@ mempoolLoop:
 			heap.Push(priorityQueue, prioItem)
 		}
 	}
+	utxoEnd := getMilliSecond()
 
 	blockSigOpCost := coinbaseSigOpCost
-	allFees := map[protos.Assets]int64 {
-		asiutil.FlowCoinAsset: 0,
+	allFees := map[protos.Asset]int64 {
+		asiutil.AsimovAsset: 0,
 	}
 	var totalGasUsed uint64
 	var (
 		receipts types.Receipts
 		allLogs  []*types.Log
-		totalFeeLockItems map[protos.Assets]*txo.LockItem
+		totalFeeLockItems map[protos.Asset]*txo.LockItem
 	)
 	txidx := 0
 	var msgvblock protos.MsgVBlock
@@ -618,6 +620,7 @@ mempoolLoop:
 priorityQueueLoop:
 	for priorityQueue.Len() > 0 {
 		if float64(getMilliSecond() - produceBlockStartTime) > produceBlockTimeInterval {
+			log.Debug("mine time out ")
 			break
 		}
 
@@ -679,16 +682,16 @@ priorityQueueLoop:
 			continue
 		}
 
-		for assets := range *feeList {
-			if _, ok := feepool[assets]; !ok {
+		for asset := range *feeList {
+			if _, ok := feepool[asset]; !ok {
 				log.Tracef("Skipping tx %s because its "+
 					"fee %v is unsupported",
-					tx.Hash(), assets)
+					tx.Hash(), asset)
 				logSkippedDeps(tx, deps)
 				continue priorityQueueLoop
 			}
-			if _, ok := allFees[assets]; !ok {
-				txSize += txoutSizePerAssets
+			if _, ok := allFees[asset]; !ok {
+				txSize += txoutSizePerAsset
 				blockPlusTxSize = blockSize + txSize
 				if blockPlusTxSize < blockSize || blockPlusTxSize >= common.MaxBlockSize {
 					log.Tracef("Skipping tx %s because it would exceed "+
@@ -719,7 +722,7 @@ priorityQueueLoop:
 			if needbreak {
 				break
 			}
-			log.Tracef("Skipping tx %s because it failed to connect",
+			log.Debugf("Skipping tx %s because it failed to connect",
 				tx.Hash())
 			logSkippedDeps(tx, deps)
 			forbiddenTxHashes = append(forbiddenTxHashes, tx.Hash())
@@ -783,6 +786,15 @@ priorityQueueLoop:
 			}
 		}
 	}
+	processTxEndTime := getMilliSecond()
+
+	log.Debugf("Miner total count of tx=%d, blockSize=%d, gasLimit=%d, sigOpCost=%d" +
+		" time limit block interval=%d, utxo interval=%d, tx interval=%d" +
+		" costs utxo %d, tx %d, all %d",
+		txidx, blockSize, blockGasLimit, blockSigOpCost,
+		int64(produceBlockTimeInterval), int64(utxoValidateTimeInterval), int64(produceTxTimeInterval),
+		utxoEnd-utxostart, processTxEndTime - processTxStartTime,
+		processTxEndTime - produceBlockStartTime)
 
 	rebuildFunder(coinbaseTx, stdTxout, &allFees)
 
@@ -799,7 +811,7 @@ priorityQueueLoop:
 				coinbaseTx.MsgTx().AddTxOut(&protos.TxOut{
 					Value:    coreTeamValue,
 					PkScript: pkScript,
-					Assets:   coinbaseTx.MsgTx().TxOut[i].Assets,
+					Asset:    coinbaseTx.MsgTx().TxOut[i].Asset,
 				})
 			}
 		}
@@ -853,19 +865,19 @@ priorityQueueLoop:
 }
 
 // append fee into coinbase tx
-func rebuildFunder(tx *asiutil.Tx, stdTxout *protos.TxOut, fees *map[protos.Assets]int64) {
-	for assets, value := range *fees {
+func rebuildFunder(tx *asiutil.Tx, stdTxout *protos.TxOut, fees *map[protos.Asset]int64) {
+	for asset, value := range *fees {
 		if value <= 0 {
 			continue
 		}
 
-		if assets.IsIndivisible() {
+		if asset.IsIndivisible() {
 			continue
 		}
-		if assets.Equal(&asiutil.FlowCoinAsset) {
+		if asset.Equal(&asiutil.AsimovAsset) {
 			stdTxout.Value += value
 		} else {
-			tx.MsgTx().AddTxOut(protos.NewTxOut(value, stdTxout.PkScript, assets))
+			tx.MsgTx().AddTxOut(protos.NewTxOut(value, stdTxout.PkScript, asset))
 		}
 	}
 }

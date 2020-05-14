@@ -310,9 +310,9 @@ func TestConnectBlock(t *testing.T)  {
 		})
 		pkscript1, _ := txscript.PayToAddrScript(normalAddress1)
 		msgtx0.AddTxOut(&protos.TxOut{
-			Value:100,
-			Assets:asiutil.FlowCoinAsset,
-			PkScript:pkscript1,
+			Value:    100,
+			Asset:    asiutil.AsimovAsset,
+			PkScript: pkscript1,
 		})
 		pblock.AddTransaction(msgtx0)
 
@@ -325,9 +325,9 @@ func TestConnectBlock(t *testing.T)  {
 		})
 		pkscriptc0, _ := txscript.PayToAddrScript(contractAddress)
 		msgtx1.AddTxOut(&protos.TxOut{
-			Value:200,
-			Assets:asiutil.FlowCoinAsset,
-			PkScript:pkscriptc0,
+			Value:    200,
+			Asset:    asiutil.AsimovAsset,
+			PkScript: pkscriptc0,
 		})
 		pblock.AddTransaction(msgtx1)
 	}
@@ -340,9 +340,9 @@ func TestConnectBlock(t *testing.T)  {
 	})
 	pkscript, _ := txscript.PayToAddrScript(normalAddress3)
 	coinbase.AddTxOut(&protos.TxOut{
-		Value:10000,
-		Assets:asiutil.FlowCoinAsset,
-		PkScript:pkscript,
+		Value:    10000,
+		Asset:    asiutil.AsimovAsset,
+		PkScript: pkscript,
 	})
 	pblock.AddTransaction(coinbase)
 
@@ -362,29 +362,29 @@ func TestConnectBlock(t *testing.T)  {
 		pkscript0, _ := txscript.PayToAddrScript(normalAddress0)
 		pkscript2, _ := txscript.PayToAddrScript(normalAddress2)
 		msgtx0.AddTxOut(&protos.TxOut{
-			Value:300,
-			Assets:asiutil.FlowCoinAsset,
-			PkScript:pkscript2,
+			Value:    300,
+			Asset:    asiutil.AsimovAsset,
+			PkScript: pkscript2,
 		})
 		pvblock.AddTransaction(msgtx0)
 
 		stxo = append(stxo, blockchain.SpentTxOut{
-			Amount:100,
-			Height:11,
-			Assets:&asiutil.FlowCoinAsset,
-			PkScript:pkscript0,
+			Amount:   100,
+			Height:   11,
+			Asset:    &asiutil.AsimovAsset,
+			PkScript: pkscript0,
 		})
 		stxo = append(stxo, blockchain.SpentTxOut{
-			Amount:200,
-			Height:22,
-			Assets:&asiutil.FlowCoinAsset,
-			PkScript:pkscript2,
+			Amount:   200,
+			Height:   22,
+			Asset:    &asiutil.AsimovAsset,
+			PkScript: pkscript2,
 		})
 		stxo = append(stxo, blockchain.SpentTxOut{
-			Amount:300,
-			Height:33,
-			Assets:&asiutil.FlowCoinAsset,
-			PkScript:pkscriptc0,
+			Amount:   300,
+			Height:   33,
+			Asset:    &asiutil.AsimovAsset,
+			PkScript: pkscriptc0,
 		})
 	}
 

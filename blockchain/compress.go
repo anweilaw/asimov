@@ -336,20 +336,20 @@ func decodeCompressedScriptSize(serialized []byte) int {
 	return int(scriptSize)
 }
 
-func decodeCompressedAssetsSize(serialized []byte) int {
-	assetsSize, bytesRead := deserializeVLQ(serialized)
+func decodeCompressedAssetSize(serialized []byte) int {
+	assetSize, bytesRead := deserializeVLQ(serialized)
 	if bytesRead == 0 {
 		return 0
 	}
-	assetsSize += uint64(bytesRead)
-	return int(assetsSize)
+	assetSize += uint64(bytesRead)
+	return int(assetSize)
 }
 
-func putCompressedAssets(target []byte, assets *protos.Assets) int {
-	encodedSize := uint64(common.AssetsLength)
+func putCompressedAsset(target []byte, asset *protos.Asset) int {
+	encodedSize := uint64(common.AssetLength)
 	vlqSizeLen := putVLQ(target, encodedSize)
-	copy(target[vlqSizeLen:], assets.Bytes())
-	return vlqSizeLen + common.AssetsLength
+	copy(target[vlqSizeLen:], asset.Bytes())
+	return vlqSizeLen + common.AssetLength
 }
 
 // putCompressedScript compresses the passed script according to the domain
@@ -511,16 +511,16 @@ func decompressScript(compressedPkScript []byte) []byte {
 	return pkScript
 }
 
-func decompressAssets(compressedAssets []byte) *protos.Assets {
-	if len(compressedAssets) == 0 {
+func decompressAsset(compressedAsset []byte) *protos.Asset {
+	if len(compressedAsset) == 0 {
 		return nil
 	}
 
-	// Decode the assets size and examine it for the special cases.
-	encodedAssetsSize, bytesRead := deserializeVLQ(compressedAssets)
-	if encodedAssetsSize == common.AssetsLength {
-		assetsSize := int(encodedAssetsSize)
-		return protos.AssetFromBytes(compressedAssets[bytesRead : bytesRead+assetsSize])
+	// Decode the asset size and examine it for the special cases.
+	encodedAssetSize, bytesRead := deserializeVLQ(compressedAsset)
+	if encodedAssetSize == common.AssetLength {
+		assetSize := int(encodedAssetSize)
+		return protos.AssetFromBytes(compressedAsset[bytesRead : bytesRead+assetSize])
 	}
 	return nil
 }
@@ -541,10 +541,10 @@ func decompressAssets(compressedAssets []byte) *protos.Assets {
 
 // compressedTxOutSize returns the number of bytes the passed transaction output
 // fields would take when encoded with the format described above.
-func compressedTxOutSize(amount uint64, pkScript []byte, assets *protos.Assets) int {
+func compressedTxOutSize(amount uint64, pkScript []byte, asset *protos.Asset) int {
 	return common.AmountSize +
-		compressedScriptSize(pkScript) + serializeSizeVLQ(uint64(common.AssetsLength)) +
-		common.AssetsLength
+		compressedScriptSize(pkScript) + serializeSizeVLQ(uint64(common.AssetLength)) +
+		common.AssetLength
 }
 
 // putCompressedTxOut compresses the passed amount and script according to their
@@ -552,18 +552,18 @@ func compressedTxOutSize(amount uint64, pkScript []byte, assets *protos.Assets) 
 // passed target byte slice with the format described above.  The target byte
 // slice must be at least large enough to handle the number of bytes returned by
 // the compressedTxOutSize function or it will panic.
-func putCompressedTxOut(target []byte, amount uint64, pkScript []byte, assets *protos.Assets) int {
+func putCompressedTxOut(target []byte, amount uint64, pkScript []byte, asset *protos.Asset) int {
 	binary.LittleEndian.PutUint64(target, amount)
 	offset := common.AmountSize
 	offset += putCompressedScript(target[offset:], pkScript)
-	offset += putCompressedAssets(target[offset:], assets)
+	offset += putCompressedAsset(target[offset:], asset)
 	return offset
 }
 
 // decodeCompressedTxOut decodes the passed compressed txout, possibly followed
 // by other data, into its uncompressed amount and script and returns them along
 // with the number of bytes they occupied prior to decompression.
-func decodeCompressedTxOut(serialized []byte) (uint64, []byte, *protos.Assets, int, error) {
+func decodeCompressedTxOut(serialized []byte) (uint64, []byte, *protos.Asset, int, error) {
 	bytesRead := common.AmountSize
 	if len(serialized) < bytesRead {
 		return 0, nil, nil, 0, common.DeserializeError("unexpected end of " +
@@ -579,16 +579,16 @@ func decodeCompressedTxOut(serialized []byte) (uint64, []byte, *protos.Assets, i
 			"data after script size")
 	}
 
-	// Decode the compressed assets size and ensure there are enough bytes
+	// Decode the compressed asset size and ensure there are enough bytes
 	// left in the slice for it.
-	assetsSize := decodeCompressedAssetsSize(serialized[bytesRead+scriptSize:])
-	if len(serialized[bytesRead+scriptSize:]) < assetsSize {
+	assetSize := decodeCompressedAssetSize(serialized[bytesRead+scriptSize:])
+	if len(serialized[bytesRead+scriptSize:]) < assetSize {
 		return 0, nil, nil, bytesRead, common.DeserializeError("unexpected end of " +
-			"data after assets size")
+			"data after asset size")
 	}
 
-	// Decompress and return the amount and script and assets
+	// Decompress and return the amount and script and asset
 	script := decompressScript(serialized[bytesRead : bytesRead+scriptSize])
-	assets := decompressAssets(serialized[bytesRead+scriptSize:])
-	return amount, script, assets, bytesRead + scriptSize + assetsSize, nil
+	asset := decompressAsset(serialized[bytesRead+scriptSize:])
+	return amount, script, asset, bytesRead + scriptSize + assetSize, nil
 }

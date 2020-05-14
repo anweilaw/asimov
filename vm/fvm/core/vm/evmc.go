@@ -290,7 +290,7 @@ func (host *HostContext) EmitLog(addr common.Address, topics []common.Hash, data
 
 func (host *HostContext) Call(kind evmc.CallKind,
 	destination common.Address, sender common.Address,
-	value *big.Int, assets *protos.Assets, input []byte, gas int64, depth int,
+	value *big.Int, assets *protos.Asset, input []byte, gas int64, depth int,
 	static bool, int2 *big.Int) (output []byte, gasLeft int64, createAddr common.Address, err error) {
 
 	env := host.env
@@ -396,7 +396,7 @@ func (evm *EVMC) Run(contract *Contract, input []byte, readOnly bool) (ret []byt
 		input,
 		common.BigToHash(contract.value),
 		contract.Code,
-		contract.assets,
+		contract.asset,
 		common.Hash{})
 
 	contract.Gas = uint64(gasLeft)

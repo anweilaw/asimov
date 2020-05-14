@@ -39,8 +39,8 @@ const (
 	TxTypeNormal int = 4
 )
 
-// Asimov coin assetId
-var FlowCoinAsset = protos.Assets{Property: 0, Id: 0}
+// Asimov coin asset
+var AsimovAsset = protos.Asset{}
 
 // Tx defines a bitcoin transaction that provides easier and more efficient
 // manipulation of raw transactions.  It also memorizes the hash for the

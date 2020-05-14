@@ -79,7 +79,7 @@ type Config struct {
 	FeesChan chan interface{}
 
 	CheckTransactionInputs func(tx *asiutil.Tx, txHeight int32, utxoView *blockchain.UtxoViewpoint,
-		b *blockchain.BlockChain) (int64, *map[protos.Assets]int64, error)
+		b *blockchain.BlockChain) (int64, *map[protos.Asset]int64, error)
 }
 
 // Policy houses the policy (configuration parameters) which is used to
@@ -147,7 +147,7 @@ type TxPool struct {
 	// to on an unconditional timer.
 	nextExpireScan time.Time
 
-	fees map[protos.Assets]int32
+	fees map[protos.Asset]int32
 }
 
 // Ensure the TxPool type implements the mining.TxSource interface.
@@ -515,7 +515,7 @@ func (mp *TxPool) HasSpentInTxPool(PreviousOutPoints *[]protos.OutPoint) []proto
 // helper for maybeAcceptTransaction.
 //
 // This function MUST be called with the mempool lock held (for writes).
-func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *asiutil.Tx, height int32, fee int64, feeList *map[protos.Assets]int64) *mining.TxDesc {
+func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *asiutil.Tx, height int32, fee int64, feeList *map[protos.Asset]int64) *mining.TxDesc {
 	// Add the transaction to the pool and mark the referenced outpoints
 	// as spent by the pool.
 	txD := &mining.TxDesc{
@@ -1354,7 +1354,7 @@ func (mp *TxPool) RawMempoolVerbose() map[string]*rpcjson.GetRawMempoolVerboseRe
 	return result
 }
 
-func (mp *TxPool) updateFees(fees map[protos.Assets]int32) {
+func (mp *TxPool) updateFees(fees map[protos.Asset]int32) {
 	mp.fees = fees
 	for _, txdec := range mp.pool {
 		for assets := range *txdec.FeeList {
@@ -1366,7 +1366,7 @@ func (mp *TxPool) updateFees(fees map[protos.Assets]int32) {
 	}
 }
 
-func (mp *TxPool) getFees() map[protos.Assets]int32 {
+func (mp *TxPool) getFees() map[protos.Asset]int32 {
 	return mp.fees
 }
 
@@ -1376,7 +1376,7 @@ mainloop:
 	for {
 		select {
 		case arg := <-mp.cfg.FeesChan:
-			if fees := arg.(map[protos.Assets]int32); fees != nil {
+			if fees := arg.(map[protos.Asset]int32); fees != nil {
 				mp.mtx.Lock()
 				mp.updateFees(fees)
 				mp.mtx.Unlock()

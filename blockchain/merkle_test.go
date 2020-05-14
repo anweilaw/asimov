@@ -20,7 +20,7 @@ func TestMerkle(t *testing.T) {
 	defer teardownFunc()
 
 	//create block:
-	block, err := createTestBlock(chain, uint32(1), 0, 0, protos.Assets{0,0},
+	block, err := createTestBlock(chain, uint32(1), 0, 0, protos.Asset{0,0},
 	0, accList[0].Address, nil, chain.bestChain.Tip())
 	if err != nil {
 		t.Errorf("createTestBlock error %v", err)

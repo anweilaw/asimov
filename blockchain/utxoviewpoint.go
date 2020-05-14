@@ -79,7 +79,7 @@ func (view *UtxoViewpoint) addTxOut(outpoint protos.OutPoint, txOut *protos.TxOu
 		entry = new(txo.UtxoEntry)
 		view.entries[outpoint] = entry
 	}
-	entry.Update(txOut.Value, txOut.PkScript, blockHeight, isCoinBase, &txOut.Assets, lockitem)
+	entry.Update(txOut.Value, txOut.PkScript, blockHeight, isCoinBase, &txOut.Asset, lockitem)
 }
 
 // AddTxOut adds the specified output of the passed transaction to the view if
@@ -105,7 +105,7 @@ func (view *UtxoViewpoint) AddTxOut(tx *asiutil.Tx, txOutIdx uint32, blockHeight
 // unspendable to the view.  When the view already has entries for any of the
 // outputs, they are simply marked unspent.  All fields will be updated for
 // existing entries since it's possible it has changed during a reorg.
-func (view *UtxoViewpoint) AddTxOuts(tx *asiutil.Tx, blockHeight int32) map[protos.Assets]*txo.LockItem {
+func (view *UtxoViewpoint) AddTxOuts(tx *asiutil.Tx, blockHeight int32) map[protos.Asset]*txo.LockItem {
 	// Loop all of the transaction outputs and add those which are not
 	// provably unspendable.
 	isCoinBase := IsCoinBase(tx)
@@ -212,7 +212,7 @@ func (view *UtxoViewpoint) disconnectTransactions(db database.Transactor, block 
 				}
 
 				entry = txo.NewUtxoEntry(amount, txOut.PkScript,
-					block.Height(), isCoinBase, &txOut.Assets, nil)
+					block.Height(), isCoinBase, &txOut.Asset, nil)
 
 				view.entries[prevOut] = entry
 			}
@@ -251,7 +251,7 @@ func (view *UtxoViewpoint) disconnectTransactions(db database.Transactor, block 
 
 			// Restore the utxo using the stxo data from the spend
 			// journal and mark it as modified.
-			entry.Update(stxo.Amount, stxo.PkScript, stxo.Height, stxo.IsCoinBase, stxo.Assets, nil)
+			entry.Update(stxo.Amount, stxo.PkScript, stxo.Height, stxo.IsCoinBase, stxo.Asset, nil)
 
 			var lockItem *txo.LockItem
 			err := db.View(func(dbTx database.Tx) error {
@@ -494,13 +494,13 @@ func (b *BlockChain) fetchUtxoEntry(outpoint protos.OutPoint) (*txo.UtxoEntry, e
 	return entry, nil
 }
 
-func (b *BlockChain) FetchUtxoViewByAddressAndAsset(view *UtxoViewpoint, address []byte, assets *protos.Assets) (*[]protos.OutPoint, error) {
+func (b *BlockChain) FetchUtxoViewByAddressAndAsset(view *UtxoViewpoint, address []byte, asset *protos.Asset) (*[]protos.OutPoint, error) {
 	b.chainLock.RLock()
 	defer b.chainLock.RUnlock()
-	return b.fetchUtxoViewByAddressAndAsset(view, address, assets)
+	return b.fetchUtxoViewByAddressAndAsset(view, address, asset)
 }
 
-func (b *BlockChain) fetchUtxoViewByAddressAndAsset(view *UtxoViewpoint, address []byte, assets *protos.Assets) (*[]protos.OutPoint, error) {
+func (b *BlockChain) fetchUtxoViewByAddressAndAsset(view *UtxoViewpoint, address []byte, asset *protos.Asset) (*[]protos.OutPoint, error) {
 
 	err := b.db.View(func(dbTx database.Tx) error {
 		entryPairs, err := dbFetchBalance(dbTx, address)
@@ -518,19 +518,19 @@ func (b *BlockChain) fetchUtxoViewByAddressAndAsset(view *UtxoViewpoint, address
 	}
 
 	//check the items already in the global view.
-	var assetsEntries EntryPairList
+	var assetEntries EntryPairList
 	for out, entry := range view.entries {
 		if entry == nil || entry.IsSpent() {
 			continue
 		}
-		if entry.Assets().Equal(assets) {
-			assetsEntries = append(assetsEntries, EntryPair{out, entry})
+		if entry.Asset().Equal(asset) {
+			assetEntries = append(assetEntries, EntryPair{out, entry})
 		}
 	}
 
-	sort.Sort(assetsEntries)
-	outpoints := make([]protos.OutPoint, 0, len(assetsEntries))
-	for _, data := range assetsEntries {
+	sort.Sort(assetEntries)
+	outpoints := make([]protos.OutPoint, 0, len(assetEntries))
+	for _, data := range assetEntries {
 		outpoints = append(outpoints, data.Key)
 	}
 
@@ -638,24 +638,24 @@ func (b *BlockChain) updateBalanceCache(block *asiutil.Block, view *UtxoViewpoin
 			entry = new(txo.UtxoEntry)
 			(*balance)[outpoint] = entry
 		}
-		entry.Update(out.Value, out.PkScript, block.Height(), IsCoinBase(tx), &out.Assets, nil)
+		entry.Update(out.Value, out.PkScript, block.Height(), IsCoinBase(tx), &out.Asset, nil)
 	}
 }
 
-//fetch, sort the assets of certain address.
-func (b *BlockChain) fetchAssetBalance(block *asiutil.Block, view *UtxoViewpoint, address common.Address, assets *protos.Assets) ([]protos.OutPoint, error) {
-	balance, err := b.fetchAssetByAddress(block, nil, address, assets)
+//fetch, sort the asset of certain address.
+func (b *BlockChain) fetchAssetBalance(block *asiutil.Block, view *UtxoViewpoint, address common.Address, asset *protos.Asset) ([]protos.OutPoint, error) {
+	balance, err := b.fetchAssetByAddress(block, nil, address, asset)
 	if err != nil {
 		return nil, err
 	}
-	var assetsEntries EntryPairList
+	var assetEntries EntryPairList
 
 	//check the items already in the global view.
 	for out, entry := range view.entries {
 		if entry == nil || entry.IsSpent() {
 			continue
 		}
-		if !entry.Assets().Equal(assets) {
+		if !entry.Asset().Equal(asset) {
 			continue
 		}
 		_, addrs, _, err := txscript.ExtractPkScriptAddrs(entry.PkScript())
@@ -663,7 +663,7 @@ func (b *BlockChain) fetchAssetBalance(block *asiutil.Block, view *UtxoViewpoint
 			continue
 		}
 		if bytes.Equal(address[:], addrs[0].ScriptAddress()) {
-			assetsEntries = append(assetsEntries, EntryPair{out, entry})
+			assetEntries = append(assetEntries, EntryPair{out, entry})
 		}
 	}
 
@@ -672,25 +672,25 @@ func (b *BlockChain) fetchAssetBalance(block *asiutil.Block, view *UtxoViewpoint
 			continue
 		}
 
-		if entry.Assets().Equal(assets) {
+		if entry.Asset().Equal(asset) {
 			viewEntry := view.entries[outpoint]
 			if viewEntry == nil {
 				view.entries[outpoint] = entry
-				assetsEntries = append(assetsEntries, EntryPair{outpoint, entry})
+				assetEntries = append(assetEntries, EntryPair{outpoint, entry})
 			}
 		}
 	}
 
-	sort.Sort(assetsEntries)
-	outpoints := make([]protos.OutPoint, 0, len(assetsEntries))
-	for _, data := range assetsEntries {
+	sort.Sort(assetEntries)
+	outpoints := make([]protos.OutPoint, 0, len(assetEntries))
+	for _, data := range assetEntries {
 		outpoints = append(outpoints, data.Key)
 	}
 
 	return outpoints, nil
 }
 
-func (b *BlockChain) fetchAssetByAddress(block *asiutil.Block, view *UtxoViewpoint, address common.Address, assets *protos.Assets) (*txo.UtxoMap, error) {
+func (b *BlockChain) fetchAssetByAddress(block *asiutil.Block, view *UtxoViewpoint, address common.Address, asset *protos.Asset) (*txo.UtxoMap, error) {
 	balance := block.GetBalance(address)
 	if balance == nil {
 		var entryPairs *EntryPairList
@@ -730,7 +730,7 @@ func (b *BlockChain) fetchAssetByAddress(block *asiutil.Block, view *UtxoViewpoi
 				continue
 			}
 
-			if assets == nil || entry.Assets().Equal(assets) {
+			if asset == nil || entry.Asset().Equal(asset) {
 				if _, ok := view.entries[outpoint]; !ok {
 					view.entries[outpoint] = entry
 				}
@@ -770,11 +770,11 @@ func (b *BlockChain) fetchAssetByAddress(block *asiutil.Block, view *UtxoViewpoi
 // eg 4.
 //   0  | 10000  |  10000    | 2000   |    2000   | 1000   |    1000   |
 //   1  |                    | 7000   |    7000   |
-func (view *UtxoViewpoint) ConstructLockItems(tx *asiutil.Tx, nextHeight int32) ([]*txo.LockItem, map[protos.Assets]*txo.LockItem) {
+func (view *UtxoViewpoint) ConstructLockItems(tx *asiutil.Tx, nextHeight int32) ([]*txo.LockItem, map[protos.Asset]*txo.LockItem) {
 	if len(tx.MsgTx().TxOut) == 0 {
 		return nil, nil
 	}
-	temp := make(map[protos.Assets]*txo.LockItem)
+	temp := make(map[protos.Asset]*txo.LockItem)
 	for _, txin := range tx.MsgTx().TxIn {
 		entry := view.LookupEntry(txin.PreviousOutPoint)
 		if entry == nil {
@@ -783,10 +783,10 @@ func (view *UtxoViewpoint) ConstructLockItems(tx *asiutil.Tx, nextHeight int32) 
 		if entry.LockItem() == nil || len(entry.LockItem().Entries) == 0 {
 			continue
 		}
-		tempitem, ok := temp[*entry.Assets()]
+		tempitem, ok := temp[*entry.Asset()]
 		if !ok {
 			tempitem = txo.NewLockItem()
-			temp[*entry.Assets()] = tempitem
+			temp[*entry.Asset()] = tempitem
 		}
 		for _, lockentry := range entry.LockItem().Entries {
 
@@ -803,7 +803,7 @@ func (view *UtxoViewpoint) ConstructLockItems(tx *asiutil.Tx, nextHeight int32) 
 		if txout.Value == 0 {
 			continue
 		}
-		tempitem, ok := temp[txout.Assets]
+		tempitem, ok := temp[txout.Asset]
 		if !ok || len(tempitem.Entries) == 0 {
 			continue
 		}
@@ -828,11 +828,11 @@ func (view *UtxoViewpoint) ConstructLockItems(tx *asiutil.Tx, nextHeight int32) 
 	// Add self lock if it is votety
 	firstOut := tx.MsgTx().TxOut[0]
 	scriptClass, addrs, _, _ := txscript.ExtractPkScriptAddrs(firstOut.PkScript)
-	if scriptClass == txscript.VoteTy && len(addrs) > 0 && len(firstOut.Data) > common.HashLength && !firstOut.Assets.IsIndivisible() {
+	if scriptClass == txscript.VoteTy && len(addrs) > 0 && len(firstOut.Data) > common.HashLength && !firstOut.Asset.IsIndivisible() {
 		id := pickVoteArgument(firstOut.Data)
 		voteId := txo.NewVoteId(addrs[0].StandardAddress(), id)
 		for i, txout := range tx.MsgTx().TxOut {
-			if txout.Value > 0 && txout.Assets.Equal(&firstOut.Assets) {
+			if txout.Value > 0 && txout.Asset.Equal(&firstOut.Asset) {
 				if result[i] == nil {
 					result[i] = txo.NewLockItem()
 				}
