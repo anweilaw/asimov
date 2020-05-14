@@ -39,10 +39,10 @@ space.
 
 The default is ~/.asimovd on POSIX OSes, $LOCALAPPDATA/Asimovd on
 Windows, ~/Library/Application Support/Asimovd on Mac OS, and
-$home/asimovd on Plan9. Environment variables are expanded so they may
+​$home/asimovd on Plan9. Environment variables are expanded so they may
 be used.  NOTE: Windows environment variables are typically %VARIABLE%,
 but they must be accessed with $VARIABLE here. Also, ~ is expanded to
-$HOME path.
+​$HOME path.
 
 You can also use a self defined directory, which was already created.
 
@@ -83,15 +83,6 @@ testnet=1
 ; solo,poa,satoshiplus
 consensustype=satoshiplus
 privatekey=<your_privatekey_can_generate_by_wallet>
-```
-
-
-### Config ```genesis.json``` in your working path.
-
-Edit genesis.json file, use the value as follows:
-```sh
-  "collectHeight":6026,
-  "chainStartTime":1588905142
 ```
 
 ## Generate your private key.
