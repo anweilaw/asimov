@@ -65,11 +65,17 @@ Then, you may see some error like this
 Check the config file <Your Dir>/Asimovd/asimovd.conf:
 stat <Your Dir>/Asimovd/asimovd.conf: no such file or directory
 `
-It means you need make a configuration file for the node: into your homeDir and create Asimovd directory, and then copy asimovd.sample.conf, genesis.json and testnet.block file to Asimovd directory.
+It means you need make a configuration file for the node: 
+
+```
+cd <Your Dir>
+mkdir Asimovd
+cd Asimovd
+```
+
+copy asimovd.sample.conf, genesis.json and testnet.block file into Asimovd directory.
 
 ### Config ```asimovd.conf``` in your working path.
-
-into Asimovd directory:
 
 ```
 cp asimovd.sample.conf asimovd.conf
