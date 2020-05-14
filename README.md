@@ -128,7 +128,7 @@ Same as above configuration section.
 
 visit online [Developer Center](https://developer.asimov.network) to use the web IDE for asimov blockchain contract development.
 
-Or clone and build source code(be about to open source):
+Or clone and build source code(The code will be open source soon):
 
 ```sh
 git clone https://github.com/AsimovNetwork/developer.git
