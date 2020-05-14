@@ -67,7 +67,7 @@ stat <Your Dir>/Asimovd/asimovd.conf: no such file or directory
 `
 It means you need make a configuration file for the node: into your homeDir and create Asimovd directory, and then copy asimovd.sample.conf, genesis.json and testnet.block file to Asimovd directory.
 
-### Config ```asimovd.sample.conf``` in your working path.
+### Config ```asimovd.conf``` in your working path.
 
 into Asimovd directory:
 
