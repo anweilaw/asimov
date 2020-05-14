@@ -20,15 +20,15 @@ Linux.
 Download the package from https://asimov.network/wallet , where
 there is a link named 'Download Asimov Fullnode'
 
-This zip file contains six parts
+This zip file contains eight parts
 
 - Full Node ```asimovd```
+- Sample Configuration `asimovd.example.conf`
+- genesis json `genesis.json
+- Genesis block `testnet.block`
 - Tool ```wallet```
 - Tool ```autotx```
 - Readme `README.md`
-- genesis json `genesis.json`
-- Sample Configuration `asimovd.example.conf`
-- Genesis block `testnet.block`
 - Check Sum `md5.md`
 
 ## Prepare Workspace
