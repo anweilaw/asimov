@@ -75,6 +75,14 @@ cd Asimovd
 
 copy asimovd.sample.conf, genesis.json and testnet.block file into Asimovd directory.
 
+```
+cd <Your Dir>
+mkdir Asimovd
+cd Asimovd
+```
+
+copy asimovd.sample.conf, genesis.json and testnet.block file into Asimovd directory.
+
 ### Config ```asimovd.conf``` in your working path.
 
 ```
