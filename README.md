@@ -65,7 +65,7 @@ Then, you may see some error like this
 Check the config file <Your Dir>/Asimovd/asimovd.conf:
 stat <Your Dir>/Asimovd/asimovd.conf: no such file or directory
 `
-It means you need make a configuration file for the node: 
+It means you need make a configuration file for the node.
 
 ```
 cd <Your Dir>
