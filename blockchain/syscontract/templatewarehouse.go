@@ -4,7 +4,6 @@
 package syscontract
 
 import (
-	"fmt"
 	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
@@ -13,7 +12,6 @@ import (
 	"github.com/AsimovNetwork/asimov/vm/fvm"
 	"github.com/AsimovNetwork/asimov/vm/fvm/core/vm"
 	"github.com/AsimovNetwork/asimov/vm/fvm/params"
-	"math/big"
 )
 
 var templateWarehouseAddress = vm.ConvertSystemContractAddress(common.TemplateWarehouse)
@@ -31,39 +29,29 @@ func (m *Manager) GetTemplates(
 	pageSize int) (int, []ainterface.TemplateWarehouseContent, error, uint64) {
 
 	officialAddr := chaincfg.OfficialAddress
-	contract := m.GetActiveContractByHeight(block.Height(), common.TemplateWarehouse)
-	if contract == nil {
-		errStr := fmt.Sprintf("Failed to get active contract %s, %d", common.TemplateWarehouse, block.Height())
-		log.Error(errStr)
-		panic(errStr)
-	}
+	countInput := common.PackGetTemplateCountInput(getCountFunc, category)
 
-	// get number of templates.
-	getTemplatesCount := getCountFunc
-	runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, getTemplatesCount, category)
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig, gas,
-		templateWarehouseAddress, runCode)
+		templateWarehouseAddress, countInput)
 	if err != nil {
 		log.Errorf("Get contract templates failed, error: %s", err)
 		return 0, nil, err, leftOverGas
 	}
 
-	var outInt *big.Int
-	err = fvm.UnPackFunctionResult(contract.AbiInfo, &outInt, getTemplatesCount, result)
+	count, err := common.UnPackGetTemplatesCountResult(result)
 	if err != nil {
-		log.Errorf("Get contract templates failed, error: %s", err)
+		log.Error(err)
 		return 0, nil, err, leftOverGas
 	}
-	if outInt.Int64() == 0 {
+	if count == 0 {
 		return 0, nil, nil, leftOverGas
 	}
 
 	// get information details
 	template := make([]ainterface.TemplateWarehouseContent, 0)
-	getTemplate := getTemplatesFunc
 
 	// settings of Pagination
-	fromIndex := int(outInt.Int64()) - pageNo*pageSize - 1
+	fromIndex := int(count) - pageNo*pageSize - 1
 	if fromIndex < 0 {
 		return 0, nil, nil, leftOverGas
 	}
@@ -73,42 +61,28 @@ func (m *Manager) GetTemplates(
 	}
 
 	for i := fromIndex; i >= endIndex; i-- {
-		runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, getTemplate, category, big.NewInt(int64(i)))
-		if err != nil {
-			log.Errorf("Get contract templates failed, error: %s", err)
-			return 0, nil, err, leftOverGas
-		}
+		detailInput := common.PackGetTemplateDetailInput(getTemplatesFunc, category, uint64(i))
+
 		ret, leftOverGas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
-			leftOverGas, templateWarehouseAddress, runCode)
+			leftOverGas, templateWarehouseAddress, detailInput)
 		if err != nil {
 			log.Errorf("Get contract templates failed, error: %s", err)
 			return 0, nil, err, leftOverGas
 		}
 
-		cTime := new(big.Int)
-		var keyType [32]byte
-		outType := &[]interface{}{new(string), &keyType, &cTime, new(uint8), new(uint8), new(uint8), new(uint8)}
-		err = fvm.UnPackFunctionResult(contract.AbiInfo, outType, getTemplate, ret)
+		name, key, createTime, approveCount, rejectCount, reviewers, status, err := common.UnPackGetTemplateDetailResult(ret)
 		if err != nil {
-			log.Errorf("Get contract template failed, index is %d, error: %s", i, err)
-			continue
+			log.Error(err)
+			return 0, nil, err, leftOverGas
 		}
-
-		name := *((*outType)[0]).(*string)
-		key := common.Bytes2Hex(keyType[:])
-		createTime := cTime.Int64()
-		approveCount := *((*outType)[3]).(*uint8)
-		rejectCount := *((*outType)[4]).(*uint8)
-		reviewers := *((*outType)[5]).(*uint8)
-		status := *((*outType)[6]).(*uint8)
 		if status != blockchain.TEMPLATE_STATUS_NOTEXIST {
 			template = append(template, ainterface.TemplateWarehouseContent{
-				Name: name, Key: key, CreateTime: createTime, ApproveCount: approveCount,
+				Name: name, Key: common.Bytes2Hex(key), CreateTime: createTime, ApproveCount: approveCount,
 				RejectCount: rejectCount, Reviewers: reviewers, Status: status})
 		}
 	}
 
-	return int(outInt.Int64()), template, nil, leftOverGas
+	return int(count), template, nil, leftOverGas
 }
 
 // GetTemplate returns template detail by its template name
@@ -121,48 +95,21 @@ func (m *Manager) GetTemplate(
 	name string) (ainterface.TemplateWarehouseContent, bool, uint64) {
 
 	officialAddr := chaincfg.OfficialAddress
-	contract := m.GetActiveContractByHeight(block.Height(), common.TemplateWarehouse)
-	if contract == nil {
-		errStr := fmt.Sprintf("Failed to get active contract %s, %d", common.TemplateWarehouse, block.Height())
-		log.Error(errStr)
-		panic(errStr)
-	}
+	input := common.PackGetTemplateInput(category, name)
 
-	// get functions of contract.
-	getTemplate := common.ContractTemplateWarehouse_GetTemplateFunction()
-	runCode, err := fvm.PackFunctionArgs(contract.AbiInfo, getTemplate, category, name)
-	if err != nil {
-		log.Errorf("Get contract template failed, error: %s", err)
-		return ainterface.TemplateWarehouseContent{}, false, gas
-	}
 	ret, leftOverGas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
-		gas, templateWarehouseAddress, runCode)
+		gas, templateWarehouseAddress, input)
 	if err != nil {
 		log.Errorf("Get contract template failed, error: %s", err)
 		return ainterface.TemplateWarehouseContent{}, false, leftOverGas
 	}
 
-	cTime := new(big.Int)
-	var keyType [32]byte
-	outType := &[]interface{}{new(string), &keyType, &cTime, new(uint8), new(uint8), new(uint8), new(uint8)}
-
-	err = fvm.UnPackFunctionResult(contract.AbiInfo, outType, getTemplate, ret)
-	if err != nil {
-		log.Errorf("Get contract template failed, error: %s", err)
-		return ainterface.TemplateWarehouseContent{}, false, leftOverGas
-	}
-
-	key := common.Bytes2Hex(keyType[:])
-	createTime := cTime.Int64()
-	approveCount := *((*outType)[3]).(*uint8)
-	rejectCount := *((*outType)[4]).(*uint8)
-	reviewers := *((*outType)[5]).(*uint8)
-	status := *((*outType)[6]).(*uint8)
+	_, key, createTime, approveCount, rejectCount, reviewers, status, err := common.UnPackGetTemplateDetailResult(ret)
 	if status == blockchain.TEMPLATE_STATUS_NOTEXIST {
 		return ainterface.TemplateWarehouseContent{}, false, leftOverGas
 	}
 
-	return ainterface.TemplateWarehouseContent{Name: name, Key: key,
+	return ainterface.TemplateWarehouseContent{Name: name, Key: common.Bytes2Hex(key),
 			CreateTime: createTime, ApproveCount: approveCount,
 			RejectCount: rejectCount, Reviewers: reviewers,
 			Status: status},

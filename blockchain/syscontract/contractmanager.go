@@ -33,7 +33,7 @@ func (m *Manager) Init(chain fvm.ChainContext, dataBytes [] byte) error {
 	}
 	m.chain = chain
 	m.genesisDataCache = cMap
-	m.assetsUnrestrictedCache = make(map[protos.Assets]struct{})
+	m.assetsUnrestrictedCache = make(map[protos.Asset]struct{})
 	return nil
 }
 

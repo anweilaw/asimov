@@ -62,6 +62,8 @@ type ManagerTmp struct {
 	chain fvm.ChainContext
 	//  genesis transaction data cache
 	genesisDataCache map[common.ContractCode][]chaincfg.ContractInfo
+	// unrestricted assets cache
+	assetsUnrestrictedCache map[protos.Asset]struct{}
 }
 
 // Init manager by genesis data.
@@ -73,6 +75,7 @@ func (m *ManagerTmp) Init(chain fvm.ChainContext, dataBytes [] byte) error {
 	}
 	m.chain = chain
 	m.genesisDataCache = cMap
+	m.assetsUnrestrictedCache = make(map[protos.Asset]struct{})
 	return nil
 }
 
@@ -449,40 +452,50 @@ func (m *ManagerTmp) GetFees(
 	return fees, nil, leftOvergas
 }
 
+// IsLimit returns a number of int type by find in memory or calling system
+// contract of registry the number represents if an asset is restricted
 func (m *ManagerTmp) IsLimit(block *asiutil.Block,
 	stateDB vm.StateDB, asset *protos.Asset) int {
-	officialAddr := chaincfg.OfficialAddress
-	_, organizationId, assetIndex := asset.AssetFields()
-	contract := m.GetActiveContractByHeight(block.Height(), common.RegistryCenter)
-	if contract == nil {
-		errStr := fmt.Sprintf("Failed to get active contract %s, %d", common.RegistryCenter, block.Height())
-		log.Error(errStr)
-		panic(errStr)
+	if _, ok := m.assetsUnrestrictedCache[*asset]; ok {
+		return 0
 	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.RegistryCenter), contract.AbiInfo
-	funcName := common.ContractRegistryCenter_IsRestrictedAssetFunction()
-	input, err := fvm.PackFunctionArgs(abi, funcName, organizationId, assetIndex)
-	if err != nil {
-		return -1
+	limit := m.isLimit(block, stateDB, asset)
+
+	if limit == 0 {
+		m.assetsUnrestrictedCache[*asset] = struct{}{}
 	}
 
+	return limit
+}
+
+// isLimit returns a number of int type by calling system contract of registry
+// the number represents if an asset is restricted
+func (m *ManagerTmp) isLimit(block *asiutil.Block,
+	stateDB vm.StateDB, asset *protos.Asset) int {
+
+	officialAddr := chaincfg.OfficialAddress
+	_, organizationId, assetIndex := asset.AssetFields()
+	registryCenterAddress := vm.ConvertSystemContractAddress(common.RegistryCenter)
+
+	input := common.PackIsRestrictedAssetInput(common.IsRestrictedAssetByte, organizationId, assetIndex)
 	result, _, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
-		common.SystemContractReadOnlyGas, proxyAddr, input)
+		common.ReadOnlyGas, registryCenterAddress, input)
 	if err != nil {
 		log.Error(err)
 		return -1
 	}
 
-	var outType = &[]interface{}{new(bool), new(bool)}
-	err = fvm.UnPackFunctionResult(abi, &outType, funcName, result)
+	existed, limit, err := common.UnPackIsRestrictedAssetResult(result)
 	if err != nil {
+		log.Error(err)
 		return -1
 	}
-	if !*((*outType)[0]).(*bool) {
+
+	if !existed {
 		return -1
 	}
-	if *((*outType)[1]).(*bool) {
+	if limit {
 		return 1
 	}
 	return 0
@@ -491,46 +504,36 @@ func (m *ManagerTmp) IsLimit(block *asiutil.Block,
 
 func (m *ManagerTmp) IsSupport(block *asiutil.Block,
 	stateDB vm.StateDB, gasLimit uint64, asset *protos.Asset, address []byte) (bool, uint64) {
+	if gasLimit < common.SupportCheckGas {
+		return false, 0
+	}
+
+	// step1: prepare parameters for calling system contract to get organization address
 	_, organizationId, assetIndex := asset.AssetFields()
-
 	caller := chaincfg.OfficialAddress
-	contract := m.GetActiveContractByHeight(block.Height(), common.RegistryCenter)
-	if contract == nil {
-		errStr := fmt.Sprintf("Failed to get active contract %s, %d", common.RegistryCenter, block.Height())
-		log.Error(errStr)
-		panic(errStr)
-	}
-	proxyAddr, abi := vm.ConvertSystemContractAddress(common.RegistryCenter), contract.AbiInfo
-	funcName := common.ContractRegistryCenter_GetOrganizationAddressByIdFunction()
-	input, err := fvm.PackFunctionArgs(abi, funcName, organizationId, assetIndex)
-	if err != nil {
-		return false, gasLimit
-	}
+	registryCenterAddress := vm.ConvertSystemContractAddress(common.RegistryCenter)
 
+	input := common.PackIsRestrictedAssetInput(common. GetOrganizationAddressByIdByte, organizationId, assetIndex)
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(caller, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
-		gasLimit, proxyAddr, input)
+		common.SupportCheckGas, registryCenterAddress, input)
 	if err != nil {
 		log.Error(err)
-		return false, leftOverGas
-	}
-
-	var outType common.Address
-	err = fvm.UnPackFunctionResult(abi, &outType, funcName, result)
-	if err != nil {
-		log.Error(err)
-	}
-
-	if common.EmptyAddressValue == outType.String() {
 		return false, gasLimit - common.SupportCheckGas + leftOverGas
 	}
 
-	transferAddress := common.BytesToAddress(address)
-	transferInput := common.PackCanTransferInput(transferAddress, assetIndex)
+	// check if return valid organization address
+	organizationAddress := common.BytesToAddress(result)
+	if common.EmptyAddressValue == organizationAddress.String() {
+		return false, gasLimit - common.SupportCheckGas + leftOverGas
+	}
+
+	// step2: call canTransfer method to check if the asset can be transfer
+	transferInput := common.PackCanTransferInput(address, assetIndex)
 
 	result2, leftOverGas2, _ := fvm.CallReadOnlyFunction(caller, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
-		common.ReadOnlyGas, outType, transferInput)
+		common.ReadOnlyGas, organizationAddress, transferInput)
 
 	support, err := common.UnPackBoolResult(result2)
 	if err != nil {

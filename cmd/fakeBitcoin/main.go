@@ -142,7 +142,7 @@ func transactionData(heightStart, count int) []MinersResponse {
 	if _, ok := cachedBlockInfo[heightStart]; ok {
 		debugLog.Printf("Get cached block info start from %d", heightStart)
 		for i := heightStart; i < heightStart+count; i++ {
-			tmpResult[i] = cachedBlockInfo[i]
+			tmpResult[i-heightStart] = cachedBlockInfo[i]
 		}
 		return tmpResult
 	}

@@ -1152,9 +1152,6 @@ func (p *Peer) readMessage(encoding protos.MessageEncoding) (protos.Message, []b
 	log.Tracef("%v", newLogClosure(func() string {
 		return spew.Sdump(msg)
 	}))
-	log.Tracef("%v", newLogClosure(func() string {
-		return spew.Sdump(buf)
-	}))
 
 	return msg, buf, nil
 }

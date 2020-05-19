@@ -186,7 +186,7 @@ type FConfig struct {
 	WSOrigins        []string `long:"wsorigins" description:"Ws origins is whitelist of ws (default *)"`
 	WSModules        []string `long:"wsmodule" description:"WebSocket modules supported by current node (default [\"net\", \"web3\"])"`
 
-	AddBtc    []string `long:"addbtc" description:"Add a param to call btc server.  Format: '<ip>:<port>:<rpcuser>:<rpcport>'"`
+	AddBtc    []string `long:"addbtc" description:"Add a param to call btc server.  Format: '<ip>:<port>:<rpcuser>:<rpcpassword>'"`
 	BtcParams []*BitcoinParams
 
 	GenesisPath    string `long:"genesispath" description:"Path of genesis files"`

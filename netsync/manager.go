@@ -202,6 +202,8 @@ type SyncManager struct {
 	signedHeight map[int32]interface{}
 	tipHeight    int32
 	BroadcastMessage func(msg protos.Message, exclPeers ...interface{})
+
+	isCurrent int32
 }
 
 // resetHeaderState sets the headers-first mode state to values appropriate for
@@ -664,9 +666,22 @@ func (sm *SyncManager) pushErrorMsg(peer *peerpkg.Peer, rejectMap map[common.Has
 	peer.PushRejectMsg(protos.CmdSig, code, reason, hash, false)
 }
 
-// current returns true if we believe we are synced with our peers, false if we
+//current returns the result by checkCurrent and store it.
+func (sm *SyncManager) current() bool{
+	cur := sm.checkCurrent()
+	if cur && sm.isCurrent == 0 {
+		atomic.StoreInt32(&sm.isCurrent,1)
+	}
+	return cur
+}
+
+func (sm *SyncManager) GetCurrent() bool{
+	return atomic.LoadInt32(&sm.isCurrent) == 1
+}
+
+// checkCurrent returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
-func (sm *SyncManager) current() bool {
+func (sm *SyncManager) checkCurrent() bool {
 	if !sm.chain.IsCurrent() {
 		return false
 	}

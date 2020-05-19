@@ -1577,7 +1577,7 @@ func (s *NodeServer) handleAddPeerMsg(state *peerState, sp *serverPeer) bool {
 		// Advertise the local address when the server accepts incoming
 		// connections and it believes itself to be close to the best
 		// known tip.
-		if !chaincfg.Cfg.DisableListen && s.syncManager.IsCurrent() {
+		if !chaincfg.Cfg.DisableListen && s.syncManager.GetCurrent() {
 			// Get address that best matches.
 			lna := s.addrManager.GetBestLocalAddress(sp.NA())
 			if addrmgr.IsRoutable(lna) {
@@ -2459,7 +2459,7 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 		donePeers:            make(chan *serverPeer, chaincfg.Cfg.MaxPeers),
 		banPeers:             make(chan *serverPeer, chaincfg.Cfg.MaxPeers),
 		query:                make(chan interface{}),
-		relayInv:             make(chan relayMsg, chaincfg.Cfg.MaxPeers),
+		relayInv:             make(chan relayMsg, chaincfg.Cfg.MaxPeers*2),
 		broadcast:            make(chan broadcastMsg, chaincfg.Cfg.MaxPeers),
 		quit:                 make(chan struct{}),
 		modifyRebroadcastInv: make(chan interface{}),
