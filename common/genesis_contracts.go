@@ -185,10 +185,6 @@ func ContractRegistryCenter_RenameOrganizationFunction() (string) {
 	return "renameOrganization"
 }
 
-func ContractRegistryCenter_CanTransferFunction() (string) {
-	return "canTransfer"
-}
-
 func ContractRegistryCenter_MintAssetFunction() (string) {
 	return "mintAsset"
 }

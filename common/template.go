@@ -27,7 +27,7 @@ var (
 	// callCode for `getTemplateInfo` function.
 	GetTemplateInfoCallCode = Hex2Bytes("2fb97c1d")
 
-	// callCode for `canTransfer` function.
+	// callCode for `canTransfer` function of organization
 	CanTransferFuncByte = Hex2Bytes("fc588476")
 
 	// callCode for `isRestrictedAsset` function.
@@ -63,9 +63,19 @@ func PackCanTransferInput(transferAddress []byte, assetIndex uint32) []byte {
 }
 
 // PackIsRestrictedAssetInput returns a byte slice according to given parameters
-func PackIsRestrictedAssetInput(funcByte []byte, organizationId uint32, assetIndex uint32) []byte {
+func PackIsRestrictedAssetInput(organizationId uint32, assetIndex uint32) []byte {
 	input := make([]byte, 68)
-	copy(input[0:4], funcByte)
+	copy(input[0:4], IsRestrictedAssetByte)
+	binary.BigEndian.PutUint32(input[32:36], organizationId)
+	binary.BigEndian.PutUint32(input[64:], assetIndex)
+
+	return input[:]
+}
+
+// PackGetOrganizationAddressByIdInput returns a byte slice according to given parameters
+func PackGetOrganizationAddressByIdInput(organizationId uint32, assetIndex uint32) []byte {
+	input := make([]byte, 68)
+	copy(input[0:4], GetOrganizationAddressByIdByte)
 	binary.BigEndian.PutUint32(input[32:36], organizationId)
 	binary.BigEndian.PutUint32(input[64:], assetIndex)
 

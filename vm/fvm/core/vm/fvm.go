@@ -215,12 +215,7 @@ func (fvm *FVM) Call(caller ContractRef, addr common.Address, input []byte,
 		return nil, gas, -1, ErrDepth
 	}
 
-	// Fail if we're trying to transfer more than the available balance
-	err, leftOverGas = fvm.RegistryCenterCheck(caller, gas, asset)
-	if err != nil {
-		return nil, leftOverGas, -1, err
-	}
-
+	leftOverGas = gas
 	if doTransfer && !fvm.Context.CanTransfer(fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, asset) {
 		return nil, leftOverGas, -1, ErrInsufficientBalance
 	}
@@ -290,11 +285,8 @@ func (fvm *FVM) CallCode(caller ContractRef, addr common.Address, input []byte,
 	if fvm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
-	// Fail if we're trying to transfer more than the available balance
-	err, leftOverGas = fvm.RegistryCenterCheck(caller, gas, assets)
-	if err != nil {
-		return nil, leftOverGas, err
-	}
+
+	leftOverGas = gas
 	if !fvm.CanTransfer(fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, assets) {
 		return nil, leftOverGas, ErrInsufficientBalance
 	}
@@ -527,33 +519,3 @@ func (fvm *FVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (fvm *FVM) ChainConfig() *params.ChainConfig { return fvm.chainConfig }
-
-// Check whether the asset is valid or not.
-func (fvm *FVM) RegistryCenterCheck(caller ContractRef, gas uint64, asset *protos.Asset) (err error, leftOverGas uint64) {
-	if asset == nil || asset.IsFlowCoin() {
-		return nil, gas
-	}
-
-	registryCenterAddr, _, registryCenterABI := fvm.GetSystemContractInfo(common.RegistryCenter)
-	canTransferFunction := common.ContractRegistryCenter_CanTransferFunction()
-	_, orgId, coinIndex := asset.AssetFields()
-
-	// pack arguments for canTransferFunction
-	args, err := fvm.PackFunctionArgs(registryCenterABI, canTransferFunction, orgId, coinIndex)
-	if err != nil {
-		return errors.New("error packing function arguments for `CanTransfer`"), gas
-	}
-	// RegistryCenter.canTransfer costs 3473 gas, 2300 is not enough
-	ret, _, _, err := fvm.Call(caller, registryCenterAddr, args, 5000, common.Big0, nil, false)
-	// parse the result.
-	var outType bool
-	err = fvm.UnPackFunctionResult(registryCenterABI, &outType, canTransferFunction, ret)
-	if err != nil {
-		return errors.New("error unpacking function result for `CanTransfer`"), gas
-	}
-	if !outType {
-		return errors.New("can not transfer"), gas
-	}
-
-	return nil, gas
-}

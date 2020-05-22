@@ -477,7 +477,7 @@ func (m *ManagerTmp) isLimit(block *asiutil.Block,
 	_, organizationId, assetIndex := asset.AssetFields()
 	registryCenterAddress := vm.ConvertSystemContractAddress(common.RegistryCenter)
 
-	input := common.PackIsRestrictedAssetInput(common.IsRestrictedAssetByte, organizationId, assetIndex)
+	input := common.PackIsRestrictedAssetInput(organizationId, assetIndex)
 	result, _, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
 		common.ReadOnlyGas, registryCenterAddress, input)
@@ -513,7 +513,7 @@ func (m *ManagerTmp) IsSupport(block *asiutil.Block,
 	caller := chaincfg.OfficialAddress
 	registryCenterAddress := vm.ConvertSystemContractAddress(common.RegistryCenter)
 
-	input := common.PackIsRestrictedAssetInput(common. GetOrganizationAddressByIdByte, organizationId, assetIndex)
+	input := common.PackGetOrganizationAddressByIdInput(organizationId, assetIndex)
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(caller, block, m.chain,
 		stateDB, chaincfg.ActiveNetParams.FvmParam,
 		common.SupportCheckGas, registryCenterAddress, input)

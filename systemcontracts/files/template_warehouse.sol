@@ -67,7 +67,7 @@ contract TemplateWarehouse {
     /// @param _key template key
     function create(uint16 _category, string _name, bytes32 _key) public {
         require(_category > 0);
-        require(bytes(_name).length > 0);
+        require(bytes(_name).length > 0 && bytes(_name).length <= 128, "invalid length of template name");
         require(_key.length > 0);
 
         Category storage c = categories[_category];
