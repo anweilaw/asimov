@@ -2112,7 +2112,7 @@ func (b *BlockChain) FilterPackagedSignatures(signList []*asiutil.BlockSign) []*
 
 		for _, sign := range signList {
 			buff := signatureBucket.Get(sign.Hash()[:])
-			if buff != nil {
+			if buff == nil {
 				unpackagedSignatures = append(unpackagedSignatures, sign)
 			}
 		}
