@@ -9,6 +9,7 @@ import (
 	"container/heap"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/common/address"
@@ -17,6 +18,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"time"
 )
 
 // TestTxPriceHeap ensures the priority queue for transaction fees and
@@ -92,25 +94,12 @@ func TestCreateCoinbaseTx(t *testing.T) {
 			&common.Address{},
 			1,
 			true,
-		}, {
-			nil,
-			1,
-			false,
-		}, {
-			nil,
-			0,
-			false,
-		}, {
-			nil,
-			math.MaxInt32,
-			false,
 		},
 	}
 
 	t.Logf("Running %d tests", len(tests))
 	for i, test := range tests {
-		coinbaseScript, err := StandardCoinbaseScript(test.height, 0)
-		_, _, err = CreateCoinbaseTx(&chaincfg.DevelopNetParams, coinbaseScript, test.height, test.validater, nil)
+		_, _, err := CreateCoinbaseTx(&chaincfg.DevelopNetParams, test.height, test.validater, nil)
 		if test.wantErr != (err != nil) {
 			t.Errorf("tests #%d error %v", i, err)
 		}
@@ -140,9 +129,9 @@ func TestNewBlockTemplate(t *testing.T) {
 
 	defer teardownFunc()
 
-	global_view := blockchain.NewUtxoViewpoint()
+	global_view := txo.NewUtxoViewpoint()
 
-	g.FetchUtxoView = func(tx *asiutil.Tx, dolock bool) (viewpoint *blockchain.UtxoViewpoint, e error) {
+	g.FetchUtxoView = func(tx *asiutil.Tx, dolock bool) (viewpoint *txo.UtxoViewpoint, e error) {
 		neededSet := make(map[protos.OutPoint]struct{})
 		prevOut := protos.OutPoint{Hash: *tx.Hash()}
 		for txOutIdx := range tx.MsgTx().TxOut {
@@ -157,7 +146,7 @@ func TestNewBlockTemplate(t *testing.T) {
 
 		// Request the utxos from the point of view of the end of the main
 		// chain.
-		view := blockchain.NewUtxoViewpoint()
+		view := txo.NewUtxoViewpoint()
 		for k, _ := range neededSet {
 			view.AddEntry(k,global_view.LookupEntry(k))
 		}
@@ -388,7 +377,8 @@ func TestNewBlockTemplate(t *testing.T) {
 			fakeTxSource.push(v)
 		}
 
-		block, err := g.ProduceNewBlock(test.validator, test.gasFloor, test.gasCeil, test.round, test.slot, 5*100000)
+		template, err := g.ProduceNewBlock(test.validator, test.gasFloor, test.gasCeil,
+			time.Now().Unix(), test.round, test.slot, 5*100000)
 		if err != nil {
 			if test.wantErr != true {
 				t.Errorf("tests #%d error %v", i, err)
@@ -396,6 +386,7 @@ func TestNewBlockTemplate(t *testing.T) {
 			continue
 		}
 
+		block := template.Block
 		txs := block.MsgBlock().Transactions
 
 		if block.MsgBlock().Header.CoinBase != *test.validator.Address ||

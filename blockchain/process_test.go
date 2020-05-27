@@ -313,7 +313,7 @@ func TestProcessBlock(t *testing.T) {
 
 	t.Logf("Running %d TestProcessBlock tests", len(tests))
 	for i, test := range tests {
-		isMain,isOrphan,checkErr := chain.ProcessBlock(test.block,test.flags)
+		isMain,isOrphan,checkErr := chain.ProcessBlock(test.block, nil, test.flags)
 		if checkErr != nil {
 			if dbErr, ok := checkErr.(RuleError); !ok || dbErr.ErrorCode.String() != test.errStr {
 				t.Errorf("tests the %d error: %v", i, checkErr)

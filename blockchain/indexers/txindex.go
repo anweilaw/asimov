@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/database"
 	"github.com/AsimovNetwork/asimov/protos"
@@ -404,7 +405,7 @@ func (idx *TxIndex) Check(dbTx database.Tx) error {
 //
 // This is part of the Indexer interface.
 func (idx *TxIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 	// The offset and length of the transactions within the serialized
 	// block.
 	txLocs, err := block.TxLoc()
@@ -442,7 +443,7 @@ func (idx *TxIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
 //
 // This is part of the Indexer interface.
 func (idx *TxIndex) DisconnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// Remove all of the transactions in the block from the index.
 	if err := dbRemoveTxIndexEntries(dbTx, block.Transactions()); err != nil {

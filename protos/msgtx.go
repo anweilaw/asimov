@@ -263,11 +263,6 @@ func (a *Asset) Bytes() []byte {
 	return serialized[:]
 }
 
-// IsFlowCoin checks if an asset is default asimov coin
-func (a *Asset) IsFlowCoin() bool {
-	return DefaultOrgId == uint32(a.Id >> 32)
-}
-
 // assetFields returns three parts of an asset.
 // property + orgId + coinId
 func (a *Asset) AssetFields() (uint32, uint32, uint32) {

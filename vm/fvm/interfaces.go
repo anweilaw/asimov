@@ -19,12 +19,7 @@
 package fvm
 
 import (
-	"context"
 	"errors"
-	"math/big"
-
-	"github.com/AsimovNetwork/asimov/common"
-	"github.com/AsimovNetwork/asimov/vm/fvm/core/types"
 )
 
 // NotFound is returned by API methods if the requested item does not exist.
@@ -45,33 +40,3 @@ type Subscription interface {
 	Err() <-chan error
 }
 
-// FilterQuery contains options for contract log filtering.
-type FilterQuery struct {
-	BlockHash *common.Hash     // used by eth_getLogs, return logs only from block with this hash
-	FromBlock *big.Int         // beginning of the queried range, nil means genesis block
-	ToBlock   *big.Int         // end of the range, nil means latest block
-	Addresses []common.Address // restricts matches to events created by specific contracts
-
-	// The Topic list restricts matches to particular event topics. Each event has a list
-	// of topics. Topics matches a prefix of that list. An empty element slice matches any
-	// topic. Non-empty elements represent an alternative that matches any of the
-	// contained topics.
-	//
-	// Examples:
-	// {} or nil          matches any topic list
-	// {{A}}              matches topic A in first position
-	// {{}, {B}}          matches any topic in first position, B in second position
-	// {{A}, {B}}         matches topic A in first position, B in second position
-	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
-	Topics [][]common.Hash
-}
-
-// LogFilterer provides access to contract log events using a one-off query or continuous
-// event subscription.
-//
-// Logs received through a streaming query subscription may have Removed set to true,
-// indicating that the log was reverted due to a chain reorganisation.
-type LogFilterer interface {
-	FilterLogs(ctx context.Context, q FilterQuery) ([]types.Log, error)
-	SubscribeFilterLogs(ctx context.Context, q FilterQuery, ch chan<- types.Log) (Subscription, error)
-}

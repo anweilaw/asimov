@@ -672,7 +672,7 @@ type rpcserverContractManager interface {
 	// Get assets which can be used as transaction fees on Asimov
 	GetFees(block *asiutil.Block,
 		stateDB vm.StateDB,
-		chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64)
+		chainConfig *params.ChainConfig) (map[protos.Asset]int32, error)
 
 	// Get information of a template
 	GetTemplate(

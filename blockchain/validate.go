@@ -38,10 +38,6 @@ const (
 	// used to calculate the median time used to validate block timestamps.
 	medianTimeBlocks = 11
 
-	// serializedHeightVersion is the block version which changed block
-	// coinbases to start with the serialized block height.
-	serializedHeightVersion = 2
-
 	// baseSubsidy is the starting subsidy amount for mined blocks.  This
 	// value is halved every SubsidyHalvingInterval blocks.
 	baseSubsidy = 200 * common.XingPerAsimov
@@ -75,15 +71,6 @@ func isNullOutpoint(outpoint *protos.OutPoint) bool {
 		return true
 	}
 	return false
-}
-
-// ShouldHaveSerializedBlockHeight determines if a block should have a
-// serialized block height embedded within the scriptSig of its
-// coinbase transaction. Judgement is based on the block version in the block
-// header. Blocks with version 2 and above satisfy this criteria. See BIP0034
-// for further information.
-func ShouldHaveSerializedBlockHeight(header *protos.BlockHeader) bool {
-	return header.Version >= serializedHeightVersion
 }
 
 // IsCoinBaseTx determines whether or not a transaction is a coinbase.  A coinbase
@@ -347,7 +334,7 @@ func CountSigOps(tx *asiutil.Tx) int {
 // transactions which are of the pay-to-script-hash type.  This uses the
 // precise, signature operation counting mechanism from the script engine which
 // requires access to the input transaction scripts.
-func CountP2SHSigOps(tx *asiutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint) (int, error) {
+func CountP2SHSigOps(tx *asiutil.Tx, isCoinBaseTx bool, utxoView *txo.UtxoViewpoint) (int, error) {
 	// Coinbase transactions have no interesting inputs.
 	if isCoinBaseTx {
 		return 0, nil
@@ -567,10 +554,8 @@ func CheckBlockSanity(block *asiutil.Block, parent *blockNode) error {
 func ExtractCoinbaseHeight(coinbaseTx *asiutil.Tx) (int32, error) {
 	sigScript := coinbaseTx.MsgTx().TxIn[0].SignatureScript
 	if len(sigScript) < 1 {
-		str := "the coinbase signature script for blocks of " +
-			"version %d or greater must start with the " +
-			"length of the serialized block height"
-		str = fmt.Sprintf(str, serializedHeightVersion)
+		str := "the coinbase signature script for blocks " +
+			"must start with the length of the serialized block height"
 		return 0, ruleError(ErrMissingCoinbaseHeight, str)
 	}
 
@@ -588,10 +573,8 @@ func ExtractCoinbaseHeight(coinbaseTx *asiutil.Tx) (int32, error) {
 	// encode in the block height.
 	serializedLen := int(sigScript[0])
 	if len(sigScript[1:]) < serializedLen {
-		str := "the coinbase signature script for blocks of " +
-			"version %d or greater must start with the " +
-			"serialized block height"
-		str = fmt.Sprintf(str, serializedHeightVersion)
+		str := "the coinbase signature script for blocks " +
+			"must start with the serialized block height"
 		return 0, ruleError(ErrMissingCoinbaseHeight, str)
 	}
 
@@ -816,7 +799,7 @@ func (b *BlockChain) checkSignatures(block *asiutil.Block) error {
 	return nil
 }
 
-func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block, view *UtxoViewpoint) error {
+func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block, view *txo.UtxoViewpoint) error {
 	header := block.MsgBlock().Header
 
 	//get the validators of current block:
@@ -892,13 +875,12 @@ func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block
 		chkSigErr := b.db.View(func(dbTx database.Tx) error {
 			for _, sign := range block.Signs() {
 				if view != nil {
-					if action, exist := view.signs[*sign.MsgSign]; exist {
-						if action == asiutil.ViewRm {
-							continue
-						}
-						if action == asiutil.ViewAdd {
-							return ruleError(ErrSignDuplicate, "sign duplicated")
-						}
+					action := view.TryGetSignAction(sign.MsgSign);
+					if action == txo.ViewRm {
+						continue
+					}
+					if action == txo.ViewAdd {
+						return ruleError(ErrSignDuplicate, "sign duplicated")
 					}
 				}
 				has := dbHasSignature(dbTx, sign)
@@ -913,7 +895,7 @@ func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block
 		}
 		if view != nil {
 			for _, sign := range block.Signs() {
-				view.signs[*sign.MsgSign] = asiutil.ViewAdd
+				view.AddViewSign(sign.MsgSign)
 			}
 		}
 	}
@@ -932,7 +914,7 @@ func (b *BlockChain) checkSignaturesWeight(node *blockNode, block *asiutil.Block
 //
 // NOTE: The transaction MUST have already been sanity checked with the
 // CheckTransactionSanity function prior to calling this function.
-func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpoint,
+func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *txo.UtxoViewpoint,
 	b *BlockChain) (int64, *map[protos.Asset]int64, error) {
 
 	// Coinbase transactions have no inputs.
@@ -1139,7 +1121,7 @@ func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *UtxoViewpo
 	// which will be spent to allow other asset as fee.
 }
 
-func CheckVTransactionInputs(tx *asiutil.Tx, utxoView *UtxoViewpoint) error {
+func CheckVTransactionInputs(tx *asiutil.Tx, utxoView *txo.UtxoViewpoint) error {
 	for txInIndex, txIn := range tx.MsgTx().TxIn {
 		isVtxMint := asiutil.IsMintOrCreateInput(txIn)
 		if isVtxMint {
@@ -1287,11 +1269,26 @@ func (b *BlockChain) GetValidatorsByNode(round uint32, preroundLastNode *blockNo
 // with that node.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, view *UtxoViewpoint,
-	stxos *[]SpentTxOut, msgvblock *protos.MsgVBlock, statedb *state.StateDB,
-	feepool map[protos.Asset]int32) (
-	types.Receipts, []*types.Log, map[protos.Asset]*txo.LockItem, error) {
+func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, view *txo.UtxoViewpoint,
+	stxos *[]txo.SpentTxOut, msgvblock *protos.MsgVBlock) (
+	types.Receipts, []*types.Log, error) {
 
+	// Check Sig & Weight
+	err := b.checkSignaturesWeight(node, block, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	//contract related statedb info.
+	statedb, err := state.New(node.parent.stateRoot, b.stateCache)
+	if err != nil {
+		return nil, nil, err
+	}
+	feepool, err := b.GetAcceptFees(block,
+		statedb, chaincfg.ActiveNetParams.FvmParam, block.Height())
+	if err != nil {
+		return nil, nil, err
+	}
 	// If the side chain blocks end up in the database, a call to
 	// CheckBlockSanity should be done here in case a previous version
 	// allowed a block that is no longer valid.  However, since the
@@ -1302,7 +1299,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	// an error now.
 	if node.hash.IsEqual(b.chainParams.GenesisHash) {
 		str := "invalid hash when checking block connection: the block to be checked can not be genesis block"
-		return nil, nil, nil, ruleError(ErrInvalidBlockHash, str)
+		return nil, nil, ruleError(ErrInvalidBlockHash, str)
 	}
 
 	// Ensure the view is for the node being checked.
@@ -1311,7 +1308,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 		errStr := fmt.Sprintf("inconsistent view when "+
 			"checking block connection: best hash is %v instead "+
 			"of expected %v", view.BestHash(), parentHash)
-		return nil, nil, nil, ruleError(ErrHashMismatch, errStr)
+		return nil, nil, ruleError(ErrHashMismatch, errStr)
 	}
 
 	// Load all of the utxos referenced by the inputs for all transactions
@@ -1319,9 +1316,9 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	//
 	// These utxo entries are needed for verification of things such as
 	// transaction inputs, counting pay-to-script-hashes, and scripts.
-	err := view.fetchInputUtxos(b.db, block)
+	err = fetchInputUtxos(view, b.db, block)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// The number of signature operations must be less than the maximum
@@ -1342,7 +1339,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 		// full coinbase check again.
 		sigOpCost, err := GetSigOpCost(tx, i == coinbaseIdx, view)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 
 		// Check for overflow or going over the limits.  We have to do
@@ -1353,7 +1350,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 			str := fmt.Sprintf("block contains too many "+
 				"signature operations - got %v, max %v",
 				totalSigOpCost, MaxBlockSigOpsCost)
-			return nil, nil, nil, ruleError(ErrTooManySigOps, str)
+			return nil, nil, ruleError(ErrTooManySigOps, str)
 		}
 	}
 
@@ -1374,7 +1371,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	for i, tx := range transactions {
 		fee, feeList, err := CheckTransactionInputs(tx, node.height, view, b)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 
 		// Sum the total fees and ensure we don't overflow the
@@ -1384,12 +1381,12 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 				if _, ok := feepool[asset]; !ok {
 					errstr := fmt.Sprintf("Skipping tx %s because its "+
 						"fee %v is unsupported", tx.Hash(), asset)
-					return nil, nil, nil, ruleError(ErrForbiddenAsset, errstr)
+					return nil, nil, ruleError(ErrForbiddenAsset, errstr)
 				}
 			}
 			err = MergeFees(&allFees, feeList)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, err
 			}
 		}
 
@@ -1404,7 +1401,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 			allLogs = append(allLogs, receipt.Logs...)
 		}
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		totalGasUsed += gasUsed
 		if vtx != nil && msgvblock != nil {
@@ -1426,11 +1423,11 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	if block.MsgBlock().Header.GasUsed != totalGasUsed {
 		errStr := fmt.Sprintf("total gas used mismatch, header %d vs calc %d.",
 			block.MsgBlock().Header.GasUsed, totalGasUsed)
-		return nil, nil, nil, ruleError(ErrGasMismatch, errStr)
+		return nil, nil, ruleError(ErrGasMismatch, errStr)
 	}
 
 	if err := b.checkCoinbaseTx(node.parent, block, allFees); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// Don't run scripts if this node is before the latest known good
@@ -1474,14 +1471,14 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 		sequenceLock, err := b.calcSequenceLock(node, tx, view,
 			false)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		if !SequenceLockActive(sequenceLock, node.height,
 			medianTime) {
 			str := fmt.Sprintf("block contains " +
 				"transaction whose input sequence " +
 				"locks are not met")
-			return nil, nil, nil, ruleError(ErrUnfinalizedTx, str)
+			return nil, nil, ruleError(ErrUnfinalizedTx, str)
 		}
 	}
 
@@ -1492,7 +1489,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	if runScripts {
 		err := checkBlockScripts(block, view, scriptFlags)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -1500,7 +1497,21 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	// transactions have been connected.
 	view.SetBestHash(&node.hash)
 
-	return receipts, allLogs, totalFeeLockItems, nil
+	//save dbstate.
+	stateRoot, err := statedb.Commit(true)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := statedb.Database().TrieDB().Commit(stateRoot, false); err != nil {
+		return nil, nil, err
+	}
+	if !bytes.Equal(node.stateRoot[:], stateRoot[:]) {
+		return nil, nil, ruleError(ErrStateRootNotMatch, "state root of the block is not matched.")
+	}
+
+	updateFeeLockItems(block, view, totalFeeLockItems)
+
+	return receipts, allLogs, nil
 }
 
 func (b *BlockChain) createCoinbaseContractOut(preround uint32, preroundLastNode *blockNode) (*protos.TxOut, error) {
@@ -1637,7 +1648,7 @@ func checkCoreTeamReward(coinbaseTx *protos.MsgTx, mineFeelist map[protos.Asset]
 
 // GetSigOpCost returns the unified sig op cost for the passed transaction
 // respecting current active soft-forks which modified sig op cost counting.
-func GetSigOpCost(tx *asiutil.Tx, isCoinBaseTx bool, utxoView *UtxoViewpoint) (int, error) {
+func GetSigOpCost(tx *asiutil.Tx, isCoinBaseTx bool, utxoView *txo.UtxoViewpoint) (int, error) {
 	numSigOps := CountSigOps(tx)
 	numP2SHSigOps, err := CountP2SHSigOps(tx, isCoinBaseTx, utxoView)
 	if err != nil {
@@ -1685,16 +1696,12 @@ func (b *BlockChain) GetAcceptFees(
 	block *asiutil.Block,
 	stateDB vm.StateDB,
 	chainConfig *params.ChainConfig,
-	height int32) (map[protos.Asset]int32, error, uint64) {
-	fees, err, leftOverGas := b.contractManager.GetFees(block, stateDB, chainConfig)
+	height int32) (map[protos.Asset]int32, error) {
+	fees, err := b.contractManager.GetFees(block, stateDB, chainConfig)
 	if err != nil {
-		return nil, err, leftOverGas
+		return nil, err
 	}
-	return FilterAcceptFee(fees, height), nil, leftOverGas
-}
 
-//TODO
-func FilterAcceptFee(fees map[protos.Asset]int32, height int32) map[protos.Asset]int32 {
 	res := make(map[protos.Asset]int32)
 	for asset, value := range fees {
 		if value <= height {
@@ -1702,12 +1709,12 @@ func FilterAcceptFee(fees map[protos.Asset]int32, height int32) map[protos.Asset
 		}
 	}
 	res[asiutil.AsimovAsset] = 0
-	return res
+	return res, nil
 }
 
 //TODO
 func (b *BlockChain) GetByteCode(
-	txs map[common.Hash]asiutil.TxMark,
+	txs map[common.Hash]txo.TxMark,
 	block *asiutil.Block,
 	gas uint64,
 	stateDB vm.StateDB,

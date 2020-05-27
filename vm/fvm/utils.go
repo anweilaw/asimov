@@ -27,7 +27,7 @@ func CallReadOnlyFunction(
 	gasLimit uint64,
 	contractAddr common.Address,
 	input []byte) (ret []byte, leftOverGas uint64, err error) {
-	context := NewFVMContext(from, new(big.Int).SetInt64(1), block, chain, nil,nil, nil)
+	context := NewFVMContext(from, new(big.Int).SetInt64(1), block, chain, nil,nil)
 	vmInstance := fvm.NewFVM(context, stateDB, chainConfig, *chain.GetVmConfig())
 	ret, leftOverGas, _, err = vmInstance.Call(
 		fvm.AccountRef(from), contractAddr, input, gasLimit, common.Big0, nil, false)

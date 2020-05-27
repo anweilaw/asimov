@@ -11,6 +11,7 @@ import (
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/vm/fvm"
+	"sync"
 )
 
 // Manager defines an contract manager that manages multiple system contracts and
@@ -20,7 +21,9 @@ type Manager struct {
 	chain fvm.ChainContext
 	// genesis transaction data cache
 	genesisDataCache map[common.ContractCode][]chaincfg.ContractInfo
+
 	// unrestricted assets cache
+	assetsUnrestrictedMtx   sync.Mutex
 	assetsUnrestrictedCache map[protos.Asset]struct{}
 }
 

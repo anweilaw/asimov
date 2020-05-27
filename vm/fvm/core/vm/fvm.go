@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/AsimovNetwork/asimov/asiutil"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/crypto"
 	"github.com/AsimovNetwork/asimov/protos"
@@ -37,14 +38,14 @@ var emptyCodeHash = crypto.Keccak256Hash(nil)
 
 type (
 	// Check whether a transfer can happen
-	CanTransferFunc func(*asiutil.Block, StateDB, common.Address, *big.Int, *virtualtx.VirtualTransaction, CalculateBalanceFunc, *protos.Asset) bool
+	CanTransferFunc func(*txo.UtxoViewpoint, *asiutil.Block, StateDB, common.Address, *big.Int, *virtualtx.VirtualTransaction, CalculateBalanceFunc, *protos.Asset) bool
 	// Transfer asset
 	TransferFunc func(StateDB, common.Address, common.Address, *big.Int, *virtualtx.VirtualTransaction, *protos.Asset)
 	// GetHashFunc returns the nth block hash in the blockchain
 	// and is used by the BLOCKHASH FVM op code.
 	GetHashFunc func(uint64) common.Hash
 	// Calculate balance
-	CalculateBalanceFunc func(block *asiutil.Block, address common.Address, assets *protos.Asset, voucherId int64) (int64, error)
+	CalculateBalanceFunc func(view *txo.UtxoViewpoint, block *asiutil.Block, address common.Address, assets *protos.Asset, voucherId int64) (int64, error)
 	// Get template warehouse information
 	GetTemplateWarehouseInfoFunc func() (common.Address, string)
 	// Pack function arguments
@@ -54,7 +55,7 @@ type (
 	// Get system contract information
 	GetSystemContractInfoFunc func(delegateAddr common.ContractCode) (common.Address, []byte, string)
 	// Fetch a given template from template warehouse
-	FetchTemplateFunc func(txs map[common.Hash]asiutil.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error)
+	FetchTemplateFunc func(txs map[common.Hash]txo.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error)
 	// Get vote value
 	VoteValueFunc func() int64
 )
@@ -116,9 +117,7 @@ type Context struct {
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	Block       *asiutil.Block // Block contains a balance cache which used in vm.
-	// TxsMap is a reference from UtxoViewPoint. It stores latest (or disconnected) txs
-	// which may contain template.
-	TxsMap map[common.Hash]asiutil.TxMark
+	View        *txo.UtxoViewpoint // Provides UtxoViewPoint
 }
 
 // FVM is the Asimov Virtual Machine base object and provides
@@ -216,7 +215,7 @@ func (fvm *FVM) Call(caller ContractRef, addr common.Address, input []byte,
 	}
 
 	leftOverGas = gas
-	if doTransfer && !fvm.Context.CanTransfer(fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, asset) {
+	if doTransfer && !fvm.Context.CanTransfer(fvm.View, fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, asset) {
 		return nil, leftOverGas, -1, ErrInsufficientBalance
 	}
 
@@ -287,7 +286,7 @@ func (fvm *FVM) CallCode(caller ContractRef, addr common.Address, input []byte,
 	}
 
 	leftOverGas = gas
-	if !fvm.CanTransfer(fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, assets) {
+	if !fvm.CanTransfer(fvm.View, fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, assets) {
 		return nil, leftOverGas, ErrInsufficientBalance
 	}
 
@@ -398,7 +397,7 @@ func (fvm *FVM) create(caller ContractRef, code []byte,
 	if fvm.depth > int(params.CallCreateDepth) {
 		return nil, common.Address{}, gas, -1, ErrDepth
 	}
-	if doTransfer && !fvm.CanTransfer(fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, assets) {
+	if doTransfer && !fvm.CanTransfer(fvm.View, fvm.Block, fvm.StateDB, caller.Address(), value, fvm.Vtx, fvm.CalculateBalance, assets) {
 		return nil, common.Address{}, gas, -1, ErrInsufficientBalance
 	}
 
@@ -490,7 +489,7 @@ func (fvm *FVM) Create(caller ContractRef, code []byte,
 	case common.PubKeyHashAddrID:
 		fallthrough
 	case common.ScriptHashAddrID:
-		contractAddr, _ = crypto.CreateContractAddress(caller.Address().Bytes(), code, inputHash)
+		contractAddr, _ = crypto.CreateContractAddress(caller.Address().Bytes(), []byte{}, inputHash)
 	default:
 		return nil, common.Address{}, gas, -1, errors.New("invalid caller address type")
 	}

@@ -127,17 +127,7 @@ func UnPackBoolResult(ret []byte) (bool, error) {
 	if len(ret) != 32 {
 		return false, errors.New("invalid length of ret of canTransfer func")
 	}
-	var support bool
-	switch ret[31] {
-	case 0:
-		support = false
-	case 1:
-		support = true
-	default:
-		support = false
-	}
-
-	return support, nil
+	return ret[31] == 1, nil
 }
 
 // UnPackBoolResult returns bool value by unpacking given byte slice
@@ -145,19 +135,7 @@ func UnPackIsRestrictedAssetResult(ret []byte) (bool, bool, error) {
 	if len(ret) != 64 {
 		return false, false, errors.New("invalid length of ret of isRestrictedAsset func")
 	}
-	var existed, support bool
-	if ret[31] == 1 {
-		existed = true
-	} else {
-		existed = false
-	}
-
-	if ret[63] == 1 {
-		support = true
-	} else {
-		support = false
-	}
-
+	existed, support := ret[31] == 1, ret[63] == 1
 	return existed, support, nil
 }
 

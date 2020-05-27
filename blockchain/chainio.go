@@ -138,110 +138,6 @@ func dbFetchOrCreateVersion(dbTx database.Tx, key []byte, defaultVersion uint32)
 	return version, nil
 }
 
-// -----------------------------------------------------------------------------
-// The transaction spend journal consists of an entry for each block connected
-// to the main chain which contains the transaction outputs the block spends
-// serialized such that the order is the reverse of the order they were spent.
-//
-// This is required because reorganizing the chain necessarily entails
-// disconnecting blocks to get back to the point of the fork which implies
-// unspending all of the transaction outputs that each block previously spent.
-// Since the utxo set, by definition, only contains unspent transaction outputs,
-// the spent transaction outputs must be resurrected from somewhere.  There is
-// more than one way this could be done, however this is the most straight
-// forward method that does not require having a transaction index and unpruned
-// blockchain.
-//
-// NOTE: This format is NOT self describing.  The additional details such as
-// the number of entries (transaction inputs) are expected to come from the
-// block itself and the utxo set (for legacy entries).  The rationale in doing
-// this is to save space.  This is also the reason the spent outputs are
-// serialized in the reverse order they are spent because later transactions are
-// allowed to spend outputs from earlier ones in the same block.
-//
-// The reserved field below used to keep track of the version of the containing
-// transaction when the height in the header code was non-zero, however the
-// height is always non-zero now, but keeping the extra reserved field allows
-// backwards compatibility.
-//
-// The serialized format is:
-//
-//   [<header code><reserved><compressed txout>],...
-//
-//   Field                Type     Size
-//   header code          VLQ      variable
-//   reserved             byte     1
-//   compressed txout
-//     compressed amount  VLQ      variable
-//     compressed script  []byte   variable
-//
-// The serialized header code format is:
-//   bit 0 - containing transaction is a coinbase
-//   bits 1-x - height of the block that contains the spent txout
-//
-// Example 1:
-// From block 170 in main blockchain.
-//
-//    1300320511db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5c
-//    <><><------------------------------------------------------------------>
-//     | |                                  |
-//     | reserved                  compressed txout
-//    header code
-//
-//  - header code: 0x13 (coinbase, height 9)
-//  - reserved: 0x00
-//  - compressed txout 0:
-//    - 0x32: VLQ-encoded compressed amount for 5000000000 (50 BTC)
-//    - 0x05: special script type pay-to-pubkey
-//    - 0x11...5c: x-coordinate of the pubkey
-//
-// Example 2:
-// Adapted from block 100025 in main blockchain.
-//
-//    8b99700091f20f006edbc6c4d31bae9f1ccc38538a114bf42de65e868b99700086c64700b2fb57eadf61e106a100a7445a8c3f67898841ec
-//    <----><><----------------------------------------------><----><><---------------------------------------------->
-//     |    |                         |                        |    |                         |
-//     |    reserved         compressed txout                  |    reserved         compressed txout
-//    header code                                          header code
-//
-//  - Last spent output:
-//    - header code: 0x8b9970 (not coinbase, height 100024)
-//    - reserved: 0x00
-//    - compressed txout:
-//      - 0x91f20f: VLQ-encoded compressed amount for 34405000000 (344.05 BTC)
-//      - 0x00: special script type pay-to-pubkey-hash
-//      - 0x6e...86: pubkey hash
-//  - Second to last spent output:
-//    - header code: 0x8b9970 (not coinbase, height 100024)
-//    - reserved: 0x00
-//    - compressed txout:
-//      - 0x86c647: VLQ-encoded compressed amount for 13761000000 (137.61 BTC)
-//      - 0x00: special script type pay-to-pubkey-hash
-//      - 0xb2...ec: pubkey hash
-// -----------------------------------------------------------------------------
-
-// SpentTxOut contains a spent transaction output and potentially additional
-// contextual information such as whether or not it was contained in a coinbase
-// transaction, the version of the transaction it was contained in, and which
-// block height the containing transaction was included in.  As described in
-// the comments above, the additional contextual information will only be valid
-// when this spent txout is spending the last unspent output of the containing
-// transaction.
-type SpentTxOut struct {
-	// Amount is the amount of the output.
-	Amount int64
-
-	// PkScipt is the the public key script for the output.
-	PkScript []byte
-
-	// Round is the height of the the block containing the creating tx.
-	Height int32
-
-	// Denotes if the creating tx is a coinbase.
-	IsCoinBase bool
-
-	Asset *protos.Asset
-}
 
 // FetchSpendJournal attempts to retrieve the spend journal, or the set of
 // outputs spent for the target block. This provides a view of all the outputs
@@ -249,11 +145,11 @@ type SpentTxOut struct {
 // main chain.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) FetchSpendJournal(targetBlock *asiutil.Block, targetvblock *asiutil.VBlock) ([]SpentTxOut, error) {
+func (b *BlockChain) FetchSpendJournal(targetBlock *asiutil.Block, targetvblock *asiutil.VBlock) ([]txo.SpentTxOut, error) {
 	b.chainLock.RLock()
 	defer b.chainLock.RUnlock()
 
-	var spendEntries []SpentTxOut
+	var spendEntries []txo.SpentTxOut
 	err := b.db.View(func(dbTx database.Tx) error {
 		var err error
 		spendEntries, err = dbFetchSpendJournalEntry(dbTx, targetBlock, targetvblock)
@@ -268,7 +164,7 @@ func (b *BlockChain) FetchSpendJournal(targetBlock *asiutil.Block, targetvblock 
 
 // SpentTxOutHeaderCode returns the calculated header code to be used when
 // serializing the provided stxo entry.
-func SpentTxOutHeaderCode(stxo *SpentTxOut) uint64 {
+func SpentTxOutHeaderCode(stxo *txo.SpentTxOut) uint64 {
 	// As described in the serialization format comments, the header code
 	// encodes the height shifted over one bit and the coinbase flag in the
 	// lowest bit.
@@ -282,7 +178,7 @@ func SpentTxOutHeaderCode(stxo *SpentTxOut) uint64 {
 
 // SpentTxOutSerializeSize returns the number of bytes it would take to
 // serialize the passed stxo according to the format described above.
-func SpentTxOutSerializeSize(stxo *SpentTxOut) int {
+func SpentTxOutSerializeSize(stxo *txo.SpentTxOut) int {
 	size := serializeSizeVLQ(SpentTxOutHeaderCode(stxo))
 	return size + compressedTxOutSize(uint64(stxo.Amount), stxo.PkScript, stxo.Asset)
 }
@@ -291,7 +187,7 @@ func SpentTxOutSerializeSize(stxo *SpentTxOut) int {
 // above directly into the passed target byte slice.  The target byte slice must
 // be at least large enough to handle the number of bytes returned by the
 // SpentTxOutSerializeSize function or it will panic.
-func putSpentTxOut(target []byte, stxo *SpentTxOut) int {
+func putSpentTxOut(target []byte, stxo *txo.SpentTxOut) int {
 	headerCode := SpentTxOutHeaderCode(stxo)
 	offset := putVLQ(target, headerCode)
 	return offset + putCompressedTxOut(target[offset:], uint64(stxo.Amount),
@@ -301,7 +197,7 @@ func putSpentTxOut(target []byte, stxo *SpentTxOut) int {
 // decodeSpentTxOut decodes the passed serialized stxo entry, possibly followed
 // by other data, into the passed stxo struct.  It returns the number of bytes
 // read.
-func decodeSpentTxOut(serialized []byte, stxo *SpentTxOut) (int, error) {
+func decodeSpentTxOut(serialized []byte, stxo *txo.SpentTxOut) (int, error) {
 	// Ensure there are bytes to decode.
 	if len(serialized) == 0 {
 		return 0, common.DeserializeError("no serialized bytes")
@@ -341,7 +237,7 @@ func decodeSpentTxOut(serialized []byte, stxo *SpentTxOut) (int, error) {
 // Since the serialization format is not self describing, as noted in the
 // format comments, this function also requires the transactions that spend the
 // txouts.
-func deserializeSpendJournalEntry(serialized []byte, txns []*protos.MsgTx, vtxns []*protos.MsgTx) ([]SpentTxOut, error) {
+func deserializeSpendJournalEntry(serialized []byte, txns []*protos.MsgTx, vtxns []*protos.MsgTx) ([]txo.SpentTxOut, error) {
 	// Calculate the total number of stxos.
 	var numStxos int
 	for _, tx := range txns {
@@ -373,7 +269,7 @@ func deserializeSpendJournalEntry(serialized []byte, txns []*protos.MsgTx, vtxns
 	// Loop backwards through all transactions so everything is read in
 	// reverse order to match the serialization order.
 	offset := 0
-	stxos := make([]SpentTxOut, numStxos)
+	stxos := make([]txo.SpentTxOut, numStxos)
 	for stxoIdx := numStxos - 1; stxoIdx > -1; stxoIdx-- {
 		stxo := &stxos[stxoIdx]
 		n, err := decodeSpentTxOut(serialized[offset:], stxo)
@@ -389,7 +285,7 @@ func deserializeSpendJournalEntry(serialized []byte, txns []*protos.MsgTx, vtxns
 
 // serializeSpendJournalEntry serializes all of the passed spent txouts into a
 // single byte slice according to the format described in detail above.
-func serializeSpendJournalEntry(stxos []SpentTxOut) []byte {
+func serializeSpendJournalEntry(stxos []txo.SpentTxOut) []byte {
 	if len(stxos) == 0 {
 		return nil
 	}
@@ -417,7 +313,7 @@ func serializeSpendJournalEntry(stxos []SpentTxOut) []byte {
 // NOTE: Legacy entries will not have the coinbase flag or height set unless it
 // was the final output spend in the containing transaction.  It is up to the
 // caller to handle this properly by looking the information up in the utxo set.
-func dbFetchSpendJournalEntry(dbTx database.Tx, block *asiutil.Block, vblock *asiutil.VBlock) ([]SpentTxOut, error) {
+func dbFetchSpendJournalEntry(dbTx database.Tx, block *asiutil.Block, vblock *asiutil.VBlock) ([]txo.SpentTxOut, error) {
 	// Exclude the coinbase transaction since it can't spend anything.
 	spendBucket := dbTx.Metadata().Bucket(spendJournalBucketName)
 	serialized := spendBucket.Get(block.Hash()[:])
@@ -448,7 +344,7 @@ func dbFetchSpendJournalEntry(dbTx database.Tx, block *asiutil.Block, vblock *as
 // spend journal entry for the given block hash using the provided slice of
 // spent txouts.   The spent txouts slice must contain an entry for every txout
 // the transactions in the block spend in the order they are spent.
-func dbPutSpendJournalEntry(dbTx database.Tx, blockHash *common.Hash, stxos []SpentTxOut) error {
+func dbPutSpendJournalEntry(dbTx database.Tx, blockHash *common.Hash, stxos []txo.SpentTxOut) error {
 	spendBucket := dbTx.Metadata().Bucket(spendJournalBucketName)
 	serialized := serializeSpendJournalEntry(stxos)
 	return spendBucket.Put(blockHash[:], serialized)
@@ -713,9 +609,9 @@ func dbFetchUtxoEntry(dbTx database.Tx, outpoint protos.OutPoint) (*txo.UtxoEntr
 // in the database based on the provided utxo view contents and state.  In
 // particular, only the entries that have been marked as modified are written
 // to the database.
-func dbPutUtxoView(dbTx database.Tx, view *UtxoViewpoint) error {
+func dbPutUtxoView(dbTx database.Tx, view *txo.UtxoViewpoint) error {
 	utxoBucket := dbTx.Metadata().Bucket(utxoSetBucketName)
-	for outpoint, entry := range view.entries {
+	for outpoint, entry := range view.Entries() {
 		// No need to update the database if the entry was not modified.
 		if entry == nil || !entry.IsModified() {
 			continue
@@ -806,10 +702,10 @@ func dbFetchLockItemWithKey(dbTx database.Tx, key []byte) (*txo.LockItem, error)
 // in the database based on the provided utxo view contents and state.  In
 // particular, only the entries that have been marked as modified are written
 // to the database.
-func dbPutLockItem(dbTx database.Tx, view *UtxoViewpoint) error {
+func dbPutLockItem(dbTx database.Tx, view *txo.UtxoViewpoint) error {
 	lockBucket := dbTx.Metadata().Bucket(lockSetBucketName)
 
-	for outpoint, utxoentry := range view.entries {
+	for outpoint, utxoentry := range view.Entries() {
 		if !utxoentry.IsSpent() && utxoentry.LockItem() != nil {
 			key := outpointKey(outpoint)
 			err := lockBucket.Put(*key, utxoentry.LockItem().Bytes())
@@ -824,10 +720,10 @@ func dbPutLockItem(dbTx database.Tx, view *UtxoViewpoint) error {
 
 // save the utxo set to database for every address in the viewpoint.
 // put utxo type for unique pkScript
-func dbPutBalance(dbTx database.Tx, view *UtxoViewpoint) error {
+func dbPutBalance(dbTx database.Tx, view *txo.UtxoViewpoint) error {
 	//log.Debug("dbPutBalance enter", len( view.entries ) )
 	balanceBucket := dbTx.Metadata().Bucket(balanceBucketName)
-	for outpoint, entry := range view.entries {
+	for outpoint, entry := range view.Entries() {
 		// No need to update the database if the entry was not modified.
 		if entry == nil || !entry.IsModified() {
 			continue
@@ -1216,13 +1112,14 @@ func (b *BlockChain) createChainState(chainStartTime int64) error {
 	beneficiary := coinbaseTx.MsgTx().TxOut[0]
 
 	//init system contract.
-	context := fvm.NewFVMContext(chaincfg.OfficialAddress, new(big.Int).SetInt64(1), genesisBlock, b, nil, nil, nil)
+	context := fvm.NewFVMContext(chaincfg.OfficialAddress, new(big.Int).SetInt64(1), genesisBlock, b, nil, nil)
 	vmenv := vm.NewFVM(context, statedb, chaincfg.ActiveNetParams.FvmParam, *b.GetVmConfig())
 
 	sender := vm.AccountRef(chaincfg.OfficialAddress)
 	cMap := chaincfg.TransferGenesisData(beneficiary.Data)
 	for k, v := range cMap {
-		_, addr, _, _, err := vmenv.Create(sender, common.Hex2Bytes(v[0].Code), uint64(4604216000), common.Big0, &beneficiary.Asset, nil, nil, true)
+		byteCode := common.Hex2Bytes(v[0].Code)
+		_, addr, _, _, err := vmenv.Create(sender, byteCode, uint64(4604216000), common.Big0, &beneficiary.Asset, byteCode, nil, true)
 		if err != nil {
 			log.Errorf("Deploy genesis contract failed when create %s", k)
 			panic(err)
@@ -1253,9 +1150,9 @@ func (b *BlockChain) createChainState(chainStartTime int64) error {
 	blockSize := uint64(genesisBlock.MsgBlock().SerializeSize())
 	b.stateSnapshot = newBestState(node, blockSize, numTxns, numTxns, node.GetTime())
 
-	view := NewUtxoViewpoint()
+	view := txo.NewUtxoViewpoint()
 	for _, tx := range genesisBlock.Transactions()[:] {
-		view.AddTxOuts(tx, genesisBlock.Height())
+		view.AddTxOuts(tx.Hash(), tx.MsgTx(), false, genesisBlock.Height())
 	}
 
 	// Create the initial the database chain state including creating the

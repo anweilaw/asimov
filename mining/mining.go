@@ -187,7 +187,7 @@ func NewTxPriorityQueue(reserve int) *txPriorityQueue {
 // viewA will contain all of its original entries plus all of the entries
 // in viewB.  It will replace any entries in viewB which also exist in viewA
 // if the entry in viewA is spent.
-func mergeUtxoView(viewA *blockchain.UtxoViewpoint, viewB *blockchain.UtxoViewpoint) {
+func mergeUtxoView(viewA *txo.UtxoViewpoint, viewB *txo.UtxoViewpoint) {
 	viewAEntries := viewA.Entries()
 	for outpoint, _ := range viewB.Entries() {
 		if entryA, exists := viewAEntries[outpoint]; exists && entryA != nil && entryA.IsSpent() {
@@ -218,25 +218,20 @@ func StandardCoinbaseScript(nextBlockHeight int32, extraNonce uint64) ([]byte, e
 //
 // See the comment for NewBlockTemplate for more information about why the nil
 // address handling is useful.
-func CreateCoinbaseTx(params *chaincfg.Params, coinbaseScript []byte, nextBlockHeight int32, addr common.IAddress,
+func CreateCoinbaseTx(params *chaincfg.Params, nextBlockHeight int32, addr common.IAddress,
 	contractOut *protos.TxOut) (*asiutil.Tx, *protos.TxOut, error) {
-	// Create the script to pay to the provided payment address if one was
-	// specified.  Otherwise create a script that allows the coinbase to be
-	// redeemable by anyone.
-	var pkScript []byte
-	if addr != nil {
-		var err error
-		pkScript, err = txscript.PayToAddrScript(addr)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		var err error
-		scriptBuilder := txscript.NewScriptBuilder()
-		pkScript, err = scriptBuilder.AddOp(txscript.OP_TRUE).Script()
-		if err != nil {
-			return nil, nil, err
-		}
+	// The extra nonce helps ensure the transaction is not a duplicate transaction
+	// (paying the same value to the same public key address would otherwise be an
+	// identical transaction for block version 1).
+	extraNonce := uint64(0)
+	coinbaseScript, err := StandardCoinbaseScript(nextBlockHeight, extraNonce)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Create the script to pay to the provided payment address.
+	pkScript, err := txscript.PayToAddrScript(addr)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	tx := protos.NewMsgTx(protos.TxVersion)
@@ -282,6 +277,17 @@ func getMilliSecond() int64 {
 	return now.Unix() * 1000 + int64(now.Nanosecond()) / int64(time.Millisecond)
 }
 
+// BlockTemplate houses a block and a relation data including a virtual block,
+// reciepts, logs.
+type BlockTemplate struct {
+	// Block is a block that is ready to be processed, it can't be mined or
+	// passed from other nodes.
+	Block *asiutil.Block
+
+	// VBlock is a virtual block that is ready to be processed, it is mined.
+	VBlock *asiutil.VBlock
+}
+
 // BlkTmplGenerator provides a type that can be used to generate block templates
 // based on a given mining policy and source of transactions to choose from.
 // It also houses additional state required in order to ensure the templates
@@ -292,7 +298,7 @@ type BlkTmplGenerator struct {
 	sigSource    SigSource
 	chain        *blockchain.BlockChain
 
-	FetchUtxoView func(tx *asiutil.Tx, dolock bool) (*blockchain.UtxoViewpoint, error)
+	FetchUtxoView func(tx *asiutil.Tx, dolock bool) (*txo.UtxoViewpoint, error)
 }
 
 // NewBlkTmplGenerator returns a new block template generator for the given
@@ -347,11 +353,13 @@ func NewBlkTmplGenerator(policy *Policy,
 //  |      Coinbase Transaction         |   |
 //   -----------------------------------  --
 func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, gasCeil uint64,
-	round uint32, slotIndex uint16, blockInterval float64) (block *asiutil.Block, err error) {
+	blockTime int64,
+	round uint32, slotIndex uint16, blockInterval float64) (
+	blockTemplate *BlockTemplate, err error) {
 
 	produceBlockTimeInterval := g.policy.BlockProductedTimeOut * blockInterval
-	produceTxTimeInterval := g.policy.TxConnectTimeOut * produceBlockTimeInterval
 	utxoValidateTimeInterval := g.policy.UtxoValidateTimeOut * produceBlockTimeInterval
+	produceTxTimeInterval := (g.policy.UtxoValidateTimeOut + g.policy.TxConnectTimeOut) * produceBlockTimeInterval
 
 	produceBlockStartTime := getMilliSecond()
 
@@ -375,13 +383,12 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	bestHeight := g.chain.GetTip().Height()
 	totalPreSigns := g.sigSource.MiningDescs(bestHeight)
 
-	ts := time.Now().Unix()
 	payToAddress := account.Address
 	var msgBlock protos.MsgBlock
 	header := &msgBlock.Header
 	header.Round = round
 	header.SlotIndex = slotIndex
-	header.Timestamp = ts
+	header.Timestamp = blockTime
 	header.CoinBase = *payToAddress
 	stateDB, feepool, contractOut, err := g.chain.Prepare(header, gasFloor, gasCeil)
 	defer func() {
@@ -399,17 +406,9 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	// address.  NOTE: The coinbase value will be updated to include the
 	// fees from the selected transactions later after they have actually
 	// been selected.  It is created here to detect any errors early
-	// before potentially doing a lot of work below.  The extra nonce helps
-	// ensure the transaction is not a duplicate transaction (paying the
-	// same value to the same public key address would otherwise be an
-	// identical transaction for block version 1).
-	extraNonce := uint64(0)
-	coinbaseScript, err := StandardCoinbaseScript(header.Height, extraNonce)
-	if err != nil {
-		return nil, err
-	}
+	// before potentially doing a lot of work below.
 	coinbaseTx, stdTxout, err := CreateCoinbaseTx(chaincfg.ActiveNetParams.Params,
-		coinbaseScript, header.Height, payToAddress,
+		header.Height, payToAddress,
 		contractOut)
 	if err != nil {
 		return nil, err
@@ -418,7 +417,7 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 
 	// flag whether core team take reward
 	coreTeamRewardFlag := header.Height <= chaincfg.ActiveNetParams.Params.SubsidyReductionInterval ||
-		ts - chaincfg.ActiveNetParams.Params.GenesisBlock.Header.Timestamp < 86400*(365*4+1)
+		blockTime - chaincfg.ActiveNetParams.Params.GenesisBlock.Header.Timestamp < 86400*(365*4+1)
 	txoutSizePerAsset := stdTxout.SerializeSize()
 	if coreTeamRewardFlag {
 		txoutSizePerAsset *= 2
@@ -497,7 +496,7 @@ func (g *BlkTmplGenerator) ProduceNewBlock(account *crypto.Account, gasFloor, ga
 	blockSize -= serialization.MaxVarIntPayload -
 		serialization.VarIntSerializeSize(uint64(len(preBlockSigs)))
 
-	blockUtxos := blockchain.NewUtxoViewpoint()
+	blockUtxos := txo.NewUtxoViewpoint()
 
 	// dependers is used to track transactions which depend on another
 	// transaction in the source pool.  This, in conjunction with the
@@ -529,7 +528,7 @@ mempoolLoop:
 			log.Tracef("Skipping coinbase tx %s", tx.Hash())
 			continue
 		}
-		if !blockchain.IsFinalizedTransaction(tx, header.Height, ts) {
+		if !blockchain.IsFinalizedTransaction(tx, header.Height, blockTime) {
 			log.Tracef("Skipping non-finalized tx %s", tx.Hash())
 			continue
 		}
@@ -604,22 +603,21 @@ mempoolLoop:
 	allFees := map[protos.Asset]int64 {
 		asiutil.AsimovAsset: 0,
 	}
+	var template BlockTemplate
 	var totalGasUsed uint64
-	var (
-		receipts types.Receipts
-		allLogs  []*types.Log
-		totalFeeLockItems map[protos.Asset]*txo.LockItem
-	)
+	var receipts types.Receipts
+	var	allLogs  []*types.Log
 	txidx := 0
 	var msgvblock protos.MsgVBlock
-	stxos := make([]blockchain.SpentTxOut, 0, 1000)
+	stxos := make([]txo.SpentTxOut, 0, 1000)
 
 	// Choose which transactions make it into the block.
 	processTxStartTime := getMilliSecond()
 	log.Debugf("Start priorityQueue", priorityQueue.Len())
 priorityQueueLoop:
 	for priorityQueue.Len() > 0 {
-		if float64(getMilliSecond() - produceBlockStartTime) > produceBlockTimeInterval {
+		interval := float64(getMilliSecond() - produceBlockStartTime)
+		if interval > produceBlockTimeInterval || interval > produceTxTimeInterval {
 			log.Debug("mine time out ")
 			break
 		}
@@ -713,15 +711,10 @@ priorityQueueLoop:
 
 		// try connect transaction
 		stateDB.Prepare(*tx.Hash(), common.Hash{}, txidx)
-		receipt, err, gasUsed, vtx, feeLockItems := g.chain.ConnectTransaction(
+		receipt, err, gasUsed, vtx, _ := g.chain.ConnectTransaction(
 			newBlock, txidx, blockUtxos, tx, &stxos, stateDB, fee)
 
-		processTxEndTime := getMilliSecond()
-		needbreak := float64(processTxEndTime -processTxStartTime) > produceTxTimeInterval
 		if err != nil {
-			if needbreak {
-				break
-			}
 			log.Debugf("Skipping tx %s because it failed to connect",
 				tx.Hash())
 			logSkippedDeps(tx, deps)
@@ -738,23 +731,12 @@ priorityQueueLoop:
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
-			allLogs = append(allLogs, receipt.Logs...)
+			allLogs  = append(allLogs, receipt.Logs...)
 		}
 
 		totalGasUsed += gasUsed
 		if vtx != nil {
 			msgvblock.AddTransaction(vtx)
-		}
-		if totalFeeLockItems == nil {
-			totalFeeLockItems = feeLockItems
-		} else if feeLockItems != nil {
-			for k, item := range feeLockItems {
-				if titem, ok := totalFeeLockItems[k]; ok {
-					titem.Merge(item)
-				} else {
-					totalFeeLockItems[k] = item
-				}
-			}
 		}
 		txidx++
 
@@ -771,9 +753,6 @@ priorityQueueLoop:
 		log.Tracef("Adding tx %s (gasPrice %.2f)",
 			tx.Hash(), prioItem.gasPrice)
 
-		if needbreak {
-			break
-		}
 		// Add transactions which depend on this one (and also do not
 		// have any other unsatisified dependencies) to the priority
 		// queue.
@@ -861,7 +840,10 @@ priorityQueueLoop:
 		return nil, err
 	}
 
-	return asiutil.NewBlock(&msgBlock), nil
+	template.Block = asiutil.NewBlock(&msgBlock)
+	template.VBlock = asiutil.NewVBlock(&msgvblock, template.Block.Hash())
+
+	return &template, nil
 }
 
 // append fee into coinbase tx

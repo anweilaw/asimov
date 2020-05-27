@@ -183,7 +183,6 @@ func MergeTxVtx(txs []*Tx, vtxs []*Tx) []*Tx {
 func IsMintOrCreateInput(in *protos.TxIn) bool {
 	prevOut := in.PreviousOutPoint
 	return (prevOut.Index == math.MaxUint32 || prevOut.Index == TransferCreationIdx || prevOut.Index == TransferMintIdx) && prevOut.Hash == common.Hash{}
-
 }
 
 // GenInputHash generates hash from txIn.PreviousOutPoint.Hash and txIn.PreviousOutPoint.Index
@@ -196,16 +195,4 @@ func GenInputHash(msgTx *protos.MsgTx) []byte {
 		buffer.WriteString("-")
 	}
 	return common.HashH(buffer.Bytes()).Bytes()
-}
-
-type ViewAction int
-
-const (
-	ViewAdd ViewAction = 1
-	ViewRm  ViewAction = 2
-)
-
-type TxMark struct {
-	Tx     *Tx
-	Action ViewAction
 }

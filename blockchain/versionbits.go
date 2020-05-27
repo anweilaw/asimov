@@ -7,7 +7,6 @@ package blockchain
 import (
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"math"
-
 )
 
 const (

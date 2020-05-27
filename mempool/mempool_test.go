@@ -9,20 +9,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/AsimovNetwork/asimov/common/address"
-	"reflect"
-	"strconv"
-	"sync"
-	"testing"
-	"time"
+	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
+	"github.com/AsimovNetwork/asimov/common/address"
 	"github.com/AsimovNetwork/asimov/crypto"
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/txscript"
-	"github.com/AsimovNetwork/asimov/asiutil"
+	"reflect"
+	"strconv"
 	"strings"
+	"sync"
+	"testing"
+	"time"
 )
 
 
@@ -36,7 +37,7 @@ const (
 // transactions to appear as though they are spending completely valid utxos.
 type fakeChain struct {
 	sync.RWMutex
-	utxos          *blockchain.UtxoViewpoint
+	utxos          *txo.UtxoViewpoint
 	currentHeight  int32
 	medianTimePast time.Time
 }
@@ -47,7 +48,7 @@ type fakeChain struct {
 // view can be examined for duplicate transactions.
 //
 // This function is safe for concurrent access however the returned view is NOT.
-func (s *fakeChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (*blockchain.UtxoViewpoint, error) {
+func (s *fakeChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (*txo.UtxoViewpoint, error) {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -55,7 +56,7 @@ func (s *fakeChain) FetchUtxoView(tx *asiutil.Tx, dolock bool) (*blockchain.Utxo
 	// do not affect the fake chain's view.
 
 	// Add an entry for the tx itself to the new view.
-	viewpoint := blockchain.NewUtxoViewpoint()
+	viewpoint := txo.NewUtxoViewpoint()
 	prevOut := protos.OutPoint{Hash: *tx.Hash()}
 	for txOutIdx := range tx.MsgTx().TxOut {
 		prevOut.Index = uint32(txOutIdx)
@@ -108,7 +109,7 @@ func (s *fakeChain) SetMedianTimePast(mtp time.Time) {
 // CalcSequenceLock returns the current sequence lock for the passed
 // transaction associated with the fake chain instance.
 func (s *fakeChain) CalcSequenceLock(tx *asiutil.Tx,
-	view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
+	view *txo.UtxoViewpoint) (*blockchain.SequenceLock, error) {
 
 	return &blockchain.SequenceLock{
 		Seconds:     -1,
@@ -287,7 +288,7 @@ func (p *poolHarness) CreateTxChain(firstOutput spendableOutput, numTxns uint32)
 	return txChain, nil
 }
 
-func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *blockchain.UtxoViewpoint,
+func CheckTransactionInputs(tx *asiutil.Tx, txHeight int32, utxoView *txo.UtxoViewpoint,
 	b *blockchain.BlockChain) (int64, *map[protos.Asset]int64, error) {
 
 	// Coinbase transactions have no inputs.
@@ -514,7 +515,7 @@ func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutp
 	}
 
 	// Create a new fake chain and harness bound to it.
-	chain := &fakeChain{utxos: blockchain.NewUtxoViewpoint()}
+	chain := &fakeChain{utxos: txo.NewUtxoViewpoint()}
 	harness := poolHarness{
 		signKey:     signKey,
 		payAddr:     payAddr,
@@ -526,7 +527,6 @@ func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutp
 			Policy: Policy{
 				MaxOrphanTxs:      5,
 				MaxOrphanTxSize:   1000,
-				MaxSigOpCostPerTx: blockchain.MaxBlockSigOpsCost,
 				MinRelayTxPrice:   1000, // 1 Xing per byte
 				MaxTxVersion:      2,
 			},
@@ -551,7 +551,7 @@ func newPoolHarness(chainParams *chaincfg.Params) (*poolHarness, []spendableOutp
 	if err != nil {
 		return nil, nil, err
 	}
-	harness.chain.utxos.AddTxOuts(coinbase, curHeight+1)
+	harness.chain.utxos.AddTxOuts(coinbase.Hash(), coinbase.MsgTx(), true, curHeight+1)
 	for i := uint32(0); i < numOutputs; i++ {
 		outputs = append(outputs, txOutToSpendableOut(coinbase, i))
 	}
@@ -1035,7 +1035,7 @@ func TestSigPool(t *testing.T) {
 			t.Error("ProcessSig error: ", err)
 		}
 
-		fetchSign, err := sigPool.FetchSignature(sigArray[i-1].Hash())
+		fetchSign, _, err := sigPool.FetchSignature(sigArray[i-1].Hash())
 		if err != nil {
 			t.Error("FetchSignature error: ", err)
 			return
@@ -1057,7 +1057,7 @@ func (ctx *testContext) addCoinbaseTx(numOutputs uint32) *asiutil.Tx {
 		ctx.t.Fatalf("unable to create coinbase: %v", err)
 	}
 
-	ctx.harness.chain.utxos.AddTxOuts(coinbase, coinbaseHeight)
+	ctx.harness.chain.utxos.AddTxOuts(coinbase.Hash(), coinbase.MsgTx(), true, coinbaseHeight)
 	maturity := int32(ctx.harness.chainParams.CoinbaseMaturity)
 	ctx.harness.chain.SetHeight(coinbaseHeight + maturity)
 	ctx.harness.chain.SetMedianTimePast(time.Now())
@@ -1080,7 +1080,7 @@ func (ctx *testContext) addSignedTx(inputs []spendableOutput,
 
 	if confirmed {
 		newHeight := ctx.harness.chain.BestHeight() + 1
-		ctx.harness.chain.utxos.AddTxOuts(tx, newHeight)
+		ctx.harness.chain.utxos.AddTxOuts(tx.Hash(), tx.MsgTx(), false, newHeight)
 		ctx.harness.chain.SetHeight(newHeight)
 		ctx.harness.chain.SetMedianTimePast(time.Now())
 	} else {

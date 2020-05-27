@@ -30,6 +30,7 @@ import (
 	"github.com/AsimovNetwork/asimov/vm/fvm/core/types"
 	"github.com/AsimovNetwork/asimov/vm/fvm/core/vm"
 	"github.com/AsimovNetwork/asimov/vm/fvm/params"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -37,7 +38,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"math"
 )
 
 const (
@@ -405,7 +405,7 @@ func (m *ManagerTmp) GetTemplate(
 func (m *ManagerTmp) GetFees(
 	block *asiutil.Block,
 	stateDB vm.StateDB,
-	chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64) {
+	chainConfig *params.ChainConfig) (map[protos.Asset]int32, error) {
 
 	officialAddr := chaincfg.OfficialAddress
 	contract := m.GetActiveContractByHeight(block.Height(), common.ValidatorCommittee)
@@ -419,12 +419,12 @@ func (m *ManagerTmp) GetFees(
 	// feelist func
 	feelistFunc := common.ContractValidatorCommittee_GetAssetFeeListFunction()
 	runCode, err := fvm.PackFunctionArgs(abi, feelistFunc)
-	result, leftOvergas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
+	result, _, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
 		common.SystemContractReadOnlyGas,
 		proxyAddr, runCode)
 	if err != nil {
 		log.Errorf("Get contract templates failed, error: %s", err)
-		return nil, err, leftOvergas
+		return nil, err
 	}
 	assets := make([]*big.Int,0)
 	height := make([]*big.Int,0)
@@ -435,12 +435,12 @@ func (m *ManagerTmp) GetFees(
 	err = fvm.UnPackFunctionResult(abi, &outData, feelistFunc, result)
 	if err != nil {
 		log.Errorf("Get fee list failed, error: %s", err)
-		return nil, err, leftOvergas
+		return nil, err
 	}
 	if len(assets) != len(height) {
 		errStr := "Get fee list failed, length of asset does not match length of height"
 		log.Errorf(errStr)
-		return nil, errors.New(errStr), leftOvergas
+		return nil, errors.New(errStr)
 	}
 
 	fees := make(map[protos.Asset]int32)
@@ -449,7 +449,7 @@ func (m *ManagerTmp) GetFees(
 		fees[*pAssets] = int32(height[i].Int64())
 	}
 
-	return fees, nil, leftOvergas
+	return fees, nil
 }
 
 // IsLimit returns a number of int type by find in memory or calling system
@@ -504,6 +504,7 @@ func (m *ManagerTmp) isLimit(block *asiutil.Block,
 
 func (m *ManagerTmp) IsSupport(block *asiutil.Block,
 	stateDB vm.StateDB, gasLimit uint64, asset *protos.Asset, address []byte) (bool, uint64) {
+
 	if gasLimit < common.SupportCheckGas {
 		return false, 0
 	}
@@ -512,6 +513,8 @@ func (m *ManagerTmp) IsSupport(block *asiutil.Block,
 	_, organizationId, assetIndex := asset.AssetFields()
 	caller := chaincfg.OfficialAddress
 	registryCenterAddress := vm.ConvertSystemContractAddress(common.RegistryCenter)
+
+
 
 	input := common.PackGetOrganizationAddressByIdInput(organizationId, assetIndex)
 	result, leftOverGas, err := fvm.CallReadOnlyFunction(caller, block, m.chain,
@@ -1230,7 +1233,7 @@ func (b *BlockChain) createNormalTx(
 		return nil,err
 	}
 
-	view := NewUtxoViewpoint()
+	view := txo.NewUtxoViewpoint()
 	var prevOuts *[]protos.OutPoint
 	prevOuts, err = b.FetchUtxoViewByAddressAndAsset(view, acc.Address.ScriptAddress(), &asset)
 	if err != nil {
@@ -1359,7 +1362,7 @@ func IntToByte(num int64) []byte {
 	return buffer.Bytes()
 }
 
-func createUtxoView(utxoList []*txo.UtxoEntry, view *UtxoViewpoint, prevOutList *[]protos.OutPoint) error {
+func createUtxoView(utxoList []*txo.UtxoEntry, view *txo.UtxoViewpoint, prevOutList *[]protos.OutPoint) error {
 	if view == nil {
 		return nil
 	}
@@ -1369,7 +1372,7 @@ func createUtxoView(utxoList []*txo.UtxoEntry, view *UtxoViewpoint, prevOutList 
 		assetsByte := IntToByte(data)
 		testPoint.Hash = common.DoubleHashH(assetsByte)
 		testPoint.Index = uint32(i+1)
-		view.entries[testPoint] = utxoList[i]
+		view.AddEntry(testPoint, utxoList[i])
 		*prevOutList = append(*prevOutList, testPoint)
 	}
 	return nil
@@ -1424,13 +1427,13 @@ func createTxByParams(
 //createTestTx:create normal tx by input param, not care whether the input utxo is validate:
 func createTestTx(privString string, payAddrPkScript []byte, receiverPkScript []byte, gaslimit uint32,
 	inputAmountList []int64, inputAssetsList []*protos.Asset,
-	outputAmountList []int64, outputAssetsList []*protos.Asset) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
+	outputAmountList []int64, outputAssetsList []*protos.Asset) (*protos.MsgTx, map[protos.Asset]int64, *txo.UtxoViewpoint, error) {
 	var err error
 	var normalTx *protos.MsgTx
 	fees := make(map[protos.Asset]int64)
 	totalInCoin := make(map[protos.Asset]int64)
 	totalOutCoin := make(map[protos.Asset]int64)
-	utxoViewPoint := NewUtxoViewpoint()
+	utxoViewPoint := txo.NewUtxoViewpoint()
 	{
 		//create utxo list:
 		utxoList := make([]*txo.UtxoEntry, 0)
@@ -1511,7 +1514,7 @@ func medianAdjustedTime(chainState *BestState, timeSource MedianTimeSource) int6
 }
 
 
-func mergeUtxoView(viewA *UtxoViewpoint, viewB *UtxoViewpoint) {
+func mergeUtxoView(viewA *txo.UtxoViewpoint, viewB *txo.UtxoViewpoint) {
 	viewAEntries := viewA.Entries()
 	for outpoint, entryB := range viewB.Entries() {
 		if entryA, exists := viewAEntries[outpoint]; !exists ||
@@ -1522,7 +1525,7 @@ func mergeUtxoView(viewA *UtxoViewpoint, viewB *UtxoViewpoint) {
 	}
 }
 
-func spendTransaction(utxoView *UtxoViewpoint, tx *asiutil.Tx, height int32) error {
+func spendTransaction(utxoView *txo.UtxoViewpoint, tx *asiutil.Tx, height int32) error {
 	for _, txIn := range tx.MsgTx().TxIn {
 		entry := utxoView.LookupEntry(txIn.PreviousOutPoint)
 		if entry != nil {
@@ -1530,7 +1533,7 @@ func spendTransaction(utxoView *UtxoViewpoint, tx *asiutil.Tx, height int32) err
 		}
 	}
 
-	utxoView.AddTxOuts(tx, height)
+	utxoView.AddTxOuts(tx.Hash(), tx.MsgTx(), false, height)
 	return nil
 }
 
@@ -1573,7 +1576,7 @@ func createTestBlock(
 	ts := time.Now().Unix()
 
 	blockTxns := make([]*asiutil.Tx, 0)
-	blockUtxos := NewUtxoViewpoint()
+	blockUtxos := txo.NewUtxoViewpoint()
 	allFees := make(map[protos.Asset]int64)
 
 	//add txlist to block:
@@ -1748,12 +1751,12 @@ func createAndSignBlock(paramstmp chaincfg.Params,
 	return block, newBestNode, nil
 }
 
-func (b *BlockChain) calcGasUsed(node *blockNode, block *asiutil.Block, view *UtxoViewpoint,
-	stxos *[]SpentTxOut, msgvblock *protos.MsgVBlock, statedb *state.StateDB) (types.Receipts, uint64, error) {
+func (b *BlockChain) calcGasUsed(node *blockNode, block *asiutil.Block, view *txo.UtxoViewpoint,
+	stxos *[]txo.SpentTxOut, msgvblock *protos.MsgVBlock, statedb *state.StateDB) (types.Receipts, uint64, error) {
 
 	// These utxo entries are needed for verification of things such as
 	// transaction inputs, counting pay-to-script-hashes, and scripts.
-	err := view.fetchInputUtxos(b.db, block)
+	err := fetchInputUtxos(view, b.db, block)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1801,7 +1804,7 @@ func (b *BlockChain) calcGasUsed(node *blockNode, block *asiutil.Block, view *Ut
 
 func getGasUsedAndStateRoot(b *BlockChain, block *asiutil.Block, preNode *blockNode) (*common.Hash, uint64){
 
-	view := NewUtxoViewpoint()
+	view := txo.NewUtxoViewpoint()
 	view.SetBestHash(&preNode.hash)
 
 	var err error
@@ -1856,7 +1859,7 @@ func (b *BlockChain) createSignUpTx(privateKey string, asset protos.Asset) (*asi
 	}
 	signUpFunc := common.ContractConsensusSatoshiPlus_SignupFunction()
 
-	view := NewUtxoViewpoint()
+	view := txo.NewUtxoViewpoint()
 	var prevOuts *[]protos.OutPoint
 	prevOuts, err = b.FetchUtxoViewByAddressAndAsset(view, acc.Address.ScriptAddress(), &asset)
 	if err != nil {

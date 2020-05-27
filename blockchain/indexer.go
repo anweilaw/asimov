@@ -5,6 +5,7 @@
 package blockchain
 
 import (
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/database"
 	"github.com/AsimovNetwork/asimov/asiutil"
 )
@@ -35,13 +36,13 @@ type Indexer interface {
 	// main chain. The set of output spent within a block is also passed in
 	// so indexers can access the pevious output scripts input spent if
 	// required.
-	ConnectBlock(database.Tx, *asiutil.Block, []SpentTxOut, *asiutil.VBlock) error
+	ConnectBlock(database.Tx, *asiutil.Block, []txo.SpentTxOut, *asiutil.VBlock) error
 
 	// DisconnectBlock is invoked when a block has been disconnected from
 	// the main chain. The set of outputs scripts that were spent within
 	// this block is also returned so indexers can clean up the prior index
 	// state for this block
-	DisconnectBlock(database.Tx, *asiutil.Block, []SpentTxOut, *asiutil.VBlock) error
+	DisconnectBlock(database.Tx, *asiutil.Block, []txo.SpentTxOut, *asiutil.VBlock) error
 
 	// FetchBlockRegion returns the block region for the provided key
 	// from the index.  The block region can in turn be used to load the
@@ -67,11 +68,11 @@ type IndexManager interface {
 	// main chain. The set of output spent within a block is also passed in
 	// so indexers can access the previous output scripts input spent if
 	// required.
-	ConnectBlock(database.Tx, *asiutil.Block, []SpentTxOut, *asiutil.VBlock) error
+	ConnectBlock(database.Tx, *asiutil.Block, []txo.SpentTxOut, *asiutil.VBlock) error
 
 	// DisconnectBlock is invoked when a block has been disconnected from
 	// the main chain. The set of outputs scripts that were spent within
 	// this block is also returned so indexers can clean up the prior index
 	// state for this block.
-	DisconnectBlock(database.Tx, *asiutil.Block, []SpentTxOut, *asiutil.VBlock) error
+	DisconnectBlock(database.Tx, *asiutil.Block, []txo.SpentTxOut, *asiutil.VBlock) error
 }

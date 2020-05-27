@@ -8,6 +8,7 @@ package mempool
 import (
 	"container/list"
 	"fmt"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/rpcs/rpcjson"
 	"sync"
@@ -53,7 +54,7 @@ type Config struct {
 
 	// FetchUtxoView defines the function to use to fetch unspent
 	// transaction output information.
-	FetchUtxoView func(*asiutil.Tx, bool) (*blockchain.UtxoViewpoint, error)
+	FetchUtxoView func(*asiutil.Tx, bool) (*txo.UtxoViewpoint, error)
 
 	// BestHeight defines the function to use to access the block height of
 	// the current best chain.
@@ -67,7 +68,7 @@ type Config struct {
 	// CalcSequenceLock defines the function to use in order to generate
 	// the current sequence lock for the given transaction using the passed
 	// utxo view.
-	CalcSequenceLock func(*asiutil.Tx, *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error)
+	CalcSequenceLock func(*asiutil.Tx, *txo.UtxoViewpoint) (*blockchain.SequenceLock, error)
 
 	// AddrIndex defines the optional address index instance to use for
 	// indexing the unconfirmed transactions in the memory pool.
@@ -78,7 +79,7 @@ type Config struct {
 
 	FeesChan chan interface{}
 
-	CheckTransactionInputs func(tx *asiutil.Tx, txHeight int32, utxoView *blockchain.UtxoViewpoint,
+	CheckTransactionInputs func(tx *asiutil.Tx, txHeight int32, utxoView *txo.UtxoViewpoint,
 		b *blockchain.BlockChain) (int64, *map[protos.Asset]int64, error)
 }
 
@@ -98,11 +99,6 @@ type Policy struct {
 	// This helps prevent memory exhaustion attacks from sending a lot of
 	// of big orphans.
 	MaxOrphanTxSize int
-
-	// MaxSigOpCostPerTx is the cumulative maximum cost of all the signature
-	// operations in a single transaction we will relay or mine.  It is a
-	// fraction of the max signature operations for a block.
-	MaxSigOpCostPerTx int
 
 	// MinTxPrice defines the minimum transaction price to be
 	// considered a non-zero fee.
@@ -515,7 +511,7 @@ func (mp *TxPool) HasSpentInTxPool(PreviousOutPoints *[]protos.OutPoint) []proto
 // helper for maybeAcceptTransaction.
 //
 // This function MUST be called with the mempool lock held (for writes).
-func (mp *TxPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *asiutil.Tx, height int32, fee int64, feeList *map[protos.Asset]int64) *mining.TxDesc {
+func (mp *TxPool) addTransaction(utxoView *txo.UtxoViewpoint, tx *asiutil.Tx, height int32, fee int64, feeList *map[protos.Asset]int64) *mining.TxDesc {
 	// Add the transaction to the pool and mark the referenced outpoints
 	// as spent by the pool.
 	txD := &mining.TxDesc{
@@ -575,7 +571,7 @@ func (mp *TxPool) checkPoolDoubleSpend(tx *asiutil.Tx) (bool, error) {
 // transaction pool.
 //
 // This function MUST be called with the mempool lock held (for reads).
-func (mp *TxPool) fetchInputUtxos(tx *asiutil.Tx) (*blockchain.UtxoViewpoint, error) {
+func (mp *TxPool) fetchInputUtxos(tx *asiutil.Tx) (*txo.UtxoViewpoint, error) {
 	utxoView, err := mp.cfg.FetchUtxoView(tx, true)
 	if err != nil {
 		return nil, err
@@ -592,8 +588,8 @@ func (mp *TxPool) fetchInputUtxos(tx *asiutil.Tx) (*blockchain.UtxoViewpoint, er
 		if poolTxDesc, exists := mp.pool[prevOut.Hash]; exists {
 			// AddTxOut ignores out of range index values, so it is
 			// safe to call without bounds checking here.
-			utxoView.AddTxOut(poolTxDesc.Tx, prevOut.Index,
-				mining.UnminedHeight)
+			utxoView.AddTxOut(*prevOut, poolTxDesc.Tx.MsgTx().TxOut[prevOut.Index], false,
+				mining.UnminedHeight, nil)
 		}
 	}
 
@@ -1002,24 +998,6 @@ func (mp *TxPool) maybeAcceptTransaction(tx *asiutil.Tx, isNew, rejectDupOrphans
 	// NOTE: if you modify this code to accept non-standard transactions,
 	// you should add code here to check that the transaction does a
 	// reasonable number of ECDSA signature verifications.
-
-	// Don't allow transactions with an excessive number of signature
-	// operations which would result in making it impossible to mine.  Since
-	// the coinbase address itself can contain signature operations, the
-	// maximum allowed signature operations per transaction is less than
-	// the maximum allowed signature operations per block.
-	sigOpCost, err := blockchain.GetSigOpCost(tx, false, utxoView)
-	if err != nil {
-		if cerr, ok := err.(blockchain.RuleError); ok {
-			return nil, nil, chainRuleError(cerr)
-		}
-		return nil, nil, err
-	}
-	if sigOpCost > mp.cfg.Policy.MaxSigOpCostPerTx {
-		str := fmt.Sprintf("transaction %v sigop cost is too high: %d > %d",
-			txHash, sigOpCost, mp.cfg.Policy.MaxSigOpCostPerTx)
-		return nil, nil, txRuleError(protos.RejectNonstandard, str)
-	}
 
 	// Verify crypto signatures for each input and reject the transaction if
 	// any don't verify.
@@ -1508,13 +1486,18 @@ func (mp *SigPool) ConnectSigns(sigs []*asiutil.BlockSign, height int32) {
 // from the mempool.
 //
 // This function is safe for concurrent access.
-func (mp *SigPool) DisConnectSigns(height int32) {
+func (mp *SigPool) DisConnectSigns(sigs []*asiutil.BlockSign, height int32) {
 	mp.mtx.Lock()
 	defer mp.mtx.Unlock()
 
-	for _, v := range mp.pool {
-		if v.packageHeight == height {
+	for _, sig := range sigs {
+		v, exists := mp.pool[*sig.Hash()]
+		if exists && v.sig != nil {
 			v.packageHeight = 0
+		} else {
+			mp.pool[*sig.Hash()] = SignatureDesc{
+				sig :         sig,
+			}
 		}
 	}
 }
@@ -1523,16 +1506,16 @@ func (mp *SigPool) DisConnectSigns(height int32) {
 // from the mempool.
 //
 // This function is safe for concurrent access.
-func (mp *SigPool) FetchSignature(sigHash *common.Hash) (*asiutil.BlockSign, error) {
+func (mp *SigPool) FetchSignature(sigHash *common.Hash) (*asiutil.BlockSign, int32, error) {
 	mp.mtx.RLock()
 	v, exists := mp.pool[*sigHash]
 	mp.mtx.RUnlock()
 
 	if exists {
-		return v.sig, nil
+		return v.sig, v.packageHeight, nil
 	}
 
-	return nil, fmt.Errorf("signature is not in the pool")
+	return nil, 0, fmt.Errorf("signature is not in the pool")
 }
 
 // ProcessSig is the main workhorse for handling insertion of new

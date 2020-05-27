@@ -70,7 +70,7 @@ type ContractManager interface {
 	// Get fees from state
 	GetFees(block *asiutil.Block,
 		stateDB vm.StateDB,
-		chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64)
+		chainConfig *params.ChainConfig) (map[protos.Asset]int32, error)
 
 	// Get template from state
 	GetTemplate(block *asiutil.Block,

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/AsimovNetwork/asimov/ainterface"
-	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
@@ -28,9 +27,17 @@ type SPService struct {
 	blockTimer *time.Timer
 	roundTimer *time.Timer
 
-	config *params.Config
+	config     *params.Config
 
 	chainTipChan chan ainterface.BlockNode
+	chainTip   ainterface.BlockNode
+	mineParam  *MineParam
+}
+
+type MineParam struct {
+	Parent common.Hash
+	Slot   int64
+	Round  int64
 }
 
 // Create SatoshiPlus Service
@@ -83,25 +90,11 @@ func (s *SPService) Start() error {
 		for {
 			select {
 			case <-s.blockTimer.C:
-				block, genErr := s.genBlock()
-				if genErr == nil && block != nil {
-					_, processErr := s.config.ProcessBlock(block, common.BFNone)
-					if processErr != nil {
-						// Anything other than a rule violation is an unexpected error,
-						// so log that error as an internal error.
-						if _, ok := processErr.(blockchain.RuleError); !ok {
-							log.Errorf("Unexpected error while processing "+
-								"block submitted via satoshi miner: %v", processErr)
-						}
-						log.Errorf("satoshiplus gen block submit reject, height=%d, %v", block.Height(), processErr)
-					} else {
-						log.Infof("satoshiplus gen block submit accept, height=%d, hash=%s, sigNum=%v, txNum=%d",
-							block.Height(), block.Hash().String(),
-							len(block.MsgBlock().PreBlockSigs), len(block.MsgBlock().Transactions))
-					}
-				}
+				s.handleBlockTimeout()
 			case <- s.roundTimer.C:
-
+				s.handleRoundTimeout()
+			case chainTip := <- s.chainTipChan:
+				s.handleNewBlock(chainTip)
 			case <-existCh:
 				break mainloop
 			}
@@ -158,7 +151,6 @@ func (s *SPService) getValidators(round uint32, verbose bool) ([]*common.Address
 // Initialize Consensus, it only called when service start
 func (s *SPService) initializeConsensus() error {
 	chainStartTime := chaincfg.ActiveNetParams.ChainStartTime
-
 	now := time.Now().Unix()
 	roundSizei64 := int64(chaincfg.ActiveNetParams.RoundSize)
 	d := now - chainStartTime
@@ -178,57 +170,45 @@ func (s *SPService) initializeConsensus() error {
 		s.context.RoundStartTime = roundStartTime
 	}
 	s.resetRoundInterval(s.context.Round)
+	s.chainTip = s.config.Chain.GetTip()
 
-	s.resetTimer()
+	s.resetTimer(true, true)
 
 	log.Infof("SPService initializeConsensus round: %v, slot: %v, roundStartTime: %v", s.context.Round, s.context.Slot, s.context.RoundStartTime)
 	return nil
 }
 
-//sync control of local slot:
-func (s *SPService) slotControl() (int64, int64, bool) {
-	slot := s.context.Slot + 1
-	round := s.context.Round
-	if slot == int64(chaincfg.ActiveNetParams.RoundSize) {
-		s.context.RoundStartTime = s.context.RoundStartTime + s.context.RoundInterval
-		slot = 0
-		round = round + 1
-		s.resetRoundInterval(round)
-	}
-
-	s.context.Slot = slot
-	s.context.Round = round
-
+// check whether it is turn to generate new block
+func (s *SPService) checkTurn(slot, round int64, verbose bool) bool {
 	config := s.config
 	best := config.Chain.BestSnapshot()
-	if config.IsCurrent() != true && best.Height > 0 {
+	if best.Height > 0 && config.IsCurrent() != true {
 		log.Infof("downloading blocks: wait!!!!!!!!!!!")
-		return 0, 0, false
+		return false
+	}
+	// check whether block with round/slot already exist
+	node := config.Chain.GetNodeByRoundSlot(uint32(round), uint16(slot))
+	if node != nil {
+		return false
 	}
 
-	verbose := round != s.context.Round
 	validators, _, err := s.getValidators(uint32(round), verbose)
 	if err != nil {
-		log.Errorf("[slotControl] %v", err.Error())
-		return 0, 0, false
+		log.Errorf("[checkTurn] %v", err.Error())
+		return false
 	}
 
 	isTurn := *validators[slot] == *s.config.Account.Address
-	log.Infof("[slotControl] slot change slot=%d, round=%d, height=%d, isTurn=%v, interval=%v",
+	log.Infof("[checkTurn] slot change slot=%d, round=%d, height=%d, isTurn=%v, interval=%v",
 		slot, round, best.Height+1, isTurn, s.context.RoundInterval)
-	return round, slot, isTurn
-}
-
-// return the interval of round
-func (s *SPService) getRoundInterval(round int64) int64 {
-	return s.config.RoundManager.GetRoundInterval(round)
+	return isTurn
 }
 
 // reset round interval of context, round interval need be reset when round change.
 func (s *SPService) resetRoundInterval(round int64) bool {
-	roundInterval := s.getRoundInterval(round)
+	roundInterval := s.config.RoundManager.GetRoundInterval(round)
 	if roundInterval == 0 {
-		log.Errorf("[genBlock] failed to adjust time")
+		log.Errorf("[handleBlockTimeout] failed to adjust time")
 		return false
 	}
 	log.Infof("Reset round interval, round %d, block interval %f", round, float64(roundInterval)/float64(chaincfg.ActiveNetParams.RoundSize))
@@ -237,23 +217,106 @@ func (s *SPService) resetRoundInterval(round int64) bool {
 }
 
 // when the it turns to be a validator, try to generate a new block
-func (s *SPService) genBlock() (*asiutil.Block, error) {
-	round, slot, isTurn := s.slotControl()
-	s.resetTimer()
-	if !isTurn {
-		return nil, nil
+func (s *SPService) handleBlockTimeout() {
+	// slot control
+	slot := s.context.Slot + 1
+	if slot >= int64(chaincfg.ActiveNetParams.RoundSize) {
+		return
 	}
-	blockInterval := float64(s.GetRoundInterval()) / float64(chaincfg.ActiveNetParams.RoundSize) * 1000
-	log.Infof("satoshiplus gen block start at round=%d, slot=%d", round, slot)
+	s.context.Slot = slot
+	isTurn := s.checkTurn(s.context.Slot, s.context.Round, false)
+	s.resetTimer(true, false)
+	if !isTurn {
+		s.tryMineNextBlock()
+		return
+	}
+	blockInterval := float64(s.GetRoundInterval()) * 1000 / float64(chaincfg.ActiveNetParams.RoundSize)
+	s.processBlock(time.Now().Unix(), s.context.Round, s.context.Slot, blockInterval)
+}
 
-	block, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
-		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot), blockInterval)
+func (s *SPService) handleRoundTimeout() {
+	// round control
+	newRound := s.context.Round + 1
+	s.context.Slot = 0
+	s.context.Round = newRound
+	s.resetRoundInterval(newRound)
+	s.context.RoundStartTime = s.context.RoundStartTime + s.context.RoundInterval
+	isTurn := s.checkTurn(s.context.Slot, s.context.Round, true)
+	s.resetTimer(true, true)
+	if !isTurn {
+		s.tryMineNextBlock()
+		return
+	}
+	blockInterval := float64(s.GetRoundInterval()) * 1000 / float64(chaincfg.ActiveNetParams.RoundSize)
+	s.processBlock(time.Now().Unix(), s.context.Round, s.context.Slot, blockInterval)
+}
+
+func (s *SPService) handleNewBlock(chainTip ainterface.BlockNode) {
+	s.chainTip = chainTip
+	s.tryMineNextBlock()
+}
+
+func (s *SPService) tryMineNextBlock()  {
+	slot, round := s.context.Slot + 1, s.context.Round
+	if slot == int64(chaincfg.ActiveNetParams.RoundSize) {
+		slot = 0
+		round ++
+	}
+	chainTip := s.chainTip
+	if chainTip.Round() == uint32(s.context.Round) && chainTip.Slot() == uint16(s.context.Slot) {
+		isTurn := s.checkTurn(slot, round, false)
+		if !isTurn {
+			return
+		}
+		roundInterval := s.GetRoundInterval()
+		lastBlockTime := roundInterval * int64(chainTip.Slot()) / int64(chaincfg.ActiveNetParams.RoundSize)
+		// it's too early to generate next block.
+		if lastBlockTime < time.Now().Unix() {
+			return
+		}
+		roundStartTime := s.context.RoundStartTime
+		if round > s.context.Round {
+			roundStartTime += roundInterval
+			roundInterval = s.config.RoundManager.GetRoundInterval(round)
+		}
+
+		targetTime := roundInterval * (slot + 1) / int64(chaincfg.ActiveNetParams.RoundSize)
+		interval := (targetTime + roundStartTime - time.Now().Unix()) * 1000
+
+		blockTime := roundInterval * slot / int64(chaincfg.ActiveNetParams.RoundSize) + roundStartTime
+		s.processBlock(blockTime, round, slot, float64(interval))
+	}
+}
+
+// process block by chain
+func (s *SPService) processBlock(blockTime int64, round, slot int64, interval float64)  {
+	if s.mineParam != nil {
+		return
+	}
+	s.mineParam = &MineParam{Parent:s.chainTip.Hash(), Round:round, Slot:slot}
+	log.Infof("satoshiplus gen block start at round=%d, slot=%d", round, slot)
+	template, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
+		s.config.Account, s.config.GasFloor, s.config.GasCeil,
+		blockTime, uint32(round), uint16(slot), interval)
 	if err != nil {
 		log.Errorf("satoshiplus gen block failed to make a block: %v", err)
-		return nil, err
+		return
 	}
-
-	return block, nil
+	_, err = s.config.ProcessBlock(template.Block, template.VBlock, common.BFFastAdd)
+	if err != nil {
+		// Anything other than a rule violation is an unexpected error,
+		// so log that error as an internal error.
+		if _, ok := err.(blockchain.RuleError); !ok {
+			log.Errorf("Unexpected error while processing "+
+				"block submitted via satoshiplus miner: %v", err)
+		}
+		log.Errorf("satoshiplus gen block submit reject, height=%d, %v", template.Block.Height(), err)
+	} else {
+		log.Infof("satoshiplus gen block submit accept, height=%d, hash=%v, sigNum=%v, txNum=%d",
+			template.Block.Height(), template.Block.Hash(),
+			len(template.Block.MsgBlock().PreBlockSigs), len(template.Block.Transactions()))
+	}
+	s.mineParam = nil
 }
 
 // return round interval currently
@@ -279,7 +342,7 @@ func (s *SPService) getRoundInfo(roundTime int64, round int64, targetTime int64)
 		if curTime > targetTime {
 			break
 		}
-		roundInterval = s.getRoundInterval(round)
+		roundInterval = s.config.RoundManager.GetRoundInterval(round)
 		if roundInterval == 0 {
 			err := fmt.Errorf("splus getRoundInfo failed to get round interval,round : %v", round)
 			log.Errorf(err.Error())
@@ -296,10 +359,17 @@ func (s *SPService) getRoundInfo(roundTime int64, round int64, targetTime int64)
 }
 
 // reset blockTimer.
-func (s *SPService) resetTimer() {
-	d := time.Duration(int64(s.context.Slot+1)*s.context.RoundInterval) * time.Second / time.Duration(chaincfg.ActiveNetParams.RoundSize)
-	offset := time.Unix(s.context.RoundStartTime, 0).Add(d).Sub(time.Now())
-	s.blockTimer.Reset(offset)
+func (s *SPService) resetTimer(block bool, round bool) {
+	if block {
+		d := time.Duration(int64(s.context.Slot+1)*s.context.RoundInterval) * time.Second / time.Duration(chaincfg.ActiveNetParams.RoundSize)
+		offset := time.Unix(s.context.RoundStartTime, 0).Add(d).Sub(time.Now())
+		s.blockTimer.Reset(offset)
+	}
+	if round {
+		d := time.Duration(s.context.RoundInterval) * time.Second
+		offset := time.Unix(s.context.RoundStartTime, 0).Add(d).Sub(time.Now())
+		s.roundTimer.Reset(offset)
+	}
 }
 
 // handleBlockchainNotification handles notifications from blockchain.  It does

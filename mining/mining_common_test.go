@@ -405,7 +405,7 @@ func (m *ManagerTmp) GetTemplate(
 func (m *ManagerTmp) GetFees(
 	block *asiutil.Block,
 	stateDB vm.StateDB,
-	chainConfig *params.ChainConfig) (map[protos.Asset]int32, error, uint64) {
+	chainConfig *params.ChainConfig) (map[protos.Asset]int32, error) {
 
 	officialAddr := chaincfg.OfficialAddress
 	contract := m.GetActiveContractByHeight(block.Height(), common.ValidatorCommittee)
@@ -420,12 +420,12 @@ func (m *ManagerTmp) GetFees(
 	feelistFunc := common.ContractValidatorCommittee_GetAssetFeeListFunction()
 
 	runCode, err := fvm.PackFunctionArgs(abi, feelistFunc)
-	result, leftOvergas, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
+	result, _, err := fvm.CallReadOnlyFunction(officialAddr, block, m.chain, stateDB, chainConfig,
 		common.SystemContractReadOnlyGas,
 		proxyAddr, runCode)
 	if err != nil {
 		log.Errorf("Get contract templates failed, error: %s", err)
-		return nil, err, leftOvergas
+		return nil, err
 	}
 	assets := make([]*big.Int,0)
 	height := make([]*big.Int,0)
@@ -436,12 +436,12 @@ func (m *ManagerTmp) GetFees(
 	err = fvm.UnPackFunctionResult(abi, &outData, feelistFunc, result)
 	if err != nil {
 		log.Errorf("Get fee list failed, error: %s", err)
-		return nil, err, leftOvergas
+		return nil, err
 	}
 	if len(assets) != len(height) {
 		errStr := "Get fee list failed, length of asset does not match length of height"
 		log.Errorf(errStr)
-		return nil, errors.New(errStr), leftOvergas
+		return nil, errors.New(errStr)
 	}
 
 	fees := make(map[protos.Asset]int32)
@@ -450,7 +450,7 @@ func (m *ManagerTmp) GetFees(
 		fees[*pAssets] = int32(height[i].Int64())
 	}
 
-	return fees, nil, leftOvergas
+	return fees, nil
 }
 
 // IsLimit returns a number of int type by find in memory or calling system
@@ -720,11 +720,11 @@ type fakeOut struct {
 	asset  *protos.Asset
 }
 
-func createFakeTx(vin []*fakeIn, vout []*fakeOut, global_view *blockchain.UtxoViewpoint) *asiutil.Tx {
+func createFakeTx(vin []*fakeIn, vout []*fakeOut, global_view *txo.UtxoViewpoint) *asiutil.Tx {
 	txMsg := protos.NewMsgTx(protos.TxVersion)
 
 	if global_view == nil {
-		global_view = blockchain.NewUtxoViewpoint()
+		global_view = txo.NewUtxoViewpoint()
 	}
 	for _, v := range vin {
 		inaddr := v.account.Address

@@ -89,9 +89,9 @@ func TestSlotControl(t *testing.T) {
 			ps.context.Slot = int64(chaincfg.ActiveNetParams.RoundSize) - 1
 		}
 
-		round, slot, turn := ps.slotControl()
-		if round != test.wantRound || slot != test.wantSolt || (round > 0 && turn != test.isBookkeeper) {
-			t.Errorf("tests #%d error,get round: %v ,slot: %v, but want round %v, slot %v", i, round, slot, test.wantRound, test.wantSolt)
+		turn := ps.checkTurn(test.wantSolt, test.wantRound, false)
+		if turn != test.isBookkeeper {
+			t.Errorf("tests #%d error,get turn: %v, but want %v", i, turn, test.isBookkeeper)
 		}
 	}
 }
@@ -165,11 +165,8 @@ func TestGenblock(t *testing.T) {
 		}
 
 		oldContest := ps.context
-		block, err := ps.genBlock()
+		ps.handleBlockTimeout()
 		ps.context = oldContest
-		if test.wantErr != (err != nil) || (block == nil && test.isBookkeeper && test.wantRound > 0) {
-			t.Errorf("tests #%d error,block : %v,err: %v", i, block, err)
-		}
 		continue
 	}
 }
@@ -354,7 +351,7 @@ func TestGetRoundIntervalByRound(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		interval := ps.getRoundInterval(test.round)
+		interval := ps.config.RoundManager.GetRoundInterval(test.round)
 		if interval != test.wantInterval {
 			t.Errorf("TestGetRoundIntervalByRound #%d want %v, interval: %v",
 				i, test.wantInterval, interval)

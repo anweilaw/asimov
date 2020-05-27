@@ -5,6 +5,7 @@ package blockchain
 
 import (
 	"github.com/AsimovNetwork/asimov/asiutil"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/database"
@@ -50,11 +51,11 @@ func TestCalculateBalance(t *testing.T) {
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}
-		view := NewUtxoViewpoint()
+		view := txo.NewUtxoViewpoint()
 		txNums := len(block.MsgBlock().Transactions)
 		for k:=0; k<txNums; k++ {
 			tx := asiutil.NewTx(block.MsgBlock().Transactions[k])
-			_ = view.AddTxOuts(tx, block.Height())
+			_ = view.AddTxOuts(tx.Hash(), tx.MsgTx(), false, block.Height())
 		}
 
 		err = chain.db.Update(func(dbTx database.Tx) error {
@@ -140,7 +141,7 @@ func TestCalculateBalance(t *testing.T) {
 
 	for i, input := range tests {
 		t.Logf("==========test case %d==========", i)
-		balance, err := chain.CalculateBalance(block, input.addr, input.asset, input.voucherId)
+		balance, err := chain.CalculateBalance(nil, block, input.addr, input.asset, input.voucherId)
 		if err != nil {
 			t.Errorf("tests #%d error: %v", i, err)
 		} else {

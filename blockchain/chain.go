@@ -5,7 +5,6 @@
 package blockchain
 
 import (
-	"bytes"
 	"container/list"
 	"encoding/binary"
 	"errors"
@@ -388,7 +387,7 @@ type SequenceLock struct {
 // the candidate transaction to be included in a block.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) CalcSequenceLock(tx *asiutil.Tx, utxoView *UtxoViewpoint, mempool bool) (*SequenceLock, error) {
+func (b *BlockChain) CalcSequenceLock(tx *asiutil.Tx, utxoView *txo.UtxoViewpoint, mempool bool) (*SequenceLock, error) {
 	b.chainLock.Lock()
 	defer b.chainLock.Unlock()
 
@@ -399,7 +398,7 @@ func (b *BlockChain) CalcSequenceLock(tx *asiutil.Tx, utxoView *UtxoViewpoint, m
 // transaction. See the exported version, CalcSequenceLock for further details.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) calcSequenceLock(node *blockNode, tx *asiutil.Tx, utxoView *UtxoViewpoint, mempool bool) (*SequenceLock, error) {
+func (b *BlockChain) calcSequenceLock(node *blockNode, tx *asiutil.Tx, utxoView *txo.UtxoViewpoint, mempool bool) (*SequenceLock, error) {
 	// A value of -1 for each relative lock type represents a relative time
 	// lock value that will allow a transaction to be included in a block
 	// at any given height or time. This value is returned as the relative
@@ -550,6 +549,31 @@ func (b *BlockChain) getReorganizeNodes(node *blockNode) (*list.List, *list.List
 	return detachNodes, attachNodes
 }
 
+// update fee lockitems in coinbase tx
+func updateFeeLockItems(block *asiutil.Block, view *txo.UtxoViewpoint, feeLockItems map[protos.Asset]*txo.LockItem)  {
+	coinbaseIdx := len(block.Transactions()) - 1
+	coinbasetx := block.Transactions()[coinbaseIdx]
+	prevOut := protos.OutPoint{Hash: *coinbasetx.Hash()}
+	for txOutIdx, txOut := range coinbasetx.MsgTx().TxOut {
+		if feeLockItems != nil && txOut.Value > 0 {
+			prevOut.Index = uint32(txOutIdx)
+			var lockItem *txo.LockItem
+			if item, ok := feeLockItems[txOut.Asset]; ok {
+				lockItem = item.Clone()
+				for id, entry := range lockItem.Entries {
+					if entry.Amount > txOut.Value {
+						item.Entries[id].Amount = entry.Amount - txOut.Value
+						entry.Amount = txOut.Value
+					} else {
+						delete(item.Entries, id)
+					}
+				}
+			}
+			view.AddTxOut(prevOut, txOut, true, block.Height(), lockItem)
+		}
+	}
+}
+
 // connectBlock handles connecting the passed node/block to the end of the main
 // (best) chain.
 //
@@ -562,48 +586,21 @@ func (b *BlockChain) getReorganizeNodes(node *blockNode) (*list.List, *list.List
 //
 // This function MUST be called with the chain state lock held (for writes).
 func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
-	view *UtxoViewpoint, stxos []SpentTxOut, vblock *asiutil.VBlock,
-	stateDB *state.StateDB, receipts types.Receipts, allLogs []*types.Log,
-	feeLockItems map[protos.Asset]*txo.LockItem) error {
+	view *txo.UtxoViewpoint, stxos []txo.SpentTxOut, vblock *asiutil.VBlock,
+	receipts types.Receipts, allLogs []*types.Log) error {
 
 	// Make sure it's extending the end of the best chain.
 	prevHash := &block.MsgBlock().Header.PrevBlock
 	if !prevHash.IsEqual(&b.bestChain.Tip().hash) {
-		errStr := fmt.Sprintf("connectBlock must be called with a block that extends the main chain")
-		return ruleError(ErrHashMismatch, errStr)
-	}
-
-	// update coinbase tx
-	if len(block.Transactions()) > 0 {
-		coinbaseIdx := len(block.Transactions()) - 1
-		coinbasetx := block.Transactions()[coinbaseIdx]
-		prevOut := protos.OutPoint{Hash: *coinbasetx.Hash()}
-		for txOutIdx, txOut := range coinbasetx.MsgTx().TxOut {
-			if feeLockItems != nil && txOut.Value > 0 {
-				prevOut.Index = uint32(txOutIdx)
-				var lockItem *txo.LockItem
-				if item, ok := feeLockItems[txOut.Asset]; ok {
-					lockItem = item.Clone()
-					for id, entry := range lockItem.Entries {
-						if entry.Amount > txOut.Value {
-							item.Entries[id].Amount = entry.Amount - txOut.Value
-							entry.Amount = txOut.Value
-						} else {
-							delete(item.Entries, id)
-						}
-					}
-				}
-				view.addTxOut(prevOut, txOut, true, block.Height(), lockItem)
-			}
-		}
+		return common.AssertError("connectBlock must be called with a block " +
+			"that extends the main chain")
 	}
 
 	vtxSpentNum := countVtxSpentOutpus(vblock)
 	spentNum := countSpentOutputs(block)
-	if len(stxos) != spentNum+vtxSpentNum {
-		errStr := fmt.Sprintf("connect block with mismatched stxo len %v and real valid input num %v plus vtx input num %v",
-			len(stxos), spentNum, vtxSpentNum)
-		return ruleError(ErrStxoMismatch, errStr)
+	if len(stxos) != spentNum + vtxSpentNum {
+		return common.AssertError("connectBlock called with inconsistent " +
+			"spent transaction out information")
 	}
 
 	// Write any block status changes to DB before updating best state.
@@ -622,26 +619,12 @@ func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 	state := newBestState(node, blockSize, numTxns,
 		curTotalTxns+numTxns, block.MsgBlock().Header.Timestamp)
 
-	//save dbstate.
-	stateRoot, err := stateDB.Commit(true)
-	if err != nil {
-		return err
-	}
-	if err := stateDB.Database().TrieDB().Commit(stateRoot, false); err != nil {
-		return err
-	}
 	// save receipts
 	if receipts != nil {
 		// batch := b.ethDB.NewBatch()
 		rawdb.WriteReceipts(b.ethDB, *block.Hash(), uint64(block.Height()), receipts)
 	}
 	b.PostChainEvents(nil, allLogs)
-
-	if !bytes.Equal(block.MsgBlock().Header.StateRoot[:], stateRoot[:]) {
-		return ruleError(ErrStateRootNotMatch, "state root of the block is not matched.")
-	}
-
-	node.stateRoot = stateRoot
 
 	// Atomically insert info into the database.
 	err = b.db.Update(func(dbTx database.Tx) error {
@@ -746,7 +729,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 // the main (best) chain.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) disconnectBlock(node *blockNode, block *asiutil.Block, view *UtxoViewpoint,
+func (b *BlockChain) disconnectBlock(node *blockNode, block *asiutil.Block, view *txo.UtxoViewpoint,
 	vblock *asiutil.VBlock) error {
 
 	// Make sure the node being disconnected is the end of the best chain.
@@ -852,16 +835,6 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *asiutil.Block, view
 		return err
 	}
 
-	//// dup block header rollback: include cur Block header and it's ReportHeaders
-	//b.AddSuspectHeader(&block.MsgBlock().Header)
-	//dupHeaders := block.MsgBlock().ReportHeaders
-	//if dupHeaders != nil && len(dupHeaders) != 0 {
-	//	for _, tmp := range dupHeaders {
-	//		b.AddSuspectHeader(tmp)
-	//	}
-	//	//b.dupBlockHeaders = dupHeaders
-	//}
-
 	log.Infof("disconnectBlock success: height=%d,round=%d,slot=%d,hash=%s,stateRoot=%s",
 		node.height, node.round.Round, node.slot, node.hash.String(), node.stateRoot.String())
 	// Prune fully spent entries and mark all entries in the view unmodified
@@ -908,6 +881,9 @@ func countSpentOutputs(block *asiutil.Block) int {
 
 // countVtxSpentOutpus calcs number of TxIn
 func countVtxSpentOutpus(vblock *asiutil.VBlock) int {
+	if vblock == nil {
+		return 0
+	}
 	numSpent := 0
 	for _, tx := range vblock.MsgVBlock().VTransactions {
 		for _, in := range tx.TxIn {
@@ -979,15 +955,18 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	// then they are needed again when doing the actual database updates.
 	// Rather than doing two loads, cache the loaded data into these slices.
 	detachBlocks := make([]*asiutil.Block, 0, detachNodes.Len())
-	detachSpentTxOuts := make([][]SpentTxOut, 0, detachNodes.Len())
+	detachSpentTxOuts := make([][]txo.SpentTxOut, 0, detachNodes.Len())
 	detachVBlocks := make([]*asiutil.VBlock, 0, detachNodes.Len())
 	attachBlocks := make([]*asiutil.Block, 0, attachNodes.Len())
+	attachVBlocks := make([]*asiutil.VBlock, 0, attachNodes.Len())
+	attachReceipts := make([]types.Receipts, attachNodes.Len())
+	attachLogs := make([][]*types.Log, attachNodes.Len())
 
 	// Disconnect all of the blocks back to the point of the fork.  This
 	// entails loading the blocks and their associated spent txos from the
 	// database and using that information to unspend all of the spent txos
 	// and remove the utxos created by the blocks.
-	view := NewUtxoViewpoint()
+	view := txo.NewUtxoViewpoint()
 	view.SetBestHash(&oldBest.hash)
 	for e := detachNodes.Front(); e != nil; e = e.Next() {
 		n := e.Value.(*blockNode)
@@ -1005,14 +984,14 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 
 		// Load all of the utxos referenced by the block that aren't
 		// already in the view.
-		err = view.fetchInputUtxos(b.db, block)
+		err = fetchInputUtxos(view, b.db, block)
 		if err != nil {
 			return err
 		}
 
 		// Load all of the spent txos for the block from the spend
 		// journal.
-		var stxos []SpentTxOut
+		var stxos []txo.SpentTxOut
 		err = b.db.View(func(dbTx database.Tx) error {
 			stxos, err = dbFetchSpendJournalEntry(dbTx, block, vblock)
 			return err
@@ -1026,7 +1005,7 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		detachSpentTxOuts = append(detachSpentTxOuts, stxos)
 		detachVBlocks = append(detachVBlocks, vblock)
 
-		err = view.disconnectTransactions(b.db, block, stxos, vblock)
+		err = disconnectTransactions(view, b.db, block, stxos, vblock)
 		if err != nil {
 			return err
 		}
@@ -1053,79 +1032,39 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	// at least a couple of ways accomplish that rollback, but both involve
 	// tweaking the chain and/or database.  This approach catches these
 	// issues before ever modifying the chain.
-
-	//use original tip's state to check all the attached blocks.
-	var stateDB *state.StateDB
-	var err error
-	stateDB, err = state.New(newBest.stateRoot, b.stateCache)
-	if err != nil {
-		return err
-	}
-
-	for e := attachNodes.Front(); e != nil; e = e.Next() {
+	for i, e := 0, attachNodes.Front(); e != nil; i, e = i+1, e.Next() {
 		n := e.Value.(*blockNode)
-
-		var block *asiutil.Block
-		err := b.db.View(func(dbTx database.Tx) error {
-			var err error
-			block, err = dbFetchBlockByNode(dbTx, n)
-			return err
-		})
+		block, vblock, err := asiutil.GetBlockPair(b.db, &n.hash)
 		if err != nil {
-			return err
-		}
-		// Check Sig & Weight
-		err = b.checkSignaturesWeight(n, block, view)
-		if err != nil {
-			return err
+			if _, ok := err.(asiutil.MissVBlockError); !ok {
+				return err
+			}
 		}
 
 		// Store the loaded block for later.
 		attachBlocks = append(attachBlocks, block)
-		var msgvblock protos.MsgVBlock
 
-		for outpoint, entry := range view.entries {
-			if entry == nil {
-				continue
-			}
-			_, addrs, _, err := txscript.ExtractPkScriptAddrs(entry.PkScript())
-			if err != nil || len(addrs) <= 0 {
-				continue
-			}
-			standardAddress := addrs[0].StandardAddress()
-			balance := block.GetBalanceView(standardAddress)
-			if balance == nil {
-				utxomap := make(txo.UtxoMap)
-				balance = &utxomap
-				block.PutBalanceView(standardAddress, balance)
-			}
-			(*balance)[outpoint] = entry
-		}
 		// Skip checks if node has already been fully validated. Although
 		// checkConnectBlock gets skipped, we still need to update the UTXO
 		// view.
-		if b.index.NodeStatus(n).KnownValid() {
-			err = view.fetchInputUtxos(b.db, block)
+		if b.index.NodeStatus(n).KnownValid() && vblock != nil {
+			err := fetchInputUtxos(view, b.db, block)
 			if err != nil {
 				return err
 			}
-			_, _, err, gasUsed, _ := b.connectTransactions(view, block, nil, &msgvblock, stateDB)
+			err = connectTransactions(view, b.db, block, vblock, nil)
 			if err != nil {
 				return err
 			}
-			if gasUsed != block.MsgBlock().Header.GasUsed {
-				str := fmt.Sprintf("reorganizeChain: total gas used mismatch: gasUsed = %v, block.MsgBlock().Header.GasUsed = %v", gasUsed, block.MsgBlock().Header.GasUsed)
-				return ruleError(ErrGasMismatch, str)
+			for _, tx := range block.Transactions() {
+				view.AddViewTx(tx.Hash(), tx.MsgTx())
 			}
 
 			newBest = n
+			attachVBlocks = append(attachVBlocks, vblock)
 			continue
 		}
-		feepool, err, _ := b.GetAcceptFees(block,
-			stateDB, chaincfg.ActiveNetParams.FvmParam, block.Height())
-		if err != nil {
-			return err
-		}
+
 		// Notice the spent txout details are not requested here and
 		// thus will not be generated.  This is done because the state
 		// is not being immediately written to the database, so it is
@@ -1134,7 +1073,8 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		// In the case the block is determined to be invalid due to a
 		// rule violation, mark it as invalid and mark all of its
 		// descendants as having an invalid ancestor.
-		_, _, _, err = b.checkConnectBlock(n, block, view, nil, &msgvblock, stateDB, feepool)
+		var msgvblock protos.MsgVBlock
+		receipts, allLogs, err := b.checkConnectBlock(n, block, view, nil, &msgvblock)
 		if err != nil {
 			if _, ok := err.(RuleError); ok {
 				b.index.SetStatusFlags(n, statusValidateFailed)
@@ -1147,6 +1087,10 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		}
 		b.index.SetStatusFlags(n, statusValid)
 
+		attachVBlocks = append(attachVBlocks, asiutil.NewVBlock(&msgvblock, block.Hash()))
+		attachReceipts[i]  = receipts
+		attachLogs[i]      = allLogs
+
 		newBest = n
 	}
 
@@ -1155,7 +1099,7 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	// the reorg would be successful and the connection code requires the
 	// view to be valid from the viewpoint of each block being connected or
 	// disconnected.
-	view = NewUtxoViewpoint()
+	view = txo.NewUtxoViewpoint()
 	view.SetBestHash(&b.bestChain.Tip().hash)
 	// Disconnect blocks from the main chain.
 	for i, e := 0, detachNodes.Front(); e != nil; i, e = i+1, e.Next() {
@@ -1165,14 +1109,14 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 
 		// Load all of the utxos referenced by the block that aren't
 		// already in the view.
-		err := view.fetchInputUtxos(b.db, block)
+		err := fetchInputUtxos(view, b.db, block)
 		if err != nil {
 			return err
 		}
 
 		// Update the view to unspend all of the spent txos and remove
 		// the utxos created by the block.
-		err = view.disconnectTransactions(b.db, block, detachSpentTxOuts[i], vblock)
+		err = disconnectTransactions(view, b.db, block, detachSpentTxOuts[i], vblock)
 		if err != nil {
 			return err
 		}
@@ -1185,21 +1129,16 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 	}
 
 	var block *asiutil.Block
+	var vblock *asiutil.VBlock
 	// Connect the new best chain blocks.
 	for i, e := 0, attachNodes.Front(); e != nil; i, e = i+1, e.Next() {
 		n := e.Value.(*blockNode)
 		block = attachBlocks[i]
-		block.ClearBalance()
+		vblock = attachVBlocks[i]
 
 		// Load all of the utxos referenced by the block that aren't
 		// already in the view.
-		err := view.fetchInputUtxos(b.db, block)
-		if err != nil {
-			return err
-		}
-
-		var stateDB *state.StateDB
-		stateDB, err = state.New(b.bestChain.tip().stateRoot, b.stateCache)
+		err := fetchInputUtxos(view, b.db, block)
 		if err != nil {
 			return err
 		}
@@ -1208,17 +1147,16 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		// as spent and add all transactions being created by this block
 		// to it.  Also, provide an stxo slice so the spent txout
 		// details are generated.
-		stxos := make([]SpentTxOut, 0, countSpentOutputs(block)*2)
-		var msgVBlock protos.MsgVBlock
-		//err = view.connectTransactions(block, &stxos, stateDB)
-		receipts, allLogs, err, _, feeLockItems := b.connectTransactions(view, block, &stxos, &msgVBlock, stateDB)
+		stxos := make([]txo.SpentTxOut, 0, countSpentOutputs(block) + countVtxSpentOutpus(vblock))
+
+		err = connectTransactions(view, b.db, block, vblock, &stxos)
 		if err != nil {
 			return err
 		}
 
-		vBlock := asiutil.NewVBlock(&msgVBlock, block.Hash())
 		// Update the database and chain state.
-		err = b.connectBlock(n, block, view, stxos, vBlock, stateDB, receipts, allLogs, feeLockItems)
+		err = b.connectBlock(n, block, view, stxos, vblock,
+			attachReceipts[i], attachLogs[i])
 		if err != nil {
 			return err
 		}
@@ -1248,7 +1186,7 @@ func (b *BlockChain) sendFee(fees map[protos.Asset]int32) {
 
 func (b *BlockChain) updateFees(block *asiutil.Block) {
 	stateDB, err := state.New(block.MsgBlock().Header.StateRoot, b.stateCache)
-	fees, err, _ := b.contractManager.GetFees(block,
+	fees, err := b.contractManager.GetFees(block,
 		stateDB, chaincfg.ActiveNetParams.FvmParam)
 	if err != nil {
 		log.Errorf("handleBlockPersistCompleted GetFees error:", err)
@@ -1277,7 +1215,7 @@ func (b *BlockChain) updateFees(block *asiutil.Block) {
 //    This is useful when using checkpoints.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, flags common.BehaviorFlags) (bool, error) {
+func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, error) {
 	fastAdd := flags&common.BFFastAdd == common.BFFastAdd
 	flushIndexState := func() {
 		// Intentionally ignore errors writing updated node status to DB. If
@@ -1293,6 +1231,9 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 	// most common case.
 	parentHash := &block.MsgBlock().Header.PrevBlock
 	if parentHash.IsEqual(&b.bestChain.Tip().hash) {
+		// Skip checks if node has already been fully validated.
+		fastAdd = (fastAdd || b.index.NodeStatus(node).KnownValid()) && vblock != nil
+
 		pSlot := b.bestChain.Tip().slot
 		pRound := b.bestChain.Tip().round.Round
 		curHeader := block.MsgBlock().Header
@@ -1304,41 +1245,19 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 			return false, ruleError(ErrBadSlotOrRound, str)
 		}
 
-		// Check Sig & Weight
-		err := b.checkSignaturesWeight(node, block, nil)
-		if err != nil {
-			return false, err
-		}
-
-		// Skip checks if node has already been fully validated.
-		fastAdd = fastAdd || b.index.NodeStatus(node).KnownValid()
-
 		// Perform several checks to verify the block can be connected
 		// to the main chain without violating any rules and without
 		// actually connecting the block.
-		view := NewUtxoViewpoint()
-
+		view := txo.NewUtxoViewpoint()
 		view.SetBestHash(parentHash)
-		stxos := make([]SpentTxOut, 0, countSpentOutputs(block))
+		stxos := make([]txo.SpentTxOut, 0, countSpentOutputs(block) + countVtxSpentOutpus(vblock))
 
-		//contract related statedb info.
-		parentRoot := b.bestChain.tip().stateRoot
-		stateDB, err := state.New(parentRoot, b.stateCache)
-		if err != nil {
-			return false, err
-		}
-
-		feepool, err, _ := b.GetAcceptFees(block,
-			stateDB, chaincfg.ActiveNetParams.FvmParam, block.Height())
-		if err != nil {
-			return false, err
-		}
 		var receipts types.Receipts
 		var allLogs []*types.Log
-		var msgvblock protos.MsgVBlock
-		var feeLockItems map[protos.Asset]*txo.LockItem
+		var err error
 		if !fastAdd {
-			receipts, allLogs, feeLockItems, err = b.checkConnectBlock(node, block, view, &stxos, &msgvblock, stateDB, feepool)
+			var msgvblock protos.MsgVBlock
+			receipts, allLogs, err = b.checkConnectBlock(node, block, view, &stxos, &msgvblock)
 			if err == nil {
 				b.index.SetStatusFlags(node, statusValid)
 			} else if _, ok := err.(RuleError); ok {
@@ -1351,6 +1270,8 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 			if err != nil {
 				return false, err
 			}
+
+			vblock = asiutil.NewVBlock(&msgvblock, block.Hash())
 		}
 
 		// In the fast add case the code to check the block connection
@@ -1358,24 +1279,21 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 		// utxos, spend them, and add the new utxos being created by
 		// this block.
 		if fastAdd {
-			err := view.fetchInputUtxos(b.db, block)
+			err := fetchInputUtxos(view, b.db, block)
 			if err != nil {
 				return false, err
 			}
-			gasUsed := uint64(0)
-			receipts, allLogs, err, gasUsed, feeLockItems = b.connectTransactions(view, block, &stxos, &msgvblock, stateDB)
+			err = connectTransactions(view, b.db, block, vblock, &stxos)
 			if err != nil {
 				return false, err
 			}
-			if gasUsed != block.MsgBlock().Header.GasUsed {
-				str := fmt.Sprintf("connectBestChain: total gas used mismatch: gasUsed = %v, block.MsgBlock().Header.GasUsed = %v", gasUsed, block.MsgBlock().Header.GasUsed)
-				return false, ruleError(ErrGasMismatch, str)
+			for _, tx := range block.Transactions() {
+				view.AddViewTx(tx.Hash(), tx.MsgTx())
 			}
 		}
 
-		vBlock := asiutil.NewVBlock(&msgvblock, block.Hash())
 		// Connect the block to the main chain.
-		err = b.connectBlock(node, block, view, stxos, vBlock, stateDB, receipts, allLogs, feeLockItems)
+		err = b.connectBlock(node, block, view, stxos, vblock, receipts, allLogs)
 		if err != nil {
 			// If we got hit with a rule error, then we'll mark
 			// that status of the block as invalid and flush the
@@ -1398,10 +1316,6 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 			flushIndexState()
 		}
 		return true, nil
-	}
-	if fastAdd {
-		log.Warnf("fastAdd set in the side chain case? %v\n",
-			block.Hash())
 	}
 
 	needReorg := node.weight > b.bestChain.tip().weight
@@ -1447,62 +1361,13 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, fla
 	return err == nil, err
 }
 
-// connectTransactions updates the view by adding all new utxos created by all
-// of the transactions in the passed block, marking all utxos the transactions
-// spend as spent, and setting the best hash for the view to the passed block.
-// In addition, when the 'stxos' argument is not nil, it will be updated to
-// append an entry for each spent txout.
-func (b *BlockChain) connectTransactions(view *UtxoViewpoint, block *asiutil.Block, stxos *[]SpentTxOut,
-	msgvblock *protos.MsgVBlock, statedb *state.StateDB) (
-	types.Receipts, []*types.Log, error, uint64, map[protos.Asset]*txo.LockItem) {
-
-	var (
-		receipts          types.Receipts
-		allLogs           []*types.Log
-		totalFeeLockItems map[protos.Asset]*txo.LockItem
-	)
-	totalGasUsed := uint64(0)
-	for i, tx := range block.Transactions() {
-		statedb.Prepare(*tx.Hash(), *block.Hash(), i)
-		fee, _, _ := CheckTransactionInputs(tx, block.Height(), view, b)
-		receipt, err, gasUsed, vtx, feeLockItems := b.ConnectTransaction(block, i, view, tx, stxos, statedb, fee)
-		if receipt != nil {
-			receipts = append(receipts, receipt)
-			allLogs = append(allLogs, receipt.Logs...)
-		}
-		if err != nil {
-			return nil, nil, err, totalGasUsed, nil
-		}
-		totalGasUsed += gasUsed
-		if vtx != nil && msgvblock != nil {
-			msgvblock.AddTransaction(vtx)
-		}
-		if totalFeeLockItems == nil {
-			totalFeeLockItems = feeLockItems
-		} else if feeLockItems != nil {
-			for k, item := range feeLockItems {
-				if titem, ok := totalFeeLockItems[k]; ok {
-					titem.Merge(item)
-				} else {
-					totalFeeLockItems[k] = item
-				}
-			}
-		}
-	}
-
-	// Update the best hash for view to include this block since all of its
-	// transactions have been connected.
-	view.SetBestHash(block.Hash())
-	return receipts, allLogs, nil, totalGasUsed, totalFeeLockItems
-}
-
 // ConnectTransaction updates the view by adding all new utxos created by the
 // passed transaction and marking all utxos that the transactions spend as
 // spent.  In addition, when the 'stxos' argument is not nil, it will be updated
 // to append an entry for each spent txout.  An error will be returned if the
 // view does not contain the required utxos.
-func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *UtxoViewpoint, tx *asiutil.Tx,
-	stxos *[]SpentTxOut, stateDB *state.StateDB, fee int64) (
+func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *txo.UtxoViewpoint, tx *asiutil.Tx,
+	stxos *[]txo.SpentTxOut, stateDB *state.StateDB, fee int64) (
 	receipt *types.Receipt, err error, gasUsed uint64, vtx *protos.MsgTx, feeLockItems map[protos.Asset]*txo.LockItem) {
 
 	scriptClass := txscript.NonStandardTy
@@ -1517,7 +1382,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 	var vmtx *virtualtx.VirtualTransaction
 
 	defer func() {
-		view.connectTransaction(tx)
+		view.AddViewTx(tx.Hash(), tx.MsgTx())
 		gasUsed = gas - leftOverGas
 		if err != nil {
 			return
@@ -1562,7 +1427,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 	if coinbase {
 		vmtx, err, snapshot = b.connectCoinbaseTX(block, view, tx, stxos, stateDB, fee)
 		leftOverGas = 0
-		feeLockItems = view.AddTxOuts(tx, block.Height())
+		feeLockItems = view.AddTxOuts(tx.Hash(), tx.MsgTx(), true, block.Height())
 		return
 	}
 
@@ -1572,7 +1437,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 	for i, txIn := range tx.MsgTx().TxIn {
 		// Ensure the referenced utxo exists in the view.  This should
 		// never happen unless there is a bug is introduced in the code.
-		entry := view.entries[txIn.PreviousOutPoint]
+		entry := view.LookupEntry(txIn.PreviousOutPoint)
 		if entry == nil {
 			str := fmt.Sprintf("view missing input: %v",
 				txIn.PreviousOutPoint)
@@ -1582,7 +1447,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 		// Only create the stxo details if requested.
 		if stxos != nil {
 			// Populate the stxo details using the utxo entry.
-			var stxo = SpentTxOut{
+			var stxo = txo.SpentTxOut{
 				Amount:     entry.Amount(),
 				PkScript:   entry.PkScript(),
 				Height:     entry.BlockHeight(),
@@ -1612,7 +1477,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 	}
 
 	// Add the transaction's outputs as available utxos.
-	feeLockItems = view.AddTxOuts(tx, block.Height())
+	feeLockItems = view.AddTxOuts(tx.Hash(), tx.MsgTx(), false, block.Height())
 
 	b.updateBalanceCache(block, view, tx)
 
@@ -1663,6 +1528,7 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 				}
 				utxo.SetPkScript(pkScript)
 			}
+			log.Info("CREATE TX REPLACE ADDRESS ", contractAddr.String())
 		}
 	}
 
@@ -1672,9 +1538,9 @@ func (b *BlockChain) ConnectTransaction(block *asiutil.Block, txidx int, view *U
 // generate, check, and connect to block for the virtual tx.
 func (b *BlockChain) handleVTX(vmtx *virtualtx.VirtualTransaction,
 	block *asiutil.Block,
-	view *UtxoViewpoint,
+	view *txo.UtxoViewpoint,
 	stateDB *state.StateDB,
-	stxos *[]SpentTxOut,
+	stxos *[]txo.SpentTxOut,
 	txidx int,
 	tx *asiutil.Tx,
 	gas uint64,
@@ -1719,8 +1585,8 @@ func (b *BlockChain) handleVTX(vmtx *virtualtx.VirtualTransaction,
 
 // round consensus special tx created by validator to flush award info to consensus contract.
 func (b *BlockChain) connectCoinbaseTX(block *asiutil.Block,
-	view *UtxoViewpoint,
-	tx *asiutil.Tx, stxos *[]SpentTxOut,
+	view *txo.UtxoViewpoint,
+	tx *asiutil.Tx, stxos *[]txo.SpentTxOut,
 	db *state.StateDB,
 	fee int64) (vtx *virtualtx.VirtualTransaction, err error, snapshot int) {
 
@@ -1758,7 +1624,7 @@ func (b *BlockChain) connectCoinbaseTX(block *asiutil.Block,
 }
 
 // connect virtual transaction to block.
-func (b *BlockChain) connectVTX(view *UtxoViewpoint, vtx *asiutil.Tx, height int32, stxos *[]SpentTxOut) error {
+func (b *BlockChain) connectVTX(view *txo.UtxoViewpoint, vtx *asiutil.Tx, height int32, stxos *[]txo.SpentTxOut) error {
 	// Spend the referenced utxos by marking them spent in the view and,
 	// if a slice was provided for the spent txout details, append an entry
 	// to it.
@@ -1771,7 +1637,7 @@ func (b *BlockChain) connectVTX(view *UtxoViewpoint, vtx *asiutil.Tx, height int
 			continue
 		}
 
-		entry := view.entries[txIn.PreviousOutPoint]
+		entry := view.LookupEntry(txIn.PreviousOutPoint)
 		if entry == nil || entry.IsSpent() {
 			str := fmt.Sprintf("the entry of input PreviousOutPoint is nil or entry has been spent %v", txIn.PreviousOutPoint)
 			return ruleError(ErrMissingTxOut, str)
@@ -1786,11 +1652,11 @@ func (b *BlockChain) connectVTX(view *UtxoViewpoint, vtx *asiutil.Tx, height int
 			log.Info("mint asset.!!!")
 			continue
 		}
-		entry := view.entries[txIn.PreviousOutPoint]
+		entry := view.LookupEntry(txIn.PreviousOutPoint)
 		// Only create the stxo details if requested.
 		if stxos != nil {
 			// Populate the stxo details using the utxo entry.
-			var stxo = SpentTxOut{
+			var stxo = txo.SpentTxOut{
 				Amount:     entry.Amount(),
 				PkScript:   entry.PkScript(),
 				Height:     entry.BlockHeight(),
@@ -1807,18 +1673,18 @@ func (b *BlockChain) connectVTX(view *UtxoViewpoint, vtx *asiutil.Tx, height int
 	}
 
 	// Add the transaction's outputs as available utxos.
-	view.AddVtxOuts(vtx, height)
+	view.AddTxOuts(vtx.Hash(), vtx.MsgTx(), false, height)
 	return nil
 }
 
 // execute contract in the tx.
 func (b *BlockChain) connectContract(
 	block *asiutil.Block,
-	view *UtxoViewpoint,
+	view *txo.UtxoViewpoint,
 	stateDB *state.StateDB,
 	caller, targetContractAddr common.Address,
 	out *protos.TxOut,
-	stxos *[]SpentTxOut,
+	stxos *[]txo.SpentTxOut,
 	tx *asiutil.Tx,
 	contractCode txscript.ScriptClass,
 	gas uint64,
@@ -1834,16 +1700,18 @@ func (b *BlockChain) connectContract(
 	var voteValue func() int64
 	if contractCode == txscript.VoteTy {
 		voteValue = func() int64 {
-			id := pickVoteArgument(out.Data)
+			id := txo.PickVoteArgument(out.Data)
 			voteId := txo.NewVoteId(targetContractAddr, id)
-			return getVoteValue(view, tx, voteId, &out.Asset)
+			ret := getVoteValue(view, tx, voteId, &out.Asset)
+			log.Infof("DEBUG LOG NIL CRASH block vote", tx.Hash().String(), ret)
+			return ret
 		}
 	}
 
 	leftOverGas = gas
 	// in order to retention accuracy, mul 10000 for contract to check
 	gasPrice := fee*10000/int64(tx.MsgTx().TxContract.GasLimit)
-	context := fvm.NewFVMContext(caller, new(big.Int).SetInt64(gasPrice), block, b, view.txs, voteValue, nil)
+	context := fvm.NewFVMContext(caller, new(big.Int).SetInt64(gasPrice), block, b, view, voteValue)
 	vmenv := vm.NewFVMWithVtx(context, stateDB, chaincfg.ActiveNetParams.FvmParam, *b.GetVmConfig(), vtx)
 
 	switch contractCode {
@@ -1872,9 +1740,9 @@ func (b *BlockChain) connectContract(
 
 // failed to call/create evm, roll back this out utxo, give it back to the sender.
 func (b *BlockChain) connectContractRollback(
-	view *UtxoViewpoint,
+	view *txo.UtxoViewpoint,
 	height int32,
-	stxos *[]SpentTxOut,
+	stxos *[]txo.SpentTxOut,
 	txIndex int,
 	tx *asiutil.Tx) (*protos.MsgTx, error) {
 
@@ -1911,7 +1779,7 @@ func (b *BlockChain) executeContract(
 func (b *BlockChain) createContract(
 	vmenv *vm.FVM,
 	callerAddr common.Address,
-	view *UtxoViewpoint,
+	view *txo.UtxoViewpoint,
 	block *asiutil.Block,
 	stateDB *state.StateDB,
 	tx *asiutil.Tx,
@@ -1925,7 +1793,7 @@ func (b *BlockChain) createContract(
 		errStr := fmt.Sprintf("create contract, incorrect data protocol")
 		return common.Address{}, leftOverGas, -1, ruleError(ErrBadContractData, errStr)
 	}
-	byteCode, ok, leftOverGas := b.GetByteCode(view.txs, block, leftOverGas,
+	byteCode, ok, leftOverGas := b.GetByteCode(view.Txs(), block, leftOverGas,
 		stateDB, chaincfg.ActiveNetParams.FvmParam, category, templateName)
 	if !ok {
 		errStr := fmt.Sprintf("create contract, get byte code from template error")
@@ -1990,7 +1858,7 @@ func (b *BlockChain) commitTemplateContract(
 func (b *BlockChain) checkAssetForbidden(
 	block *asiutil.Block,
 	stateDB *state.StateDB,
-	tx *asiutil.Tx, view *UtxoViewpoint,
+	tx *asiutil.Tx, view *txo.UtxoViewpoint,
 	scriptClass txscript.ScriptClass) error {
 
 	assetsCache := make(map[string]interface{})
@@ -2103,7 +1971,7 @@ func (b *BlockChain) CheckTransferValidate(
 // GenVtxMsg process createAsset, addAsset, transferAsset
 func (b *BlockChain) GenVtxMsg(
 	block *asiutil.Block,
-	view *UtxoViewpoint,
+	view *txo.UtxoViewpoint,
 	tx *asiutil.Tx,
 	vtx *virtualtx.VirtualTransaction) (*protos.MsgTx, error) {
 
@@ -2256,7 +2124,7 @@ func (b *BlockChain) FilterPackagedSignatures(signList []*asiutil.BlockSign) []*
 }
 
 //generate rollback message if any error happens when connecting block.
-func (b *BlockChain) GenRollbackMsg(view *UtxoViewpoint, tx *asiutil.Tx) (*protos.MsgTx, error) {
+func (b *BlockChain) GenRollbackMsg(view *txo.UtxoViewpoint, tx *asiutil.Tx) (*protos.MsgTx, error) {
 	txMsg := protos.NewMsgTx(0)
 
 	assetsmap := make(map[protos.Asset]int64)
@@ -2301,7 +2169,7 @@ func (b *BlockChain) GenRollbackMsg(view *UtxoViewpoint, tx *asiutil.Tx) (*proto
 }
 
 // spend one utxo for virutal tx.
-func (b *BlockChain) tryAddToTxin(view *UtxoViewpoint, txMsg *protos.MsgTx, out protos.OutPoint,
+func (b *BlockChain) tryAddToTxin(view *txo.UtxoViewpoint, txMsg *protos.MsgTx, out protos.OutPoint,
 	addr common.Address, assets *protos.Asset, voucherId int64, mintsig []byte) bool {
 	entry := view.LookupEntry(out)
 	if entry == nil || entry.IsSpent() {
@@ -2321,7 +2189,7 @@ func (b *BlockChain) tryAddToTxin(view *UtxoViewpoint, txMsg *protos.MsgTx, out 
 
 // spend one utxo for virutal tx.
 // if the amount of utxo is larger than needed, generate a change.
-func (b *BlockChain) tryUseOneOut(view *UtxoViewpoint, txMsg *protos.MsgTx, out protos.OutPoint,
+func (b *BlockChain) tryUseOneOut(view *txo.UtxoViewpoint, txMsg *protos.MsgTx, out protos.OutPoint,
 	addr common.Address, assets *protos.Asset, amount int64, filled int64, mintsig []byte) (int64, error) {
 	entry := view.LookupEntry(out)
 	if entry == nil || entry.IsSpent() {
@@ -2768,18 +2636,6 @@ func (b *BlockChain) GetVmConfig() *vm.Config {
 	return &b.vmConfig
 }
 
-func (b *BlockChain) CurrentHeader() *types.Header {
-	header := types.Header{
-		Number: big.NewInt(int64(b.BestSnapshot().Height)),
-	}
-	return &header
-}
-
-// SubscribeChainEvent registers a subscription of ChainEvent.
-func (b *BlockChain) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
-	return b.scope.Track(b.chainFeed.Subscribe(ch))
-}
-
 // SubscribeLogsEvent registers a subscription of []*types.Log.
 func (b *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.scope.Track(b.logsFeed.Subscribe(ch))
@@ -2788,16 +2644,6 @@ func (b *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscripti
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
 func (b *BlockChain) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
 	return b.scope.Track(b.rmLogsFeed.Subscribe(ch))
-}
-
-// SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (b *BlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
-	return b.scope.Track(b.chainHeadFeed.Subscribe(ch))
-}
-
-// SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (b *BlockChain) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
-	return b.scope.Track(b.chainSideFeed.Subscribe(ch))
 }
 
 func (b *BlockChain) Scope() *event.SubscriptionScope {
@@ -2829,14 +2675,14 @@ func (b *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 
 // FetchTemplate return decoded values for template data.
 // It fetches data from tx map first. If not exist, it will search from db.
-func (b *BlockChain) FetchTemplate(txs map[common.Hash]asiutil.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error) {
+func (b *BlockChain) FetchTemplate(txs map[common.Hash]txo.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error) {
 	if txs != nil {
 		if m, exist := txs[*hash]; exist {
-			if m.Action == asiutil.ViewRm {
+			if m.Action == txo.ViewRm {
 				return 0, nil, nil, nil, nil, ruleError(ErrInvalidTemplate, "template tx roll back")
 			}
-			if m.Action == asiutil.ViewAdd && m.Tx != nil {
-				return DecodeTemplateContractData(m.Tx.MsgTx().TxOut[0].Data)
+			if m.Action == txo.ViewAdd && m.MsgTx != nil {
+				return DecodeTemplateContractData(m.MsgTx.TxOut[0].Data)
 			}
 		}
 	}
@@ -3145,7 +2991,7 @@ func DecodeTemplateContractData(data []byte) (uint16, []byte, []byte, []byte, []
 
 // get the vote value of current vote.
 // this method is only invoked when the method is in vote tx.
-func getVoteValue(view *UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset *protos.Asset) int64 {
+func getVoteValue(view *txo.UtxoViewpoint, tx *asiutil.Tx, voteId *txo.VoteId, asset *protos.Asset) int64 {
 	if view == nil {
 		return 0
 	}
@@ -3218,11 +3064,8 @@ func (b *BlockChain) Prepare(header *protos.BlockHeader, gasFloor, gasCeil uint6
 	if err != nil {
 		return
 	}
-	feepool, err, _ = b.GetAcceptFees(block,
+	feepool, err = b.GetAcceptFees(block,
 		stateDB, chaincfg.ActiveNetParams.FvmParam, header.Height)
-	if err != nil {
-		return
-	}
 	return
 }
 

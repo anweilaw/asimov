@@ -865,7 +865,7 @@ func opSuicide(pc *uint64, interpreter *FVMInterpreter, contract *Contract, memo
 
 	contractAddress := contract.Address()
 	beneficiary := common.BigToAddress(stack.pop())
-	_, err := interpreter.fvm.CalculateBalance(interpreter.fvm.Block, contractAddress, nil, 0)
+	_, err := interpreter.fvm.CalculateBalance(interpreter.fvm.View, interpreter.fvm.Block, contractAddress, nil, 0)
 	if err != nil {
 		return nil, errors.New("failed to calculate balance")
 	}
@@ -1117,14 +1117,16 @@ func opFlowBalance(pc *uint64, interpreter *FVMInterpreter, contract *Contract, 
     address := common.BigToAddress(addressBig)
 	assets := protos.AssetFromInt(assetsBig)
 
-	balance, err := interpreter.fvm.CalculateBalance(interpreter.fvm.Block, address, assets, 0)
+	balance, err := interpreter.fvm.CalculateBalance(interpreter.fvm.View, interpreter.fvm.Block, address, assets, 0)
 	if err != nil {
 		stack.push(new(big.Int).SetInt64(0))
+		fmt.Println("GetBalance", address.String(), assets.String(), 0)
 	} else {
 		bigBalance := new(big.Int).SetInt64(balance)
 		income := interpreter.fvm.Vtx.GetIncoming(address, assets, 0)
 		bigBalance.Add(bigBalance, income)
 		stack.push(bigBalance)
+		fmt.Println("GetBalance", address.String(), assets.String(), bigBalance.Int64())
 	}
 
 	interpreter.intPool.put(assetsBig, addressBig)

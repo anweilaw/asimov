@@ -128,6 +128,8 @@ func (m *Manager) GetAssetInfoByAssetId(
 // contract of registry the number represents if an asset is restricted
 func (m *Manager) IsLimit(block *asiutil.Block,
 	stateDB vm.StateDB, asset *protos.Asset) int {
+	m.assetsUnrestrictedMtx.Lock()
+	defer m.assetsUnrestrictedMtx.Unlock()
 	if _, ok := m.assetsUnrestrictedCache[*asset]; ok {
 		return 0
 	}

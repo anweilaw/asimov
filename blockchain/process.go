@@ -98,7 +98,7 @@ func (b *BlockChain) processOrphans(hash *common.Hash, flags common.BehaviorFlag
 			i--
 
 			// Potentially accept the block into the block chain.
-			_, err := b.maybeAcceptBlock(orphan.block, flags)
+			_, err := b.maybeAcceptBlock(orphan.block, nil, flags)
 			if err != nil {
 				return err
 			}
@@ -125,6 +125,45 @@ func (b *BlockChain) GetNodeByHeight(targetHeight int32) (*blockNode, error) {
 	return node, nil
 }
 
+func (b *BlockChain) GetNodeByRoundSlot(round uint32, slot uint16) *blockNode {
+	node := b.bestChain.Tip()
+	if node.Round() < round || (node.Round() == round && node.Slot() < slot) {
+		return nil
+	}
+	if node.Round() == round || node.Round() == round + 1 {
+		for {
+			if node.Round() < round {
+				return nil
+			}
+			if node.Round() == round {
+				if node.Slot() == slot{
+					return node
+				}
+				if node.Slot() < slot{
+					return nil
+				}
+			}
+			node = node.parent
+		}
+	}
+	from, end := int32(0), node.height
+	for ; from < end; {
+		middle := (from + end) / 2
+		node := b.bestChain.NodeByHeight(middle)
+
+		if node.Round() == round && node.Slot() == slot {
+			return node
+		}
+		if node.Round() < round || (node.Round() == round && node.Slot() < slot) {
+			from = middle + 1
+		} else {
+			end = middle
+		}
+	}
+
+	return nil
+}
+
 // ProcessBlock is the main workhorse for handling insertion of new blocks into
 // the block chain.  It includes functionality such as rejecting duplicate
 // blocks, ensuring blocks follow all rules, orphan handling, and insertion into
@@ -135,7 +174,7 @@ func (b *BlockChain) GetNodeByHeight(targetHeight int32) (*blockNode, error) {
 // whether or not the block is an orphan.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) ProcessBlock(block *asiutil.Block, flags common.BehaviorFlags) (bool, bool, error) {
+func (b *BlockChain) ProcessBlock(block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, bool, error) {
 	b.chainLock.Lock()
 	defer b.chainLock.Unlock()
 
@@ -158,13 +197,16 @@ func (b *BlockChain) ProcessBlock(block *asiutil.Block, flags common.BehaviorFla
 		return false, false, ruleError(ErrDuplicateBlock, str)
 	}
 
-	// parent may results nil
-	parent := b.index.LookupNode(block.Hash())
-	// Perform preliminary sanity checks on the block and its transactions.
-	err = checkBlockSanity(block, parent, flags)
-	if err != nil {
-		log.Debugf("Processing block err %v", err)
-		return false, false, err
+	fastAdd := flags&common.BFFastAdd == common.BFFastAdd
+	if !fastAdd {
+		// parent may results nil
+		parent := b.index.LookupNode(&block.MsgBlock().Header.PrevBlock)
+		// Perform preliminary sanity checks on the block and its transactions.
+		err = checkBlockSanity(block, parent, flags)
+		if err != nil {
+			log.Debugf("Processing block err %v", err)
+			return false, false, err
+		}
 	}
 
 	// Find the previous checkpoint and perform some additional checks based
@@ -204,7 +246,7 @@ func (b *BlockChain) ProcessBlock(block *asiutil.Block, flags common.BehaviorFla
 
 	// The block has passed all context independent checks and appears sane
 	// enough to potentially accept it into the block chain.
-	isMainChain, err := b.maybeAcceptBlock(block, flags)
+	isMainChain, err := b.maybeAcceptBlock(block, vblock, flags)
 	if err != nil {
 		log.Debugf("Reject block %d %v with parent %v %v", blockHeader.Height, blockHash, prevHash, err)
 		return false, false, err

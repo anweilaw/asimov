@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/common/hexutil"
 	"github.com/AsimovNetwork/asimov/database"
@@ -159,7 +160,7 @@ func (idx *TemplateIndex) Check(dbTx database.Tx) error {
 //
 // This is part of the Indexer interface.
 func (idx *TemplateIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 	// The offset and length of the transactions within the serialized
 	// block.
 	txLocs, err := block.TxLoc()
@@ -182,7 +183,7 @@ func (idx *TemplateIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
 //
 // This is part of the Indexer interface.
 func (idx *TemplateIndex) DisconnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 	// Remove all of the templates in the block from the index.
 	if err := dbRemoveTemplateIndexEntries(dbTx, block); err != nil {
 		return err

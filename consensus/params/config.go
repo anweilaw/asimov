@@ -20,7 +20,7 @@ type Config struct {
 	// ProcessBlock defines the function to call with any solved blocks.
 	// It typically must run the provided block through the same set of
 	// rules and handling as any other block coming from the network.
-	ProcessBlock func(*asiutil.Block, common.BehaviorFlags) (bool, error)
+	ProcessBlock func(*asiutil.Block, *asiutil.VBlock, common.BehaviorFlags) (bool, error)
 
 	// IsCurrent defines the function to use to obtain whether or not the
 	// block chain is current.  This is used by the automatic persistent

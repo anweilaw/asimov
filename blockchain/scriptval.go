@@ -6,6 +6,7 @@ package blockchain
 
 import (
 	"fmt"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"math"
 	"runtime"
 	"time"
@@ -29,7 +30,7 @@ type txValidator struct {
 	validateChan chan *txValidateItem
 	quitChan     chan struct{}
 	resultChan   chan error
-	utxoView     *UtxoViewpoint
+	utxoView     *txo.UtxoViewpoint
 	flags        txscript.ScriptFlags
 }
 
@@ -168,7 +169,7 @@ func (v *txValidator) Validate(items []*txValidateItem) error {
 
 // newTxValidator returns a new instance of txValidator to be used for
 // validating transaction scripts asynchronously.
-func newTxValidator(utxoView *UtxoViewpoint, flags txscript.ScriptFlags) *txValidator {
+func newTxValidator(utxoView *txo.UtxoViewpoint, flags txscript.ScriptFlags) *txValidator {
 	return &txValidator{
 		validateChan: make(chan *txValidateItem),
 		quitChan:     make(chan struct{}),
@@ -180,7 +181,7 @@ func newTxValidator(utxoView *UtxoViewpoint, flags txscript.ScriptFlags) *txVali
 
 // ValidateTransactionScripts validates the scripts for the passed transaction
 // using multiple goroutines.
-func ValidateTransactionScripts(tx *asiutil.Tx, utxoView *UtxoViewpoint,
+func ValidateTransactionScripts(tx *asiutil.Tx, utxoView *txo.UtxoViewpoint,
 	flags txscript.ScriptFlags) error {
 
 	//cachedHashes, _ := hashCache.GetSigHashes(tx.Hash())
@@ -210,7 +211,7 @@ func ValidateTransactionScripts(tx *asiutil.Tx, utxoView *UtxoViewpoint,
 
 // checkBlockScripts executes and validates the scripts for all transactions in
 // the passed block using multiple goroutines.
-func checkBlockScripts(block *asiutil.Block, utxoView *UtxoViewpoint,
+func checkBlockScripts(block *asiutil.Block, utxoView *txo.UtxoViewpoint,
 	scriptFlags txscript.ScriptFlags) error {
 
 	// Collect all of the transaction inputs and required information for

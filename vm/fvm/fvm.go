@@ -6,6 +6,7 @@ package fvm
 
 import (
 	"github.com/AsimovNetwork/asimov/asiutil"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/vm/fvm/core/virtualtx"
@@ -17,20 +18,19 @@ import (
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain, which is used during transaction processing.
 type ChainContext interface {
-
-	CalculateBalance(block *asiutil.Block, address common.Address, assets *protos.Asset, voucherId int64) (int64, error)
+	CalculateBalance(view *txo.UtxoViewpoint, block *asiutil.Block, address common.Address, assets *protos.Asset, voucherId int64) (int64, error)
 	GetVmConfig() *fvm.Config
 	GetTemplateWarehouseInfo() (common.Address, string)
 	GetSystemContractInfo(delegateAddr common.ContractCode) (common.Address, []byte, string)
 	GetTemplateInfo(contractAddr []byte, gas uint64, block *asiutil.Block, stateDB fvm.StateDB, chainConfig *params.ChainConfig)(uint16, string, uint64)
-	FetchTemplate(txs map[common.Hash]asiutil.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error)
+	FetchTemplate(txs map[common.Hash]txo.TxMark, hash *common.Hash) (uint16, []byte, []byte, []byte, []byte, error)
 	BlockHashByHeight(int32) (*common.Hash, error)
 }
 
 // NewFVMContext creates a new context of FVM.
 func NewFVMContext(from common.Address, gasPrice *big.Int, block *asiutil.Block, chain ChainContext,
-	txs map[common.Hash]asiutil.TxMark,
-	voteValue fvm.VoteValueFunc, author *common.Address) fvm.Context {
+	view *txo.UtxoViewpoint,
+	voteValue fvm.VoteValueFunc) fvm.Context {
 
 	return fvm.Context{
 		CanTransfer:              CanTransfer,
@@ -52,13 +52,13 @@ func NewFVMContext(from common.Address, gasPrice *big.Int, block *asiutil.Block,
 		GasLimit: 				  block.MsgBlock().Header.GasLimit,
 		GasPrice: 				  new(big.Int).Set(gasPrice),
 		Block:    				  block,
-		TxsMap:   				  txs,
+		View:   				  view,
 	}
 }
 
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
-func CanTransfer(block *asiutil.Block, db fvm.StateDB, addr common.Address,
+func CanTransfer(view *txo.UtxoViewpoint, block *asiutil.Block, db fvm.StateDB, addr common.Address,
 	amount *big.Int, vtx *virtualtx.VirtualTransaction, calculateBalanceFunc fvm.CalculateBalanceFunc, assets *protos.Asset) bool {
 	if amount.Cmp(common.Big0) == 0 {
 		return true
@@ -74,7 +74,7 @@ func CanTransfer(block *asiutil.Block, db fvm.StateDB, addr common.Address,
 		if total.Cmp(amount) == 0 {
 			return true
 		}
-		balance, _ := calculateBalanceFunc(block, addr, assets, amount.Int64())
+		balance, _ := calculateBalanceFunc(view, block, addr, assets, amount.Int64())
 		return amount.Cmp(big.NewInt(balance)) == 0
 	} else {
 		if amount.Cmp(common.Big0) < 0 || amount.Cmp(common.BigMaxxing) > 0 {
@@ -88,7 +88,7 @@ func CanTransfer(block *asiutil.Block, db fvm.StateDB, addr common.Address,
 		}
 
 		//now check the balance.
-		balance, err := calculateBalanceFunc(block, addr, assets, amount.Int64())
+		balance, err := calculateBalanceFunc(view, block, addr, assets, amount.Int64())
 		if err != nil {
 			return false
 		}

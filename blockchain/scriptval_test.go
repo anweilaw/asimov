@@ -5,11 +5,12 @@
 package blockchain
 
 import (
-    "runtime"
-    "testing"
     "github.com/AsimovNetwork/asimov/asiutil"
+    "github.com/AsimovNetwork/asimov/blockchain/txo"
     "github.com/AsimovNetwork/asimov/protos"
     "github.com/AsimovNetwork/asimov/txscript"
+    "runtime"
+    "testing"
 )
 
 // TestCheckBlockScripts ensures that validating the all of the scripts in a
@@ -68,7 +69,7 @@ func TestCheckBlockScripts(t *testing.T) {
         }
 
         if i < 1 {
-            isMain, isOrphan, checkErr := chain.ProcessBlock(block, 0)
+            isMain, isOrphan, checkErr := chain.ProcessBlock(block, nil, 0)
             if checkErr != nil {
                 t.Errorf("ProcessBlock error %v", checkErr)
             }
@@ -79,9 +80,9 @@ func TestCheckBlockScripts(t *testing.T) {
 
     //test block with tx:
     block := blocks[1]
-    view := NewUtxoViewpoint()
+    view := txo.NewUtxoViewpoint()
     view.SetBestHash(&chain.bestChain.tip().hash)
-    err = view.fetchInputUtxos(chain.db, block)
+    err = fetchInputUtxos(view, chain.db, block)
     if err != nil {
         t.Errorf("test TestCheckBlockScripts error %v", err)
     }

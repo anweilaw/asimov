@@ -175,7 +175,8 @@ func createChainState() common.Hash {
 	cMap := chaincfg.TransferGenesisData(beneficiary.Data)
 	for k, v := range cMap {
 		fmt.Println("init system contracts, contract name = " + v[0].Name + "；delegate contract = " + string(k))
-		_, addr, _, _, err := vmenv.Create(sender, common.Hex2Bytes(v[0].Code), uint64(4604216000), common.Big0, &beneficiary.Asset, nil, nil, true)
+		byteCode := common.Hex2Bytes(v[0].Code)
+		_, addr, _, _, err := vmenv.Create(sender, byteCode, uint64(4604216000), common.Big0, &beneficiary.Asset, byteCode, nil, true)
 		if err != nil {
 			panic(err)
 		}

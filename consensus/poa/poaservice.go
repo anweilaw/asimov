@@ -8,7 +8,6 @@ package poa
 import (
 	"errors"
 	"fmt"
-	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
@@ -81,10 +80,7 @@ func (s *Service) Start() error {
 		for {
 			select {
 			case <-s.timer.C:
-				_, err := s.genBlock()
-				if err != nil {
-					log.Errorf("Service gen block failed: %v", err)
-				}
+				s.genBlock()
 			case <-existCh:
 				break mainloop
 			}
@@ -203,38 +199,38 @@ func (s *Service) slotControl() (int64, int64, bool) {
 }
 
 // validators create block.
-func (s *Service) genBlock() (*asiutil.Block, error) {
+func (s *Service) genBlock() {
 	round, slot, isTurn := s.slotControl()
 	s.resetTimer(round == 0)
 	if !isTurn {
-		return nil, nil
+		return
 	}
 	blockInterval := float64(s.GetRoundInterval()) / float64(chaincfg.ActiveNetParams.RoundSize) * 1000
 	log.Infof("try to gen block at round=%d, slot=%d", round, slot)
 
-	block, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
-		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot), blockInterval)
+	template, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
+		s.config.Account, s.config.GasFloor, s.config.GasCeil,
+		time.Now().Unix(), uint32(round), uint16(slot), blockInterval)
 	if err != nil {
-		log.Errorf("Consensus POA Failed to make a block: %v", err)
-		return nil, err
+		log.Errorf("Consensus POA Failed to gen a block: %v", err)
+		return
 	}
 
-	_, err = s.config.ProcessBlock(block, common.BFNone)
+	_, err = s.config.ProcessBlock(template.Block, template.VBlock, common.BFFastAdd)
 	if err != nil {
 		// Anything other than a rule violation is an unexpected error,
 		// so log that error as an internal error.
 		if _, ok := err.(blockchain.RuleError); !ok {
-			log.Errorf("Consensus POA submit new block rejected unexpected: %v", err)
-			return nil, err
+			log.Errorf("POA gen block rejected unexpected: %v", err)
+			return
 		}
-		log.Errorf("Consensus POA submit new block rejected: %v", err)
-		return nil, err
+		log.Errorf("POA gen block rejected: %v", err)
+		return
 	}
 
-	log.Infof("Consensus POA submit block: height=%d, time=%v, sigNum=%v, txNum=%d",
-		block.Height(), block.MsgBlock().Header.Timestamp,
-		len(block.MsgBlock().PreBlockSigs), len(block.MsgBlock().Transactions))
-	return block, nil
+	log.Infof("POA gen block accept, height=%d, hash=%v, sigNum=%v, txNum=%d",
+		template.Block.Height(), template.Block.Hash(),
+		len(template.Block.MsgBlock().PreBlockSigs), len(template.Block.Transactions()))
 }
 
 func (s *Service) GetRoundInterval() int64 {

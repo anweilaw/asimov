@@ -21,7 +21,7 @@ import (
 // their documentation for how the flags modify their behavior.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, flags common.BehaviorFlags) (bool, error) {
+func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, error) {
 	// The height of this block is one more than the referenced previous
 	// block.
 	prevHash := &block.MsgBlock().Header.PrevBlock
@@ -34,6 +34,8 @@ func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, flags common.Behavio
 		return false, ruleError(ErrInvalidAncestorBlock, str)
 	}
 
+	fastAdd := flags&common.BFFastAdd == common.BFFastAdd
+
 	var err error
 	blockHeader := &block.MsgBlock().Header
 	round := prevNode.round
@@ -44,11 +46,13 @@ func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, flags common.Behavio
 		}
 	}
 
-	// The block must pass all of the validation rules which depend on the
-	// position of the block within the block chain.
-	err = b.checkBlockContext(block, prevNode, round, flags)
-	if err != nil {
-		return false, err
+	if !fastAdd {
+		// The block must pass all of the validation rules which depend on the
+		// position of the block within the block chain.
+		err = b.checkBlockContext(block, prevNode, round, flags)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	// Insert the block into the database if it's not already there.  Even
@@ -61,7 +65,14 @@ func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, flags common.Behavio
 	// such as making blocks that never become part of the main chain or
 	// blocks that fail to connect available for further analysis.
 	err = b.db.Update(func(dbTx database.Tx) error {
-		return dbStoreBlock(dbTx, block)
+		dberr := dbStoreBlock(dbTx, block)
+		if dberr != nil {
+			return dberr
+		}
+		if fastAdd && vblock != nil {
+			dberr = dbStoreVBlock(dbTx, vblock)
+		}
+		return dberr
 	})
 	if err != nil {
 		return false, err
@@ -85,7 +96,7 @@ func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, flags common.Behavio
 	// Connect the passed block to the chain while respecting proper chain
 	// selection according to the chain with the most proof of work.  This
 	// also handles validation of the transaction scripts.
-	isMainChain, err := b.connectBestChain(newNode, block, flags)
+	isMainChain, err := b.connectBestChain(newNode, block, vblock, flags)
 	if err != nil {
 		return false, err
 	}

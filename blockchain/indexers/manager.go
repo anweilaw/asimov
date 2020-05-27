@@ -6,6 +6,7 @@ package indexers
 
 import (
 	"fmt"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/protos"
 
 	"github.com/AsimovNetwork/asimov/blockchain"
@@ -68,7 +69,7 @@ func dbFetchIndexerTip(dbTx database.Tx, idxKey []byte) (*common.Hash, int32, er
 // accordingly.  An error will be returned if the current tip for the indexer is
 // not the previous block for the passed block.
 func dbIndexConnectBlock(dbTx database.Tx, indexer blockchain.Indexer, block *asiutil.Block,
-	stxo []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxo []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// Assert that the block being connected properly connects to the
 	// current tip of the index.
@@ -98,7 +99,7 @@ func dbIndexConnectBlock(dbTx database.Tx, indexer blockchain.Indexer, block *as
 // accordingly.  An error will be returned if the current tip for the indexer is
 // not the passed block.
 func dbIndexDisconnectBlock(dbTx database.Tx, indexer blockchain.Indexer, block *asiutil.Block,
-	stxo []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxo []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// Assert that the block being disconnected is the current tip of the
 	// index.
@@ -410,7 +411,7 @@ func (m *Manager) Init(chain *blockchain.BlockChain, interrupt <-chan struct{}) 
 		}
 
 		// Connect the block for all indexes that need it.
-		var spentTxos []blockchain.SpentTxOut
+		var spentTxos []txo.SpentTxOut
 		for i, indexer := range m.enabledIndexes {
 			// Skip indexes that don't need to be updated with this
 			// block.
@@ -466,7 +467,7 @@ func indexNeedsInputs(index blockchain.Indexer) bool {
 //
 // This is part of the blockchain.IndexManager interface.
 func (m *Manager) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// Call each of the currently active optional indexes with the block
 	// being connected so they can update accordingly.
@@ -486,7 +487,7 @@ func (m *Manager) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
 //
 // This is part of the blockchain.IndexManager interface.
 func (m *Manager) DisconnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxo []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxo []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// Call each of the currently active optional indexes with the block
 	// being disconnected so they can update accordingly.

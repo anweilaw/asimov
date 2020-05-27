@@ -14,7 +14,6 @@ import (
 	"github.com/AsimovNetwork/asimov/database"
 	"github.com/AsimovNetwork/asimov/protos"
 	"github.com/AsimovNetwork/asimov/txscript"
-	"github.com/AsimovNetwork/asimov/vm/fvm/core/state"
 	"github.com/AsimovNetwork/asimov/vm/fvm/core/types"
 	"math"
 	"reflect"
@@ -550,7 +549,7 @@ func TestCountP2SHSigOps(t *testing.T) {
 			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
-	coinbaseView := NewUtxoViewpoint()
+	coinbaseView := txo.NewUtxoViewpoint()
 
 	noUtxoTx := &protos.MsgTx{
 		TxIn: []*protos.TxIn {
@@ -562,7 +561,7 @@ func TestCountP2SHSigOps(t *testing.T) {
 			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
-	noUtxoView := NewUtxoViewpoint()
+	noUtxoView := txo.NewUtxoViewpoint()
 
 	hasUtxoTx := &protos.MsgTx{
 		TxIn: []*protos.TxIn {
@@ -577,25 +576,25 @@ func TestCountP2SHSigOps(t *testing.T) {
 			protos.NewTxOut(10000000000, []byte{txscript.OP_1}, asiutil.AsimovAsset),
 		},
 	}
-	hasUtxoView := NewUtxoViewpoint()
-	hasUtxoView.entries[hasUtxoTx.TxIn[0].PreviousOutPoint] = txo.NewUtxoEntry(
+	hasUtxoView := txo.NewUtxoViewpoint()
+	hasUtxoView.AddEntry(hasUtxoTx.TxIn[0].PreviousOutPoint, txo.NewUtxoEntry(
 		300000000,
 		nil,
 		0,
 		false,
 		&asiutil.AsimovAsset,
-		nil)
-	hasUtxoView.entries[hasUtxoTx.TxIn[1].PreviousOutPoint] = txo.NewUtxoEntry(
+		nil))
+	hasUtxoView.AddEntry(hasUtxoTx.TxIn[1].PreviousOutPoint, txo.NewUtxoEntry(
 		300000000,
 		hexToBytes("a915731018853670f9f3b0582c5b9ee8ce93764ac32b93c4"),
 		0,
 		false,
 		&asiutil.AsimovAsset,
-		nil)
+		nil))
 
 	tests := []struct {
 		tx     		*asiutil.Tx
-		utxoView 	*UtxoViewpoint
+		utxoView 	*txo.UtxoViewpoint
 		result 		int
 		errStr		string
 	} {
@@ -1842,11 +1841,11 @@ var UnDivisibleAsset4 = protos.Asset{
 func createSpentUtxoErrTx(
 	privString		string,
 	payAddrPkScript	[]byte,
-	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
+	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *txo.UtxoViewpoint, error) {
 	var err error
 	var ErrMultTx2 *protos.MsgTx
 	ErrFees2 := make(map[protos.Asset]int64)
-	ErrView2 := NewUtxoViewpoint()
+	ErrView2 := txo.NewUtxoViewpoint()
 	{
 		//input list:
 		utxo1 := txo.NewUtxoEntry(10000000+int64(1)*10, payAddrPkScript,1,false, &DivisibleAsset1, nil)
@@ -1868,12 +1867,12 @@ func createSpentUtxoErrTx(
 func createUnMaturityTx(
 	privString		string,
 	payAddrPkScript	[]byte,
-	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
+	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *txo.UtxoViewpoint, error) {
 
 	var err error
 	var ErrMultTx2 *protos.MsgTx
 	ErrFees2 := make(map[protos.Asset]int64)
-	ErrView2 := NewUtxoViewpoint()
+	ErrView2 := txo.NewUtxoViewpoint()
 	{
 		//input list:
 		utxo1 := txo.NewUtxoEntry(10000000+int64(1)*10, payAddrPkScript,1,true, &DivisibleAsset1, nil)
@@ -1896,12 +1895,12 @@ func createUnMaturityTx(
 func createErrorOpcodeTx(
 	privString string,
 	payAddrPkScript []byte,
-	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *UtxoViewpoint, error) {
+	receiverPkScript []byte) (*protos.MsgTx, map[protos.Asset]int64, *txo.UtxoViewpoint, error) {
 
 	var err error
 	var normalTx1 *protos.MsgTx
 	resultFees1 := make(map[protos.Asset]int64)
-	utxoViewPoint1 := NewUtxoViewpoint()
+	utxoViewPoint1 := txo.NewUtxoViewpoint()
 	{
 		transferAmount := []int64{10000000,9000000}
 		totalOutPut := transferAmount[0] + transferAmount[1]
@@ -2145,7 +2144,7 @@ func TestCheckTransactionInputs(t *testing.T) {
 
 	tests := []struct {
 		tx                 *asiutil.Tx
-		utxoView           *UtxoViewpoint
+		utxoView           *txo.UtxoViewpoint
 		expectedResultFees map[protos.Asset]int64
 		testErr            string
 	}{
@@ -2419,7 +2418,7 @@ func TestCheckVTransactionInputs(t *testing.T) {
 
 	tests := []struct {
 		tx                 *asiutil.Tx
-		utxoView           *UtxoViewpoint
+		utxoView           *txo.UtxoViewpoint
 		expectedResultFees map[protos.Asset]int64
 		errCodeStr         string
 	}{
@@ -2534,13 +2533,13 @@ func TestCheckConnectBlock(t *testing.T) {
 		}
 		block, newNode, err := createAndSignBlock(netParam, accList, tmpValidator, tmpFilters, chain, tmpEpoch,
 			tmpSlotIndex, int32(i), protos.Asset{0,0}, 0,
-			tmpValidator[tmpSlotIndex],normalTxList,0,chain.GetTip())
+			tmpValidator[tmpSlotIndex],normalTxList,0, chain.GetTip())
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}
 
 		if i != 6 {
-			isMain,isOrphan,checkErr := chain.ProcessBlock(block,0)
+			isMain,isOrphan,checkErr := chain.ProcessBlock(block,nil, 0)
 			if checkErr != nil {
 				t.Errorf("ProcessBlock error %v", checkErr)
 			}
@@ -2551,7 +2550,7 @@ func TestCheckConnectBlock(t *testing.T) {
 	}
 
 	//test view hash is error:
-	viewErrHash := NewUtxoViewpoint()
+	viewErrHash := txo.NewUtxoViewpoint()
 	viewErrHash.SetBestHash(&genesisHash)
 
 	//test gasLimit error:
@@ -2566,16 +2565,10 @@ func TestCheckConnectBlock(t *testing.T) {
 	gasUsedErrNode := nodeList[4]
 	log.Infof("gasUsedErrNode = %v",gasUsedErrNode)
 
-	//test FeesPool is error:
-	testFeesPool := make(map[protos.Asset]int32)
-	testAsset := protos.Asset{1,1}
-	testFeesPool[testAsset] = chain.GetTip().height + 100
-
 	tests := []struct {
 		block			*asiutil.Block
 		node      		*blockNode
-		view      		*UtxoViewpoint
-		feespool        map[protos.Asset]int32
+		view      		*txo.UtxoViewpoint
 		errCodeString	string
 	} {
 		//block with only coinbaseTx:
@@ -2583,29 +2576,18 @@ func TestCheckConnectBlock(t *testing.T) {
 			blockList[0],
 			nodeList[0],
 			nil,
-			nil,
 			"",
-		},
-		//test: nodeHash is Genesis hash:
-		{
-			blockList[1],
-			genesisNode,
-			nil,
-			nil,
-			"ErrInvalidBlockHash",
 		},
 		//test view hash is error:
 		{
 			blockList[2],
 			nodeList[2],
 			viewErrHash,
-			nil,
 			"ErrHashMismatch",
 		},
 		{
 			gasLimitErrBlk,
 			gasLimitErrNode,
-			nil,
 			nil,
 			"ErrGasLimitOverFlow",
 		},
@@ -2614,7 +2596,6 @@ func TestCheckConnectBlock(t *testing.T) {
 			gasUsedErrBlk,
 			gasUsedErrNode,
 			nil,
-			nil,
 			"ErrGasMismatch",
 		},
 		//test block feespool error:
@@ -2622,7 +2603,6 @@ func TestCheckConnectBlock(t *testing.T) {
 			blockList[6],
 			nodeList[6],
 			nil,
-			testFeesPool,
 			"ErrForbiddenAsset",
 		},
 	}
@@ -2634,21 +2614,8 @@ func TestCheckConnectBlock(t *testing.T) {
 		if preNode == nil {
 			t.Errorf("LookupNode error")
 		}
-		stateDB, err := state.New(common.Hash(preNode.stateRoot), chain.stateCache)
-		if err != nil {
-			t.Errorf("state.New error %v", err)
-		}
 
-		if test.feespool == nil {
-			feepool, err, _ := chain.GetAcceptFees(test.block,
-				stateDB, chaincfg.ActiveNetParams.FvmParam, test.block.Height())
-			if err != nil {
-				t.Errorf("GetAcceptFees error %v", err)
-			}
-			test.feespool = feepool
-		}
-
-		view := NewUtxoViewpoint()
+		view := txo.NewUtxoViewpoint()
 		view.SetBestHash(&preNode.hash)
 		if test.view != nil {
 			view = test.view
@@ -2657,9 +2624,8 @@ func TestCheckConnectBlock(t *testing.T) {
 		var receipts types.Receipts
 		var allLogs []*types.Log
 		var msgvblock protos.MsgVBlock
-		var feeLockItems map[protos.Asset]*txo.LockItem
-		receipts, allLogs, feeLockItems, err = chain.checkConnectBlock(test.node, test.block, view,
-			nil, nil, stateDB, test.feespool)
+		receipts, allLogs, err = chain.checkConnectBlock(test.node, test.block, view,
+			nil, nil)
 		if err != nil {
 			if dbErr, ok := err.(RuleError); !ok || dbErr.ErrorCode.String() != test.errCodeString {
 				if !ok {
@@ -2668,8 +2634,8 @@ func TestCheckConnectBlock(t *testing.T) {
 					t.Errorf("the %d test error: errCode mismatch: want:%v,but got %v",
 						i, test.errCodeString, dbErr.ErrorCode.String())
 					t.Errorf("did not received expected error in the %d test: " +
-						"errCode mismatch: receipts = %v, allLogs = %v, msgvblock = %v, feeLockItems = %v",
-						i,receipts,allLogs,msgvblock,feeLockItems)
+						"errCode mismatch: receipts = %v, allLogs = %v, msgvblock = %v",
+						i,receipts,allLogs,msgvblock)
 					log.Infof("error = %v",err)
 				}
 			}

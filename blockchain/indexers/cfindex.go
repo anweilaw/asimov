@@ -6,6 +6,7 @@ package indexers
 
 import (
 	"fmt"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/common"
 
 	"github.com/AsimovNetwork/asimov/asiutil"
@@ -244,7 +245,7 @@ func storeFilter(dbTx database.Tx, block *asiutil.Block, f *gcs.Filter,
 // connected to the main chain. This indexer adds a hash-to-cf mapping for
 // every passed block. This is part of the Indexer interface.
 func (idx *CfIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	prevScripts := make([][]byte, len(stxos))
 	for i, stxo := range stxos {
@@ -263,7 +264,7 @@ func (idx *CfIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
 // disconnected from the main chain.  This indexer removes the hash-to-cf
 // mapping for every passed block. This is part of the Indexer interface.
 func (idx *CfIndex) DisconnectBlock(dbTx database.Tx, block *asiutil.Block,
-	_ []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	_ []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	for _, key := range cfIndexKeys {
 		err := dbDeleteFilterIdxEntry(dbTx, key, block.Hash())

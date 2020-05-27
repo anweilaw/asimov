@@ -7,6 +7,7 @@ package indexers
 import (
 	"errors"
 	"fmt"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"sync"
 
 	"github.com/AsimovNetwork/asimov/asiutil"
@@ -632,7 +633,7 @@ func (idx *AddrIndex) indexPkScript(data writeIndexData, pkScript []byte, txIdx 
 // in the passed block and maps each of them to the associated transaction using
 // the passed map.
 func (idx *AddrIndex) indexBlock(data writeIndexData, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vdata writeIndexData, vblock *asiutil.VBlock) {
+	stxos []txo.SpentTxOut, vdata writeIndexData, vblock *asiutil.VBlock) {
 
 	txLen := len(block.Transactions())
 	vtxLength := len(vblock.Transactions())
@@ -731,7 +732,7 @@ func (idx *AddrIndex) indexBlock(data writeIndexData, block *asiutil.Block,
 //
 // This is part of the Indexer interface.
 func (idx *AddrIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// The offset and length of the transactions within the serialized
 	// block.
@@ -786,7 +787,7 @@ func (idx *AddrIndex) ConnectBlock(dbTx database.Tx, block *asiutil.Block,
 //
 // This is part of the Indexer interface.
 func (idx *AddrIndex) DisconnectBlock(dbTx database.Tx, block *asiutil.Block,
-	stxos []blockchain.SpentTxOut, vblock *asiutil.VBlock) error {
+	stxos []txo.SpentTxOut, vblock *asiutil.VBlock) error {
 
 	// Build all of the address to transaction mappings in a local map.
 	addrsToTxns := make(writeIndexData)
@@ -891,7 +892,7 @@ func (idx *AddrIndex) indexUnconfirmedAddresses(pkScript []byte, tx *asiutil.Tx)
 // addresses not being indexed.
 //
 // This function is safe for concurrent access.
-func (idx *AddrIndex) AddUnconfirmedTx(tx *asiutil.Tx, utxoView *blockchain.UtxoViewpoint) {
+func (idx *AddrIndex) AddUnconfirmedTx(tx *asiutil.Tx, utxoView *txo.UtxoViewpoint) {
 	// Index addresses of all referenced previous transaction outputs.
 	//
 	// The existence checks are elided since this is only called after the

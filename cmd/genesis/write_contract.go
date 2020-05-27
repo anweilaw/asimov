@@ -192,7 +192,8 @@ import (
 		}
 
 		// pre-build addresses of current contracts and write them as parameters
-		currentAddress, err := crypto.CreateContractAddress(chaincfg.OfficialAddress[:], common.Hex2Bytes(v.byteCode), nil)
+		byteCode := common.Hex2Bytes(v.byteCode)
+		currentAddress, err := crypto.CreateContractAddress(chaincfg.OfficialAddress[:], nil, byteCode)
 		if err != nil {
 			panic(err)
 		}

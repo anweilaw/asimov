@@ -61,7 +61,7 @@ const (
 	// BFFastAdd may be set to indicate that several checks can be avoided
 	// for the block since it is already known to fit into the chain due to
 	// already proving it correct links into the chain up to a known
-	// checkpoint.  This is primarily used for headers-first mode.
+	// state db.  This is primarily used for miner.
 	BFFastAdd BehaviorFlags = 1 << iota
 
 	// BFNone is a convenience value to specifically indicate no flags.

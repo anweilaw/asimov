@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/blockchain/syscontract"
+	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/consensus/satoshiplus/minersync"
 	"github.com/AsimovNetwork/asimov/crypto"
 	"github.com/AsimovNetwork/asimov/logger"
@@ -573,8 +574,10 @@ func (sp *serverPeer) OnGetData(_ *peer.Peer, msg *protos.MsgGetData) {
 		case protos.InvTypeSignature:
 			err = sp.server.pushSigMsg(sp, &iv.Hash, c, waitChan, protos.BaseEncoding)
 		case protos.InvTypeTxForbidden:
+			if c != nil {
+				c <- struct{}{}
+			}
 			// skip
-			continue
 		default:
 			peerLog.Warnf("Unknown type in inventory request %d",
 				iv.Type)
@@ -1297,15 +1300,21 @@ func (s *NodeServer) pushTxMsg(sp *serverPeer, hash *common.Hash, doneChan chan<
 func (s *NodeServer) pushSigMsg(sp *serverPeer, hash *common.Hash, doneChan chan<- struct{},
 	waitChan <-chan struct{}, encoding protos.MessageEncoding) error {
 
-	sig, err := s.sigMemPool.FetchSignature(hash)
+	sig, packageheight, err := s.sigMemPool.FetchSignature(hash)
 	if err != nil {
 		peerLog.Tracef("Unable to fetch sig %v from signature "+
 			"pool: %v", hash, err)
-
 		if doneChan != nil {
 			doneChan <- struct{}{}
 		}
 		return err
+	}
+	if packageheight > 0 {
+		peerLog.Tracef("sig %v already packaged in block %v", hash, packageheight)
+		if doneChan != nil {
+			doneChan <- struct{}{}
+		}
+		return nil
 	}
 
 	if waitChan != nil {
@@ -1316,15 +1325,9 @@ func (s *NodeServer) pushSigMsg(sp *serverPeer, hash *common.Hash, doneChan chan
 	return nil
 }
 
-//TODO
 func (s *NodeServer) relaySignatures(sig *asiutil.BlockSign) {
 	iv := protos.NewInvVect(protos.InvTypeSignature, sig.Hash())
 	s.RelayInventory(iv, sig)
-
-	//for _, sig := range sigs {
-	//	iv := protos.NewInvVect(protos.InvTypeTx, sig.Hash())
-	//	s.RelayInventory(iv, sig)
-	//}
 }
 
 func (s *NodeServer) AnnounceNewSignature(sig *asiutil.BlockSign) {
@@ -2255,7 +2258,6 @@ func (s *NodeServer) Start() {
 		// the RPC server are rebroadcast until being included in a block.
 		go s.rebroadcastHandler()
 
-		//s.rpcServer.Start()
 		util.StartNode(s.stack)
 	}
 
@@ -2548,7 +2550,6 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 		Policy: mempool.Policy{
 			MaxOrphanTxs:      chaincfg.Cfg.MaxOrphanTxs,
 			MaxOrphanTxSize:   chaincfg.Cfg.MaxOrphanTxSize,
-			MaxSigOpCostPerTx: blockchain.MaxBlockSigOpsCost,
 			MinRelayTxPrice:   chaincfg.Cfg.MinTxPrice,
 			MaxTxVersion:      2,
 			RejectReplacement: cfg.RejectReplacement,
@@ -2557,7 +2558,7 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 		Chain:          s.chain,
 		BestHeight:     func() int32 { return s.chain.BestSnapshot().Height },
 		MedianTimePast: func() int64 { return s.chain.BestSnapshot().TimeStamp },
-		CalcSequenceLock: func(tx *asiutil.Tx, view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
+		CalcSequenceLock: func(tx *asiutil.Tx, view *txo.UtxoViewpoint) (*blockchain.SequenceLock, error) {
 			return s.chain.CalcSequenceLock(tx, view, true)
 		},
 		AddrIndex:              s.addrIndex,
@@ -2598,7 +2599,7 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 	consensusConfig := params.Config{
 		BlockTemplateGenerator: blockTemplateGenerator,
 		ProcessBlock:           s.syncManager.ProcessBlock,
-		IsCurrent:              s.syncManager.IsCurrent,
+		IsCurrent:              s.syncManager.IsCurrentAndCheckAccepted,
 		ProcessSig:             s.sigMemPool.ProcessSig,
 		Chain:                  s.chain,
 		GasFloor:     common.GasFloor,

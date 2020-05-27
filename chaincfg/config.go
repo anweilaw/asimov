@@ -72,10 +72,10 @@ const (
 	// 3. connect txs (*DefaultTxConnectTimeOut)
 	// 4. create coinbase (maybe coinbase tx need execute vm)
 	// 5. commit state db.
-	DefaultTxConnectTimeOut = 0.7
+	DefaultTxConnectTimeOut = 0.75
 
 	// refer to doc of DefaultTxConnectTimeOut
-	DefaultUtxoValidateTimeOut = 0.35
+	DefaultUtxoValidateTimeOut = 0.25
 )
 
 var (

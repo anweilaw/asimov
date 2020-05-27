@@ -3,7 +3,9 @@
 // license that can be found in the LICENSE file.
 package ainterface
 
-import "github.com/AsimovNetwork/asimov/common"
+import (
+	"github.com/AsimovNetwork/asimov/common"
+)
 
 type Consensus interface {
 	Start() error
@@ -20,3 +22,4 @@ type BlockNode interface {
 	GasUsed() uint64
 	GasLimit() uint64
 }
+

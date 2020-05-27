@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
@@ -18,10 +19,13 @@ import (
 )
 
 func TestUnPackResult(t *testing.T) {
-	header := protos.BlockHeader{
-		Height:    1,
-		Timestamp: time.Unix(time.Now().Unix(), 0),
+	block := protos.MsgBlock{
+		Header: protos.BlockHeader{
+			Height:    1,
+			Timestamp: time.Now().Unix(),
+		},
 	}
+
 
 	// Account address
 	address := common.HexToAddress("0x948ab52cc7b5107efd4b03a51f0d1688b4a49a54")
@@ -29,7 +33,7 @@ func TestUnPackResult(t *testing.T) {
 	// FVM Context
 	// bc := newBlockChain()
 	bc := &blockchain.BlockChain{}
-	context := fvm.NewFVMContext(address, new(big.Int).SetInt64(1), &header, bc, nil)
+	context := fvm.NewFVMContext(address, new(big.Int).SetInt64(1), asiutil.NewBlock(&block), bc, nil, nil)
 
 	db := ethdb.NewMemDatabase()
 	stateDB, _ := state.New(common.Hash{}, state.NewDatabase(db))
@@ -53,8 +57,8 @@ func TestUnPackResult(t *testing.T) {
 		code,
 		uint64(4604216),
 		common.Big0,
-		nil,
-		nil,
+		&protos.Asset{},
+		nil, nil, false,
 	)
 
 	if err != nil {
@@ -66,7 +70,7 @@ func TestUnPackResult(t *testing.T) {
 	fmt.Println(returnGas)
 
 	callCode := common.Hex2Bytes("3cf0a6e7")
-	ret, leftGas, err := vmenv.Call(sender, addr, callCode, uint64(999999999), common.Big0, nil)
+	ret, leftGas, _, err := vmenv.Call(sender, addr, callCode, uint64(999999999), common.Big0, &protos.Asset{}, false)
 	fmt.Println(leftGas)
 	fmt.Println("Contract's result is : ")
 

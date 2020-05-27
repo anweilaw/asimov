@@ -6,7 +6,6 @@ package solo
 
 import (
 	"errors"
-	"fmt"
 	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
@@ -60,12 +59,7 @@ func (s *SoloService) Start() error {
 		for {
 			select {
 			case <-s.timer.C:
-				s.wg.Add(1)
-				err := s.genBlock()
-				if err != nil {
-					log.Error(err)
-				}
-				s.wg.Done()
+				s.genBlock()
 			case <-existCh:
 				s.wg.Done()
 				return
@@ -86,7 +80,7 @@ func (s *SoloService) Halt() error {
 	return nil
 }
 
-func (s *SoloService) genBlock() error {
+func (s *SoloService) genBlock() {
 	round, slot := s.slotControl()
 	s.resetTimer()
 	blockInterval := float64(s.GetRoundInterval()) / float64(chaincfg.ActiveNetParams.RoundSize) * 1000
@@ -94,26 +88,28 @@ func (s *SoloService) genBlock() error {
 	// Create a new block using the available transactions
 	// in the memory pool as a source of transactions to potentially
 	// include in the block.
-	block, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
-		s.config.Account, s.config.GasFloor, s.config.GasCeil, uint32(round), uint16(slot), blockInterval)
+	template, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
+		s.config.Account, s.config.GasFloor, s.config.GasCeil,
+		time.Now().Unix(), uint32(round), uint16(slot), blockInterval)
 	if err != nil {
-		return fmt.Errorf("solo failed to create new block:%s", err)
+		log.Errorf("solo failed to create new block:%s", err)
+		return
 	}
 
-	_, err = s.config.ProcessBlock(block, common.BFNone)
+	_, err = s.config.ProcessBlock(template.Block, template.VBlock, common.BFFastAdd)
 	if err != nil {
 		// Anything other than a rule violation is an unexpected error,
 		// so log that error as an internal error.
 		if _, ok := err.(blockchain.RuleError); !ok {
-			log.Errorf("Unexpected error while processing "+
-				"block submitted via POA miner: %v", err)
-			return err
+			log.Errorf("Solo gen block rejected unexpected: %v", err)
+			return
 		}
-		log.Errorf("Block submitted via solo miner rejected: %v", err)
-		return err
+		log.Errorf("Solo gen block rejected: %v", err)
+		return
 	}
-	log.Infof("Solo miner submit block (height=%d, hash=%s)", block.Height(), block.Hash())
-	return nil
+	log.Infof("Solo gen block accept, height=%d, hash=%v, sigNum=%v, txNum=%d",
+		template.Block.Height(), template.Block.Hash(),
+		len(template.Block.MsgBlock().PreBlockSigs), len(template.Block.Transactions()))
 }
 
 func (s *SoloService) GetRoundInterval() int64 {

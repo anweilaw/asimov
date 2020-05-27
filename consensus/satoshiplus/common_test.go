@@ -273,7 +273,6 @@ func createPoaConfig(privateKey string, paramstmp *chaincfg.Params) (*params.Con
 		Policy: mempool.Policy{
 			MaxOrphanTxs:      DefaultMaxOrphanTransactions,
 			MaxOrphanTxSize:   DefaultMaxOrphanTxSize,
-			MaxSigOpCostPerTx: blockchain.MaxBlockSigOpsCost,
 			MinRelayTxPrice:   chaincfg.Cfg.MinTxPrice,
 			MaxTxVersion:      2,
 		},
