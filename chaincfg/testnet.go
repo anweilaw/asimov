@@ -8,6 +8,6 @@ import (
 	"github.com/AsimovNetwork/asimov/common"
 )
 
-// testnetGenesisHash is the hash of the first block in the block chain for the main
+// testnetGenesisHash is the hash of the first block in the block chain for the testnet
 // network (genesis block).
-var testnetGenesisHash = common.HexToHash("d15bd45cbcfca6d9fd1500a862fc543292b69e941a1702b42dbdea2bebeba464")
+var testnetGenesisHash = common.HexToHash("cccd0b9f9eff7443bcaebb66e6b8632e75089d2cb8ea711cc08eea53bac99965")

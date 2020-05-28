@@ -27,7 +27,7 @@ const (
 	HashSignLen = 65
 
 	// BlockHeaderPayload is the number of bytes a block header can be.
-	// blockHeaderFixedPayload + SigData + PreBlockSigs + ReportHeaders
+	// blockHeaderFixedPayload + SigData
 	BlockHeaderPayload = blockHeaderFixedPayload + HashSignLen
 )
 
@@ -47,23 +47,22 @@ type BlockHeader struct {
 	Timestamp int64
 
 	// VM fields
-	// State Root
 	StateRoot common.Hash
 	GasLimit uint64
 	GasUsed  uint64
 
-	// POA fields
+	// Consensus fields
 	Round     uint32
 	SlotIndex uint16
 
 	// The weight of block, it is the sum of all weight of signatures.
 	Weight    uint16
-	// Hash of PreBlockSigs and ReportHeaders
+	// Hash of ReceiptHash Bloom and PreBlockSigs
 	PoaHash   common.Hash
+	Height    int32
+
 	CoinBase  common.Address
 	SigData   [HashSignLen]byte
-
-	Height int32
 }
 
 // BlockHash computes the block identifier hash for the given block header.

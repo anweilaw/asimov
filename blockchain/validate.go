@@ -1274,7 +1274,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *asiutil.Block, vi
 	types.Receipts, []*types.Log, error) {
 
 	// Check Sig & Weight
-	err := b.checkSignaturesWeight(node, block, nil)
+	err := b.checkSignaturesWeight(node, block, view)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -47,7 +47,6 @@ type MsgBlock struct {
 	Bloom        types.Bloom
 	Transactions []*MsgTx
 	PreBlockSigs BlockSignList // collect signatures for ancestors
-	ReportHeaders []*BlockHeader // the evidence of report transaction for repeat block
 }
 
 // AddTransaction adds a transaction to the message.
@@ -113,21 +112,6 @@ func (msg *MsgBlock) VVSDecode(r io.Reader, pver uint32, enc MessageEncoding) er
 			return err
 		}
 		msg.PreBlockSigs[i] = &msgSigns[i]
-	}
-
-	n2, err := serialization.ReadVarUint(r)
-	if err != nil {
-		return err
-	}
-
-	reportHeaders := make([]BlockHeader, n2)
-	msg.ReportHeaders = make([]*BlockHeader, n2)
-	for i := 0; i < int(n2); i++ {
-		err = reportHeaders[i].Deserialize(r)
-		if err != nil {
-			return err
-		}
-		msg.ReportHeaders[i] = &reportHeaders[i]
 	}
 
 	return nil
@@ -247,18 +231,6 @@ func (msg *MsgBlock) VVSEncode(w io.Writer, pver uint32, enc MessageEncoding) er
 		}
 	}
 
-	err = serialization.WriteVarUint(w, uint64(len(msg.ReportHeaders)))
-	if err != nil {
-		return err
-	}
-
-	for _, h := range msg.ReportHeaders {
-		err := h.Serialize(w)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -299,11 +271,6 @@ func (msg *MsgBlock) SerializeSize() int {
 		n += sig.SerializeSize()
 	}
 
-	n += serialization.VarIntSerializeSize(uint64(len(msg.ReportHeaders)))
-	for i := 0; i < len(msg.ReportHeaders); i++ {
-		n += BlockHeaderPayload
-	}
-
 	return n
 }
 
@@ -342,9 +309,6 @@ func (msg *MsgBlock) CalculatePoaHash() common.Hash {
 	for _, sig := range msg.PreBlockSigs {
 		buflen += sig.SerializeSize()
 	}
-	for i := 0; i < len(msg.ReportHeaders); i++ {
-		buflen += BlockHeaderPayload
-	}
 
 	buf := bytes.NewBuffer(make([]byte, 0, buflen))
 	serialization.WriteNBytes(buf, msg.ReceiptHash[:])
@@ -352,9 +316,7 @@ func (msg *MsgBlock) CalculatePoaHash() common.Hash {
 	for _, sig := range msg.PreBlockSigs {
 		sig.Serialize(buf)
 	}
-	for _, h := range msg.ReportHeaders {
-		h.Serialize(buf)
-	}
+
 	return common.DoubleHashH(buf.Bytes())
 }
 

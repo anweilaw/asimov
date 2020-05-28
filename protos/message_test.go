@@ -99,7 +99,7 @@ func TestMessage(t *testing.T) {
 		{msgGetAddr, msgGetAddr, pver, common.MainNet, 20},
 		{msgAddr, msgAddr, pver, common.MainNet, 21},
 		//{msgGetBlocks, msgGetBlocks, pver, types.MainNet, 57},
-		{msgBlock, msgBlock, pver, common.MainNet, 717},
+		{msgBlock, msgBlock, pver, common.MainNet, 716},
 		{msgInv, msgInv, pver, common.MainNet, 21},
 		{msgGetData, msgGetData, pver, common.MainNet, 21},
 		{msgNotFound, msgNotFound, pver, common.MainNet, 21},
