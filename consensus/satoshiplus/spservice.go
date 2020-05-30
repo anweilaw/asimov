@@ -302,7 +302,7 @@ func (s *SPService) processBlock(blockTime int64, round, slot int64, interval fl
 		log.Errorf("satoshiplus gen block failed to make a block: %v", err)
 		return
 	}
-	_, err = s.config.ProcessBlock(template.Block, template.VBlock, common.BFFastAdd)
+	_, err = s.config.ProcessBlock(template, common.BFFastAdd)
 	if err != nil {
 		// Anything other than a rule violation is an unexpected error,
 		// so log that error as an internal error.
@@ -369,6 +369,7 @@ func (s *SPService) resetTimer(block bool, round bool) {
 		d := time.Duration(s.context.RoundInterval) * time.Second
 		offset := time.Unix(s.context.RoundStartTime, 0).Add(d).Sub(time.Now())
 		s.roundTimer.Reset(offset)
+		log.Info("Round reset", int(offset))
 	}
 }
 

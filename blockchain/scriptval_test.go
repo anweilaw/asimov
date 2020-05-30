@@ -69,7 +69,7 @@ func TestCheckBlockScripts(t *testing.T) {
         }
 
         if i < 1 {
-            isMain, isOrphan, checkErr := chain.ProcessBlock(block, nil, 0)
+            isMain, isOrphan, checkErr := chain.ProcessBlock(block, nil, nil, nil, 0)
             if checkErr != nil {
                 t.Errorf("ProcessBlock error %v", checkErr)
             }

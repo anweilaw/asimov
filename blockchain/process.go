@@ -13,6 +13,7 @@ import (
 	"github.com/AsimovNetwork/asimov/crypto"
 	"github.com/AsimovNetwork/asimov/database"
 	"github.com/AsimovNetwork/asimov/protos"
+	"github.com/AsimovNetwork/asimov/vm/fvm/core/types"
 )
 
 // blockExists determines whether a block with the given hash exists either in
@@ -98,7 +99,7 @@ func (b *BlockChain) processOrphans(hash *common.Hash, flags common.BehaviorFlag
 			i--
 
 			// Potentially accept the block into the block chain.
-			_, err := b.maybeAcceptBlock(orphan.block, nil, flags)
+			_, err := b.maybeAcceptBlock(orphan.block, nil, nil, nil, flags)
 			if err != nil {
 				return err
 			}
@@ -174,7 +175,9 @@ func (b *BlockChain) GetNodeByRoundSlot(round uint32, slot uint16) *blockNode {
 // whether or not the block is an orphan.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) ProcessBlock(block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, bool, error) {
+func (b *BlockChain) ProcessBlock(block *asiutil.Block, vblock *asiutil.VBlock,
+	receipts types.Receipts, logs []*types.Log,
+	flags common.BehaviorFlags) (bool, bool, error) {
 	b.chainLock.Lock()
 	defer b.chainLock.Unlock()
 
@@ -246,7 +249,7 @@ func (b *BlockChain) ProcessBlock(block *asiutil.Block, vblock *asiutil.VBlock, 
 
 	// The block has passed all context independent checks and appears sane
 	// enough to potentially accept it into the block chain.
-	isMainChain, err := b.maybeAcceptBlock(block, vblock, flags)
+	isMainChain, err := b.maybeAcceptBlock(block, vblock, receipts, logs, flags)
 	if err != nil {
 		log.Debugf("Reject block %d %v with parent %v %v", blockHeader.Height, blockHash, prevHash, err)
 		return false, false, err

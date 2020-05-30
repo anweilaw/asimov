@@ -12,6 +12,7 @@ import (
 	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/blockchain/txo"
+	"github.com/AsimovNetwork/asimov/cache"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/database"
@@ -41,6 +42,11 @@ const (
 
 	// 2M limit
 	TemplateDataFieldLength int = 1 << 21
+
+)
+
+var (
+	errExecutionRevertedString     = "fvm: execution reverted"
 )
 
 // BlockLocator is used to help locate a specific block.  The algorithm for
@@ -1009,6 +1015,7 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List) error 
 		if err != nil {
 			return err
 		}
+		b.contractManager.DisconnectBlock(block)
 
 		newBest = n.parent
 	}
@@ -1215,7 +1222,9 @@ func (b *BlockChain) updateFees(block *asiutil.Block) {
 //    This is useful when using checkpoints.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, error) {
+func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, vblock *asiutil.VBlock,
+	receipts types.Receipts, logs []*types.Log,
+	flags common.BehaviorFlags) (bool, error) {
 	fastAdd := flags&common.BFFastAdd == common.BFFastAdd
 	flushIndexState := func() {
 		// Intentionally ignore errors writing updated node status to DB. If
@@ -1252,12 +1261,10 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, vbl
 		view.SetBestHash(parentHash)
 		stxos := make([]txo.SpentTxOut, 0, countSpentOutputs(block) + countVtxSpentOutpus(vblock))
 
-		var receipts types.Receipts
-		var allLogs []*types.Log
 		var err error
 		if !fastAdd {
 			var msgvblock protos.MsgVBlock
-			receipts, allLogs, err = b.checkConnectBlock(node, block, view, &stxos, &msgvblock)
+			receipts, logs, err = b.checkConnectBlock(node, block, view, &stxos, &msgvblock)
 			if err == nil {
 				b.index.SetStatusFlags(node, statusValid)
 			} else if _, ok := err.(RuleError); ok {
@@ -1293,7 +1300,7 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *asiutil.Block, vbl
 		}
 
 		// Connect the block to the main chain.
-		err = b.connectBlock(node, block, view, stxos, vblock, receipts, allLogs)
+		err = b.connectBlock(node, block, view, stxos, vblock, receipts, logs)
 		if err != nil {
 			// If we got hit with a rule error, then we'll mark
 			// that status of the block as invalid and flush the
@@ -1713,13 +1720,16 @@ func (b *BlockChain) connectContract(
 	gasPrice := fee*10000/int64(tx.MsgTx().TxContract.GasLimit)
 	context := fvm.NewFVMContext(caller, new(big.Int).SetInt64(gasPrice), block, b, view, voteValue)
 	vmenv := vm.NewFVMWithVtx(context, stateDB, chaincfg.ActiveNetParams.FvmParam, *b.GetVmConfig(), vtx)
-
+	var ret []byte
 	switch contractCode {
 	case txscript.VoteTy:
 		fallthrough
 	case txscript.CallTy:
-		leftOverGas, snapshot, err = b.executeContract(vmenv, caller, targetContractAddr, out.Data, &out.Asset, out.Value, leftOverGas)
+		ret,leftOverGas, snapshot, err = b.executeContract(vmenv, caller, targetContractAddr, out.Data, &out.Asset, out.Value, leftOverGas)
 		if err != nil {
+			if err.Error() == errExecutionRevertedString{
+				cache.PutExecuteError(tx.Hash().String(),common.Bytes2Hex(ret))
+			}
 			return
 		}
 	case txscript.TemplateTy:
@@ -1763,9 +1773,11 @@ func (b *BlockChain) executeContract(
 	callerAddr, contractAddr common.Address,
 	data []byte, asset *protos.Asset,
 	value int64,
-	gasLimit uint64) (leftOverGas uint64, snapshot int, err error) {
+	gasLimit uint64) (ret []byte,leftOverGas uint64, snapshot int, err error) {
 	t1 := time.Now()
-	_, leftOverGas, snapshot, err = vmenv.Call(vm.AccountRef(callerAddr), contractAddr, data, gasLimit, big.NewInt(value), asset, false)
+
+	ret,leftOverGas, snapshot, err = vmenv.Call(vm.AccountRef(callerAddr), contractAddr, data, gasLimit, big.NewInt(value), asset, false)
+
 	t2 := time.Now()
 
 	log.Trace("contract exec result:", leftOverGas, (t2.Nanosecond()-t1.Nanosecond())/1000000)

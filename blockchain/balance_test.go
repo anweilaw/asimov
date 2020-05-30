@@ -55,7 +55,7 @@ func TestCalculateBalance(t *testing.T) {
 		txNums := len(block.MsgBlock().Transactions)
 		for k:=0; k<txNums; k++ {
 			tx := asiutil.NewTx(block.MsgBlock().Transactions[k])
-			_ = view.AddTxOuts(tx.Hash(), tx.MsgTx(), false, block.Height())
+			_ = view.AddTxOuts(tx.Hash(), tx.MsgTx(), k+1 == txNums, block.Height())
 		}
 
 		err = chain.db.Update(func(dbTx database.Tx) error {

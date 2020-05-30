@@ -128,14 +128,19 @@ func (m *Manager) GetAssetInfoByAssetId(
 // contract of registry the number represents if an asset is restricted
 func (m *Manager) IsLimit(block *asiutil.Block,
 	stateDB vm.StateDB, asset *protos.Asset) int {
-	m.assetsUnrestrictedMtx.Lock()
-	defer m.assetsUnrestrictedMtx.Unlock()
-	if _, ok := m.assetsUnrestrictedCache[*asset]; ok {
+
+	if *asset == asiutil.AsimovAsset {
+		return -1
+	}
+
+	if m.IsLimitInCache(asset) {
 		return 0
 	}
-	limit := m.isLimit(block, stateDB, asset)
+	limit := m.checkLimit(block, stateDB, asset)
 
-	if limit == 0 {
+	if limit == 0 && block.IsSigned() {
+		m.assetsUnrestrictedMtx.Lock()
+		defer m.assetsUnrestrictedMtx.Unlock()
 		m.assetsUnrestrictedCache[*asset] = struct{}{}
 	}
 
@@ -213,4 +218,11 @@ func (m *Manager) IsSupport(block *asiutil.Block,
 	}
 
 	return support, gasLimit - common.SupportCheckGas + leftOverGas + leftOverGas2 - common.ReadOnlyGas
+}
+
+//DisconnectBlock delete unrestricted asset of cache which is in the block.
+func (m *Manager) DisconnectBlock(block *asiutil.Block) {
+	m.assetsUnrestrictedMtx.Lock()
+	defer m.assetsUnrestrictedMtx.Unlock()
+	m.assetsUnrestrictedCache = make(map[protos.Asset]struct{})
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/database"
+	"github.com/AsimovNetwork/asimov/vm/fvm/core/types"
 )
 
 // maybeAcceptBlock potentially accepts a block into the block chain and, if
@@ -21,7 +22,9 @@ import (
 // their documentation for how the flags modify their behavior.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, error) {
+func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, vblock *asiutil.VBlock,
+	receipts types.Receipts, logs []*types.Log,
+	flags common.BehaviorFlags) (bool, error) {
 	// The height of this block is one more than the referenced previous
 	// block.
 	prevHash := &block.MsgBlock().Header.PrevBlock
@@ -96,7 +99,7 @@ func (b *BlockChain) maybeAcceptBlock(block *asiutil.Block, vblock *asiutil.VBlo
 	// Connect the passed block to the chain while respecting proper chain
 	// selection according to the chain with the most proof of work.  This
 	// also handles validation of the transaction scripts.
-	isMainChain, err := b.connectBestChain(newNode, block, vblock, flags)
+	isMainChain, err := b.connectBestChain(newNode, block, vblock, receipts, logs, flags)
 	if err != nil {
 		return false, err
 	}

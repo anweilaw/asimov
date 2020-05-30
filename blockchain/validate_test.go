@@ -795,7 +795,7 @@ func TestCheckBlockHeaderContext(t *testing.T) {
 		Timestamp:     ts,
 		Height:        best.Height+1,
 		StateRoot:     common.Hash{0x00,},
-		GasLimit:      470778607,
+		GasLimit:      50048827,
 		GasUsed:       9000000,
 		Round:		   1,
 		SlotIndex:     122,
@@ -810,7 +810,7 @@ func TestCheckBlockHeaderContext(t *testing.T) {
 		Timestamp:     ts,
 		Height:        best.Height+1,
 		StateRoot:     common.Hash{0x00,},
-		GasLimit:      470778607,
+		GasLimit:      50048827,
 		GasUsed:       9000000,
 		Round:		   1,
 		SlotIndex:     10,
@@ -2539,7 +2539,7 @@ func TestCheckConnectBlock(t *testing.T) {
 		}
 
 		if i != 6 {
-			isMain,isOrphan,checkErr := chain.ProcessBlock(block,nil, 0)
+			isMain,isOrphan,checkErr := chain.ProcessBlock(block,nil, nil, nil, 0)
 			if checkErr != nil {
 				t.Errorf("ProcessBlock error %v", checkErr)
 			}

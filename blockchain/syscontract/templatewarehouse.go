@@ -6,7 +6,6 @@ package syscontract
 import (
 	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
-	"github.com/AsimovNetwork/asimov/blockchain"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
 	"github.com/AsimovNetwork/asimov/vm/fvm"
@@ -14,6 +13,12 @@ import (
 	"github.com/AsimovNetwork/asimov/vm/fvm/params"
 )
 
+const (
+	TEMPLATE_STATUS_SUBMIT   uint8 = 0
+	TEMPLATE_STATUS_APPROVE  uint8 = 1
+	TEMPLATE_STATUS_NOTEXIST uint8 = 2
+	TEMPLATE_STATUS_DISABLE  uint8 = 3
+)
 var templateWarehouseAddress = vm.ConvertSystemContractAddress(common.TemplateWarehouse)
 
 // GetTemplates returns all submitted templates by calling system contract of template_warehouse
@@ -75,7 +80,7 @@ func (m *Manager) GetTemplates(
 			log.Error(err)
 			return 0, nil, err, leftOverGas
 		}
-		if status != blockchain.TEMPLATE_STATUS_NOTEXIST {
+		if status != TEMPLATE_STATUS_NOTEXIST {
 			template = append(template, ainterface.TemplateWarehouseContent{
 				Name: name, Key: common.Bytes2Hex(key), CreateTime: createTime, ApproveCount: approveCount,
 				RejectCount: rejectCount, Reviewers: reviewers, Status: status})
@@ -105,7 +110,7 @@ func (m *Manager) GetTemplate(
 	}
 
 	_, key, createTime, approveCount, rejectCount, reviewers, status, err := common.UnPackGetTemplateDetailResult(ret)
-	if status == blockchain.TEMPLATE_STATUS_NOTEXIST {
+	if status == TEMPLATE_STATUS_NOTEXIST {
 		return ainterface.TemplateWarehouseContent{}, false, leftOverGas
 	}
 

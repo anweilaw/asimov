@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
+	"github.com/AsimovNetwork/asimov/blockchain/syscontract"
 	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
@@ -1727,7 +1728,7 @@ func (b *BlockChain) GetByteCode(
 		return nil, false, leftOverGas
 	}
 
-	if contractTemplate.Status != TEMPLATE_STATUS_APPROVE {
+	if contractTemplate.Status != syscontract.TEMPLATE_STATUS_APPROVE {
 		log.Info("Template's status is not equal approved.")
 		return nil, false, leftOverGas
 	}

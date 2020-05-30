@@ -103,4 +103,6 @@ type ContractManager interface {
 
 	IsSupport(block *asiutil.Block,
 		stateDB vm.StateDB, gasLimit uint64, asset *protos.Asset, address []byte) (bool, uint64)
+
+	DisconnectBlock(block *asiutil.Block)
 }

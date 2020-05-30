@@ -30,7 +30,7 @@ func (b *BlockChain) CalculateBalance(view *txo.UtxoViewpoint, block *asiutil.Bl
 	if !asset.IsIndivisible() {
 		var balance int64
 		for _, entry := range *balanceMap {
-			if !entry.IsSpent() {
+			if !entry.IsSpent() && entry.Asset().Equal(asset) {
 				balance += entry.Amount()
 			}
 		}
@@ -41,7 +41,7 @@ func (b *BlockChain) CalculateBalance(view *txo.UtxoViewpoint, block *asiutil.Bl
 	} else {
 		if voucherId > 0 {
 			for _, entry := range *balanceMap {
-				if entry.Amount() == voucherId && !entry.IsSpent() {
+				if entry.Amount() == voucherId && !entry.IsSpent() && entry.Asset().Equal(asset)  {
 					return voucherId, nil
 				}
 			}
@@ -50,7 +50,7 @@ func (b *BlockChain) CalculateBalance(view *txo.UtxoViewpoint, block *asiutil.Bl
 		} else {
 			count := int64(0)
 			for _, entry := range *balanceMap {
-				if entry.Amount() > 0 && !entry.IsSpent() {
+				if entry.Amount() > 0 && !entry.IsSpent() && entry.Asset().Equal(asset) {
 					count++
 				}
 			}

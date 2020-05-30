@@ -96,7 +96,7 @@ func (s *SoloService) genBlock() {
 		return
 	}
 
-	_, err = s.config.ProcessBlock(template.Block, template.VBlock, common.BFFastAdd)
+	_, err = s.config.ProcessBlock(template, common.BFFastAdd)
 	if err != nil {
 		// Anything other than a rule violation is an unexpected error,
 		// so log that error as an internal error.

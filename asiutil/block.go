@@ -24,6 +24,8 @@ func (e OutOfRangeError) Error() string {
 	return string(e)
 }
 
+var emptySign [protos.HashSignLen]byte
+
 // Block defines a bitcoin block that provides easier and more efficient
 // manipulation of raw blocks.  It also memoizes hashes for the block and its
 // transactions on their first access so subsequent accesses don't have to
@@ -243,6 +245,10 @@ func (b *Block) PutBalance(address common.Address, balance *txo.UtxoMap) {
 		b.balanceCache = make(map[common.Address]*txo.UtxoMap)
 	}
 	b.balanceCache[address] = balance
+}
+
+func (b *Block) IsSigned() bool {
+	return b.msgBlock.Header.SigData != emptySign
 }
 
 // NewBlock returns a new instance of an asimov block given an underlying

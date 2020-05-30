@@ -14,6 +14,7 @@ import (
 	"github.com/AsimovNetwork/asimov/ainterface"
 	"github.com/AsimovNetwork/asimov/asiutil"
 	"github.com/AsimovNetwork/asimov/asiutil/vrf"
+	"github.com/AsimovNetwork/asimov/blockchain/syscontract"
 	"github.com/AsimovNetwork/asimov/blockchain/txo"
 	"github.com/AsimovNetwork/asimov/chaincfg"
 	"github.com/AsimovNetwork/asimov/common"
@@ -91,6 +92,10 @@ func (m *ManagerTmp) GetActiveContractByHeight(height int32, delegateAddr common
 		}
 	}
 	return nil
+}
+
+func (m *ManagerTmp) DisconnectBlock(block *asiutil.Block) {
+	m.assetsUnrestrictedCache = make(map[protos.Asset]struct{})
 }
 
 func NewContractManagerTmp() ainterface.ContractManager {
@@ -338,7 +343,7 @@ func (m *ManagerTmp) GetTemplates(
 		rejectCount := *((*outType)[4]).(*uint8)
 		reviewers := *((*outType)[5]).(*uint8)
 		status := *((*outType)[6]).(*uint8)
-		if status != TEMPLATE_STATUS_NOTEXIST {
+		if status != syscontract.TEMPLATE_STATUS_NOTEXIST {
 			template = append(template, ainterface.TemplateWarehouseContent{name, key, createTime,
 			approveCount, rejectCount, reviewers, status})
 		}
@@ -391,7 +396,7 @@ func (m *ManagerTmp) GetTemplate(
 	rejectCount := *((*outType)[4]).(*uint8)
 	reviewers := *((*outType)[5]).(*uint8)
 	status := *((*outType)[6]).(*uint8)
-	if status == TEMPLATE_STATUS_NOTEXIST {
+	if status == syscontract.TEMPLATE_STATUS_NOTEXIST {
 		return ainterface.TemplateWarehouseContent{}, false, leftOvergas
 	}
 	return ainterface.TemplateWarehouseContent{name, key,

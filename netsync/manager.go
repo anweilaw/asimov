@@ -7,6 +7,8 @@ package netsync
 
 import (
 	"container/list"
+	"github.com/AsimovNetwork/asimov/mining"
+	"github.com/AsimovNetwork/asimov/vm/fvm/core/types"
 	"math/rand"
 	"net"
 	"sync"
@@ -128,6 +130,8 @@ type processBlockResponse struct {
 type processBlockMsg struct {
 	block  *asiutil.Block
 	vblock *asiutil.VBlock
+	Receipts types.Receipts
+	Logs     []*types.Log
 	flags  common.BehaviorFlags
 	reply  chan processBlockResponse
 }
@@ -773,7 +777,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 
 	// Process the block to include validation, best chain selection, orphan
 	// handling, etc.
-	_, isOrphan, err := sm.chain.ProcessBlock(bmsg.block, nil, behaviorFlags)
+	_, isOrphan, err := sm.chain.ProcessBlock(bmsg.block, nil, nil, nil, behaviorFlags)
 	if err != nil {
 		// When the error is a rule error, it means the block was simply
 		// rejected as opposed to something actually going wrong, so logger
@@ -1395,7 +1399,7 @@ out:
 			case processBlockMsg:
 				log.Debugf("processBlockMsg: Process block")
 				_, isOrphan, err := sm.chain.ProcessBlock(
-					msg.block, msg.vblock, msg.flags)
+					msg.block, msg.vblock, msg.Receipts, msg.Logs, msg.flags)
 				log.Debugf("process result %v", err)
 				if err != nil {
 					msg.reply <- processBlockResponse{
@@ -1666,9 +1670,11 @@ func (sm *SyncManager) SyncPeerID() int32 {
 
 // ProcessBlock makes use of ProcessBlock on an internal instance of a block
 // chain.
-func (sm *SyncManager) ProcessBlock(block *asiutil.Block, vblock *asiutil.VBlock, flags common.BehaviorFlags) (bool, error) {
+func (sm *SyncManager) ProcessBlock(template *mining.BlockTemplate, flags common.BehaviorFlags) (bool, error) {
 	reply := make(chan processBlockResponse, 1)
-	sm.msgChan <- processBlockMsg{block: block, vblock: vblock, flags: flags, reply: reply}
+	sm.msgChan <- processBlockMsg{block: template.Block, vblock: template.VBlock,
+		Receipts: template.Receipts, Logs: template.Logs,
+		flags: flags, reply: reply}
 	response := <-reply
 	return response.isOrphan, response.err
 }

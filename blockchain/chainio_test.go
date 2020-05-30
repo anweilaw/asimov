@@ -1054,7 +1054,7 @@ func TestDbFetchBalance(t *testing.T) {
 		}
 
 		// Insert the block to bestChain:
-		_, isOrphan, err := chain.ProcessBlock(block, nil, common.BFNone)
+		_, isOrphan, err := chain.ProcessBlock(block, nil, nil, nil, common.BFNone)
 		if err != nil {
 			t.Errorf("ProcessBlock err %v", err)
 		}

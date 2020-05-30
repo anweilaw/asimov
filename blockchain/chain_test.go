@@ -86,13 +86,13 @@ func TestHaveBlock(t *testing.T) {
 			}
 		}
 		// Insert the block to bestChain:
-		_, isOrphan, err := chain.ProcessBlock(block, nil, common.BFNone)
+		_, isOrphan, err := chain.ProcessBlock(block, nil, nil, nil, common.BFNone)
 		if err != nil {
 			t.Errorf("ProcessBlock err %v", err)
 		}
 		log.Infof("isOrphan = %v", isOrphan)
 		if i == int(forkBlkHeightIdx - 1) {
-			_, forkIsOrphan, err := chain.ProcessBlock(frokBlock, nil, common.BFNone)
+			_, forkIsOrphan, err := chain.ProcessBlock(frokBlock, nil, nil, nil, common.BFNone)
 			if err != nil {
 				t.Errorf("ProcessBlock err %v", err)
 			}
@@ -757,7 +757,7 @@ func TestReorganizeChain(t *testing.T) {
 		if err != nil {
 			t.Errorf("create block error %v", err)
 		}
-		isMain, isOrphan, checkErr := chain.ProcessBlock(block, nil, 1)
+		isMain, isOrphan, checkErr := chain.ProcessBlock(block, nil, nil, nil, 1)
 		if checkErr != nil {
 			t.Errorf("ProcessBlock error %v", checkErr)
 		}
