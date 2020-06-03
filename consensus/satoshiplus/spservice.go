@@ -25,19 +25,11 @@ type SPService struct {
 	existCh    chan interface{}
 	context    params.Context
 	blockTimer *time.Timer
-	roundTimer *time.Timer
 
-	config     *params.Config
+	config *params.Config
 
 	chainTipChan chan ainterface.BlockNode
-	chainTip   ainterface.BlockNode
-	mineParam  *MineParam
-}
-
-type MineParam struct {
-	Parent common.Hash
-	Slot   int64
-	Round  int64
+	topHeight    int32
 }
 
 // Create SatoshiPlus Service
@@ -48,9 +40,18 @@ func NewSatoshiPlusService(config *params.Config) (*SPService, error) {
 	if config.Chain == nil {
 		return nil, errors.New("config.chain can't be nil")
 	}
+	chainStartTime := chaincfg.ActiveNetParams.ChainStartTime
+	roundSizei64 := int64(chaincfg.ActiveNetParams.RoundSize)
 	service := &SPService{
 		config:       config,
 		chainTipChan: make(chan ainterface.BlockNode),
+		context: params.Context{
+			Round:          0,
+			Slot:           roundSizei64 - 1,
+			RoundStartTime: chainStartTime - (roundSizei64-1)*common.DefaultBlockInterval,
+			RoundInterval:  roundSizei64 * common.DefaultBlockInterval,
+			RoundSize:      roundSizei64,
+		},
 	}
 
 	config.Chain.Subscribe(service.handleBlockchainNotification)
@@ -71,14 +72,11 @@ func (s *SPService) Start() error {
 	log.Info("satoshiplus consensus start")
 
 	// current block maybe do not at the best block height:
-	s.blockTimer = time.NewTimer(common.DefaultBlockInterval * 1000000)
-	s.roundTimer = time.NewTimer(common.DefaultBlockInterval * 1000000)
+	s.blockTimer = time.NewTimer(time.Hour)
 	if err := s.initializeConsensus(); err != nil {
 		log.Errorf("Start satoshi service failed:", err)
 		s.blockTimer.Stop()
 		s.blockTimer = nil
-		s.roundTimer.Stop()
-		s.roundTimer = nil
 		return err
 	}
 
@@ -91,9 +89,7 @@ func (s *SPService) Start() error {
 			select {
 			case <-s.blockTimer.C:
 				s.handleBlockTimeout()
-			case <- s.roundTimer.C:
-				s.handleRoundTimeout()
-			case chainTip := <- s.chainTipChan:
+			case chainTip := <-s.chainTipChan:
 				s.handleNewBlock(chainTip)
 			case <-existCh:
 				break mainloop
@@ -104,7 +100,6 @@ func (s *SPService) Start() error {
 		for {
 			select {
 			case <-s.blockTimer.C:
-			case <-s.roundTimer.C:
 			default:
 				break cleanup
 			}
@@ -135,7 +130,7 @@ func (s *SPService) getValidators(round uint32, verbose bool) ([]*common.Address
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get validators %v", err.Error())
 	}
-	if uint16(len(validators)) != chaincfg.ActiveNetParams.RoundSize {
+	if int64(len(validators)) != s.context.RoundSize {
 		return nil, nil, fmt.Errorf("getValidators error: can not get validators %d for round = %d",
 			len(validators), round)
 	}
@@ -152,15 +147,9 @@ func (s *SPService) getValidators(round uint32, verbose bool) ([]*common.Address
 func (s *SPService) initializeConsensus() error {
 	chainStartTime := chaincfg.ActiveNetParams.ChainStartTime
 	now := time.Now().Unix()
-	roundSizei64 := int64(chaincfg.ActiveNetParams.RoundSize)
 	d := now - chainStartTime
-	if d < common.DefaultBlockInterval {
-		s.context.Round = 0
-		s.context.Slot = roundSizei64 - 1
-		s.context.RoundStartTime = chainStartTime - (roundSizei64-1) * common.DefaultBlockInterval
-	} else {
-		round0StartTime := chainStartTime - (roundSizei64-1) * common.DefaultBlockInterval
-		round, slot, roundStartTime, err := s.getRoundInfo(round0StartTime, 0, now)
+	if d >= common.DefaultBlockInterval {
+		round, slot, roundStartTime, err := s.getRoundInfo(now)
 		if err != nil {
 			log.Error("SPService initializeConsensus get round info error: ", err)
 			return err
@@ -169,10 +158,9 @@ func (s *SPService) initializeConsensus() error {
 		s.context.Slot = slot
 		s.context.RoundStartTime = roundStartTime
 	}
-	s.resetRoundInterval(s.context.Round)
-	s.chainTip = s.config.Chain.GetTip()
 
-	s.resetTimer(true, true)
+	s.resetRoundInterval()
+	s.resetTimer(s.context.Slot + 1)
 
 	log.Infof("SPService initializeConsensus round: %v, slot: %v, roundStartTime: %v", s.context.Round, s.context.Slot, s.context.RoundStartTime)
 	return nil
@@ -205,95 +193,56 @@ func (s *SPService) checkTurn(slot, round int64, verbose bool) bool {
 }
 
 // reset round interval of context, round interval need be reset when round change.
-func (s *SPService) resetRoundInterval(round int64) bool {
-	roundInterval := s.config.RoundManager.GetRoundInterval(round)
+func (s *SPService) resetRoundInterval() bool {
+	roundInterval := s.config.RoundManager.GetRoundInterval(s.context.Round)
 	if roundInterval == 0 {
 		log.Errorf("[handleBlockTimeout] failed to adjust time")
 		return false
 	}
-	log.Infof("Reset round interval, round %d, block interval %f", round, float64(roundInterval)/float64(chaincfg.ActiveNetParams.RoundSize))
+	log.Infof("Reset round interval, round %d, interval %f", s.context.Round, roundInterval)
 	s.context.RoundInterval = roundInterval
 	return true
 }
 
 // when the it turns to be a validator, try to generate a new block
 func (s *SPService) handleBlockTimeout() {
-	// slot control
-	slot := s.context.Slot + 1
-	if slot >= int64(chaincfg.ActiveNetParams.RoundSize) {
-		return
+	round, slot := s.context.Round, s.context.Slot+1
+	if slot == s.context.RoundSize {
+		s.context.RoundStartTime = s.context.RoundStartTime + s.context.RoundInterval
+		slot = 0
+		round = round + 1
 	}
-	s.context.Slot = slot
-	isTurn := s.checkTurn(s.context.Slot, s.context.Round, false)
-	s.resetTimer(true, false)
-	if !isTurn {
-		s.tryMineNextBlock()
-		return
-	}
-	blockInterval := float64(s.GetRoundInterval()) * 1000 / float64(chaincfg.ActiveNetParams.RoundSize)
-	s.processBlock(time.Now().Unix(), s.context.Round, s.context.Slot, blockInterval)
-}
 
-func (s *SPService) handleRoundTimeout() {
-	// round control
-	newRound := s.context.Round + 1
-	s.context.Slot = 0
-	s.context.Round = newRound
-	s.resetRoundInterval(newRound)
-	s.context.RoundStartTime = s.context.RoundStartTime + s.context.RoundInterval
-	isTurn := s.checkTurn(s.context.Slot, s.context.Round, true)
-	s.resetTimer(true, true)
-	if !isTurn {
-		s.tryMineNextBlock()
+	s.context.Slot = slot
+	if round > s.context.Round {
+		s.context.Round = round
+		if !s.resetRoundInterval() {
+			s.blockTimer.Reset(common.DefaultBlockInterval * time.Second)
+			return
+		}
+	}
+
+	isTurn := s.checkTurn(slot, round, false)
+	offset := s.resetTimer(s.context.Slot + 1)
+
+	if isTurn {
+		// milliseconds
+		blockInterval := float64(offset / time.Millisecond)
+		s.processBlock(time.Now().Unix(), round, slot, blockInterval)
 		return
 	}
-	blockInterval := float64(s.GetRoundInterval()) * 1000 / float64(chaincfg.ActiveNetParams.RoundSize)
-	s.processBlock(time.Now().Unix(), s.context.Round, s.context.Slot, blockInterval)
 }
 
 func (s *SPService) handleNewBlock(chainTip ainterface.BlockNode) {
-	s.chainTip = chainTip
-	s.tryMineNextBlock()
-}
-
-func (s *SPService) tryMineNextBlock()  {
-	slot, round := s.context.Slot + 1, s.context.Round
-	if slot == int64(chaincfg.ActiveNetParams.RoundSize) {
-		slot = 0
-		round ++
-	}
-	chainTip := s.chainTip
 	if chainTip.Round() == uint32(s.context.Round) && chainTip.Slot() == uint16(s.context.Slot) {
-		isTurn := s.checkTurn(slot, round, false)
-		if !isTurn {
-			return
+		if s.blockTimer.Stop() {
+			s.resetTimer(s.context.Slot)
 		}
-		roundInterval := s.GetRoundInterval()
-		lastBlockTime := roundInterval * int64(chainTip.Slot()) / int64(chaincfg.ActiveNetParams.RoundSize)
-		// it's too early to generate next block.
-		if lastBlockTime < time.Now().Unix() {
-			return
-		}
-		roundStartTime := s.context.RoundStartTime
-		if round > s.context.Round {
-			roundStartTime += roundInterval
-			roundInterval = s.config.RoundManager.GetRoundInterval(round)
-		}
-
-		targetTime := roundInterval * (slot + 1) / int64(chaincfg.ActiveNetParams.RoundSize)
-		interval := (targetTime + roundStartTime - time.Now().Unix()) * 1000
-
-		blockTime := roundInterval * slot / int64(chaincfg.ActiveNetParams.RoundSize) + roundStartTime
-		s.processBlock(blockTime, round, slot, float64(interval))
 	}
 }
 
 // process block by chain
-func (s *SPService) processBlock(blockTime int64, round, slot int64, interval float64)  {
-	if s.mineParam != nil {
-		return
-	}
-	s.mineParam = &MineParam{Parent:s.chainTip.Hash(), Round:round, Slot:slot}
+func (s *SPService) processBlock(blockTime int64, round, slot int64, interval float64) {
 	log.Infof("satoshiplus gen block start at round=%d, slot=%d", round, slot)
 	template, err := s.config.BlockTemplateGenerator.ProduceNewBlock(
 		s.config.Account, s.config.GasFloor, s.config.GasCeil,
@@ -316,7 +265,6 @@ func (s *SPService) processBlock(blockTime int64, round, slot int64, interval fl
 			template.Block.Height(), template.Block.Hash(),
 			len(template.Block.MsgBlock().PreBlockSigs), len(template.Block.Transactions()))
 	}
-	s.mineParam = nil
 }
 
 // return round interval currently
@@ -325,52 +273,41 @@ func (s *SPService) GetRoundInterval() int64 {
 }
 
 // getRoundInfo returns target round/slot, caculated from passing block time/round/slot.
-func (s *SPService) getRoundInfo(roundTime int64, round int64, targetTime int64) (int64, int64, int64, error) {
-	if roundTime > targetTime {
+func (s *SPService) getRoundInfo(targetTime int64) (int64, int64, int64, error) {
+	if s.context.RoundStartTime > targetTime {
 		return 0, 0, 0, errors.New("targetTime must be greater than block time")
 	}
-	log.Infof("satoshi get round info first block %v, target %v", roundTime, targetTime)
 
-	if roundTime == targetTime {
-		return round, 0, roundTime, nil
-	}
-
-	curTime := roundTime
-	roundSizei64 := int64(chaincfg.ActiveNetParams.RoundSize)
-	var roundInterval int64
+	curTime := s.context.RoundStartTime
+	roundInterval := s.context.RoundInterval
+	round := s.context.Round
 	for {
-		if curTime > targetTime {
+		if curTime+roundInterval >= targetTime {
 			break
 		}
+		curTime += roundInterval
+		round++
 		roundInterval = s.config.RoundManager.GetRoundInterval(round)
 		if roundInterval == 0 {
-			err := fmt.Errorf("splus getRoundInfo failed to get round interval,round : %v", round)
+			err := fmt.Errorf("satoshiplus getRoundInfo failed to get round interval,round : %v", round)
 			log.Errorf(err.Error())
 			return 0, 0, 0, err
 		}
-		curTime += roundInterval
-		round = round + 1
 	}
-	span := curTime - targetTime - 1
-	num := (span*int64(chaincfg.ActiveNetParams.RoundSize))/roundInterval + 1
-	roundStartTime := curTime - roundInterval
 
-	return round - 1, roundSizei64 - num, roundStartTime, nil
+	if curTime+roundInterval == targetTime {
+		return round + 1, 0, targetTime, nil
+	}
+	slot := (targetTime - curTime) * s.context.RoundSize / roundInterval
+	return round, slot, curTime, nil
 }
 
 // reset blockTimer.
-func (s *SPService) resetTimer(block bool, round bool) {
-	if block {
-		d := time.Duration(int64(s.context.Slot+1)*s.context.RoundInterval) * time.Second / time.Duration(chaincfg.ActiveNetParams.RoundSize)
-		offset := time.Unix(s.context.RoundStartTime, 0).Add(d).Sub(time.Now())
-		s.blockTimer.Reset(offset)
-	}
-	if round {
-		d := time.Duration(s.context.RoundInterval) * time.Second
-		offset := time.Unix(s.context.RoundStartTime, 0).Add(d).Sub(time.Now())
-		s.roundTimer.Reset(offset)
-		log.Info("Round reset", int(offset))
-	}
+func (s *SPService) resetTimer(slot int64) time.Duration {
+	d := slot * s.context.RoundInterval * int64(time.Second) / s.context.RoundSize
+	offset := time.Unix(s.context.RoundStartTime, 0).Add(time.Duration(d) + time.Millisecond).Sub(time.Now())
+	s.blockTimer.Reset(offset)
+	return offset
 }
 
 // handleBlockchainNotification handles notifications from blockchain.  It does
@@ -379,9 +316,6 @@ func (s *SPService) handleBlockchainNotification(notification *blockchain.Notifi
 	switch notification.Type {
 	// A block has been connected to the main block chain.
 	case blockchain.NTBlockConnected:
-		fallthrough
-	// A block has been disconnected from the main block chain.
-	case blockchain.NTBlockDisconnected:
 		dataList, ok := notification.Data.([]interface{})
 		if !ok || len(dataList) < 3 {
 			log.Warnf("Chain notification need a block node.")
@@ -392,6 +326,10 @@ func (s *SPService) handleBlockchainNotification(notification *blockchain.Notifi
 			log.Warnf("Chain notification need a block node at the second position.")
 			break
 		}
+		if node.Height() <= s.topHeight {
+			return
+		}
+		s.topHeight = node.Height()
 		// clear chainTipChan if exist
 		select {
 		case <-s.chainTipChan:

@@ -1449,7 +1449,7 @@ func (sm *SyncManager) handleBlockchainNotification(notification *blockchain.Not
 	case blockchain.NTBlockAccepted:
 		// Don't relay if we are not current. Other peers that are
 		// current should already know about it.
-		if !sm.current() {
+		if !sm.checkCurrent(true) {
 			return
 		}
 
