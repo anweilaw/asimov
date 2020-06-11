@@ -31,6 +31,10 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"io/ioutil"
+	"encoding/json"
+	"path/filepath"
+	"os"
 )
 
 const (
@@ -2829,6 +2833,197 @@ type Config struct {
 	FeesChan chan interface{}
 }
 
+type GenBalance struct {
+	Addr	common.Address  `json:"addr"`
+	Amount 	int64			`json:"amount"`
+}
+
+// dbFetchAllBalance fetchs all utxo entries of all address from balance bucket
+func dbFetchAllBalance(dbTx database.Tx) ([]GenBalance, error) {
+	genBalance := make([]GenBalance, 0)
+	balanceBucket := dbTx.Metadata().Bucket(balanceBucketName)
+	if balanceBucket == nil {
+		return nil, nil
+	}
+
+	var fundationAmount int64
+	fundationAddr := common.HexToAddress(string(common.GenesisOrganization))  //todo confirm the addr：
+
+	// get all utxo entry through all the address:
+	bucketErr := balanceBucket.ForEachBucket(func(k []byte) error {
+		recycleOutpointKey(&k)
+		utxosBucket := balanceBucket.Bucket(k)
+
+		var key common.Address
+		copy(key[:],k)
+		if utxosBucket == nil {
+			return nil
+		}
+
+		totalAmount := int64(0)
+		// deserialize utxo entry:
+		err := utxosBucket.ForEach(func(k, serializedUtxo []byte) error {
+			recycleOutpointKey(&k)
+			if serializedUtxo == nil {
+				return nil
+			}
+			if len(serializedUtxo) == 0 {
+				return common.AssertError(fmt.Sprintf("database contains entry "+
+					"for spent tx output %v", k))
+			}
+			// Deserialize the utxo entry and return it.
+			entry, err := DeserializeUtxoEntry(serializedUtxo)
+			if err != nil {
+				// Ensure any deserialization errors are returned as database
+				// corruption errors.
+				if common.IsDeserializeErr(err) {
+					return database.Error{
+						ErrorCode: database.ErrCorruption,
+						Description: fmt.Sprintf("corrupt utxo entry "+
+							"for %v: %v", k, err),
+					}
+				}
+				return err
+			}
+			if entry.Asset().Equal(&asiutil.AsimovAsset) {
+				//save balance in contractAddress to foundationAddr
+				if key[0] == common.ContractHashAddrID {
+					fundationAmount += entry.Amount()
+				} else {
+					totalAmount += entry.Amount()
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		if totalAmount > 0 {
+			var tmpBalance GenBalance
+			tmpBalance.Addr = key
+			tmpBalance.Amount = totalAmount
+			genBalance = append(genBalance, tmpBalance)
+		}
+
+		return nil
+	})
+	if bucketErr != nil {
+		return nil, bucketErr
+	}
+
+	if fundationAmount > 0 {
+		findFlag := false
+		for k, v := range genBalance {
+			if v.Addr == fundationAddr {
+				genBalance[k].Amount += fundationAmount
+				findFlag = true
+				break
+			}
+		}
+		if !findFlag {
+			var foundationBalance GenBalance
+			foundationBalance.Addr = fundationAddr
+			foundationBalance.Amount = fundationAmount
+			genBalance = append(genBalance, foundationBalance)
+		}
+	}
+
+	return genBalance, nil
+}
+
+func (b *BlockChain) fetchAllBalance() ([]GenBalance, error) {
+	var fetchErr error
+	var genBalance []GenBalance
+	err := b.db.View(func(dbTx database.Tx) error {
+		genBalance, fetchErr = dbFetchAllBalance(dbTx)
+		if fetchErr != nil {
+			return fetchErr
+		}
+		return fetchErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return genBalance, nil
+}
+
+func (b *BlockChain) RollbackForCleanUp(targetNode *blockNode) ([]GenBalance, error) {
+	b.chainLock.Lock()
+	defer b.chainLock.Unlock()
+
+	detachNodes := list.New()
+	attachNodes := list.New()
+
+	// Start from the end of the main chain and work backwards until the
+	// common ancestor adding each block to the list of nodes to detach from
+	// the main chain.
+	for n := b.bestChain.Tip(); n != nil && n != targetNode; n = n.parent {
+		detachNodes.PushBack(n)
+	}
+
+	err := b.reorganizeChain(detachNodes, attachNodes)
+	if err != nil {
+		return nil, err
+	}
+
+	genBalance, err := b.fetchAllBalance()
+	if err != nil {
+		return nil, err
+	}
+
+	return genBalance, nil
+}
+
+
+// Get balance of all normal address.
+func (b *BlockChain) CleanUpArchives(height int32, blockHash string) ([]GenBalance, error) {
+	targetNode, err := b.GetNodeByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	bestHash := targetNode.Hash().String()
+	if bestHash != blockHash {
+		return nil, errors.New("the blockHash is not equal to the hash in bestchain")
+	}
+
+	genBalance, rollbackErr := b.RollbackForCleanUp(targetNode)
+	if rollbackErr != nil {
+		return nil, errors.New("Failed to RollbackForCleanUp")
+	}
+
+	return genBalance, nil
+}
+
+func LoadBalanceToGenesisBlock(path string, genesisBlock *protos.MsgBlock) error {
+	genesis, err := ioutil.ReadFile(path)
+	if err != nil {
+		fmt.Printf("balance.json file not found, continue...\n")
+		return nil
+	}
+	var balance []GenBalance
+	err = json.Unmarshal(genesis, &balance)
+	if err != nil {
+		return err
+	}
+
+	coinbaseTx := genesisBlock.Transactions[0]
+	for _, tmp := range balance {
+		pkscript, _ := txscript.PayToAddrScript(&tmp.Addr)
+		stdTxOut := &protos.TxOut{
+			Value:    tmp.Amount,
+			PkScript: pkscript,
+			Asset:    asiutil.AsimovAsset,
+		}
+		coinbaseTx.AddTxOut(stdTxOut)
+	}
+	merkles := BuildMerkleTreeStore([]*asiutil.Tx{asiutil.NewTx(genesisBlock.Transactions[0])})
+	merkleRoot := *merkles[len(merkles)-1]
+	genesisBlock.Header.MerkleRoot = merkleRoot
+
+	return nil
+}
+
 // New returns a BlockChain instance using the provided configuration details.
 func New(config *Config, fconfig *chaincfg.FConfig) (*BlockChain, error) {
 	// Enforce required config fields.
@@ -2915,6 +3110,63 @@ func New(config *Config, fconfig *chaincfg.FConfig) (*BlockChain, error) {
 	}
 
 	bestNode := b.bestChain.Tip()
+
+	//add code only for cleanUpTool:-----------------------------------------------------
+	var targetHeight int32
+	var targetHash string
+	fmt.Println("please input the targetHeight, press enter to continue:")
+	fmt.Scanln(&targetHeight)
+	fmt.Println("please input the targetHash, press enter to continue:")
+	fmt.Scanln(&targetHash)
+
+	cleanUpFlag := true
+	if targetHeight == 0 && targetHash == "" {
+		//cleanUpFlag = false  //add for test:
+        return nil, errors.New("CleanUpArchives failed: input height and hash error!")
+	}
+	if cleanUpFlag {
+		genBalance, utxoErr := b.CleanUpArchives(targetHeight, targetHash)
+		if utxoErr != nil {
+			return nil, utxoErr
+		}
+		log.Infof("genBalance = %v\n", genBalance)
+
+		//write balance into balance.json file:
+		mjson,_ :=json.Marshal(genBalance)
+		filePath := filepath.Join(chaincfg.Cfg.GenesisPath, "balance.json")
+		fp, jsonErr := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0666)
+		if jsonErr != nil {
+			return nil, utxoErr
+		}
+		defer fp.Close()
+		_, jsonErr = fp.Write(mjson)
+		if jsonErr != nil {
+			return nil, utxoErr
+		}
+
+		////add for calc the hash of balance.json file:-----------------
+		//fp.Close()
+		//file, err := os.Open("balance.json")
+		//if err != nil {
+		//	fmt.Errorf("open balance.json file failed！")
+		//}
+		//hash := sha256.New()
+		//if _, err := io.Copy(hash, file); err != nil {
+		//	fmt.Errorf("calc file hash failed!")
+		//}
+		//sum := hash.Sum(nil)
+		//fmt.Printf("balance.json file hash = %x\n", sum)
+		////------------------------------------------------------------
+
+		////delete data/logs/state directory:
+		//str := chaincfg.Cfg.GenesisPath
+		//os.RemoveAll(str + "/data")
+		//os.RemoveAll(str + "/logs")
+		//os.RemoveAll(str + "/state")
+
+		return nil, errors.New("CleanUpArchives finish: create balance.json file!")
+	}
+	//-----------------------------------------------------------------------------------
 
 	// Initialize round manager
 	err := config.RoundManager.Init(bestNode.round.Round, b.db, config.BtcClient)

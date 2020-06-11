@@ -2407,7 +2407,15 @@ func NewServer(db database.Transactor, stateDB database.Database, agentBlacklist
 		strErr := "Load genesis block error, " + err.Error()
 		return nil, errors.New(strErr)
 	}
+
+	//add balance.json data to genesisBlock:
+	if err := blockchain.LoadBalanceToGenesisBlock(cfg.GenesisBalanceFile, genesisBlock); err != nil {
+		return nil, err
+	}
+	fmt.Printf("newgenesisblockhash = %v\n", genesisBlock.BlockHash())
+
 	genesisHash := asiutil.NewBlock(genesisBlock).Hash()
+	chaincfg.ActiveNetParams.GenesisHash = genesisHash  //todo: delete this line, and cofig the new genesisBlock hash to ActiveNetParams
 	if *chaincfg.ActiveNetParams.GenesisHash != *genesisHash {
 		strErr := fmt.Sprintf("Load genesis block genesis hash mismatch expected %s, but %s",
 			chaincfg.ActiveNetParams.GenesisHash.String(), genesisHash.String())

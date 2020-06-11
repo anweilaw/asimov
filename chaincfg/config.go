@@ -28,6 +28,7 @@ import (
 const (
 	DefaultConfigFilename       = "asimovd.conf"
 	DefaultGenesisFilename      = "genesis.json"
+	DefaultGenesisBalanceFilename = "balance.json"
 	DefaultDataDirname          = "data"
 	DefaultLogLevel             = "info"
 	DefaultLogDirname           = "logs"
@@ -190,6 +191,7 @@ type FConfig struct {
 	GenesisPath    string `long:"genesispath" description:"Path of genesis files"`
 	GenesisBlockFile string
 	GenesisParamFile string
+	GenesisBalanceFile string
 }
 
 // serviceOptions defines the configuration options for the daemon as a service on
@@ -494,6 +496,7 @@ func LoadConfig() (*FConfig, []string, error) {
 	}
 	cfg.GenesisBlockFile = filepath.Join(cfg.GenesisPath, genesisBlock)
 	cfg.GenesisParamFile = filepath.Join(cfg.GenesisPath, DefaultGenesisFilename)
+	cfg.GenesisBalanceFile = filepath.Join(cfg.GenesisPath, DefaultGenesisBalanceFilename)
 
 	consensus := common.GetConsensus(cfg.Consensustype)
 	if consensus < 0 {
