@@ -62,7 +62,7 @@ func writeSystemContract(systemContractFolder, network string, skipPoa bool) {
 	}
 
 	writeContractsName(contractSlice)
-	writeContracts(contractSlice, network)
+	writeContracts(contractSlice, network, skipPoa)
 
 	err = os.Chdir("../../")
 	if err != nil {
