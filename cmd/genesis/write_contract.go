@@ -44,12 +44,6 @@ func writeSystemContract(systemContractFolder, network string, skipPoa bool) {
 	contractSlice := make([]*compiledContract, 0)
 	// compile contracts
 	for _, contract := range contracts {
-		//if skipPoa {
-		//	_, file := path.Split(contract)
-		//	if strings.Contains(strings.ToUpper(file), "POA") {
-		//		continue
-		//	}
-		//}
 		contractName, byteCode, abi, delegateAddr := compile(contract)
 		contractSlice = append(contractSlice, &compiledContract{
 			name:         contractName,
