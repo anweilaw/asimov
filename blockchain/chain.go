@@ -2847,7 +2847,7 @@ func dbFetchAllBalance(dbTx database.Tx) ([]GenBalance, error) {
 	}
 
 	var fundationAmount int64
-	fundationAddr := common.HexToAddress(string(common.GenesisOrganization))  //todo confirm the addr：
+	fundationAddr := common.GenesisOrganization  //todo confirm the addr：
 
 	// get all utxo entry through all the address:
 	bucketErr := balanceBucket.ForEachBucket(func(k []byte) error {
