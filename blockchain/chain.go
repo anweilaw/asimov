@@ -699,8 +699,8 @@ func (b *BlockChain) connectBlock(node *blockNode, block *asiutil.Block,
 		return err
 	}
 
-	log.Infof("connectBlock success: height=%d, round=%d, slot=%d, hash=%s, stateRoot=%s",
-		node.height, node.round.Round, node.slot, node.hash.String(), node.stateRoot.String())
+	log.Infof("connectBlock success: height=%d, round=%d, slot=%d, weight=%d, hash=%s, stateRoot=%s",
+		node.height, node.round.Round, node.slot, node.weight, node.hash.String(), node.stateRoot.String())
 
 	// Prune fully spent entries and mark all entries in the view unmodified
 	// now that the modifications have been committed to the database.
@@ -841,8 +841,8 @@ func (b *BlockChain) disconnectBlock(node *blockNode, block *asiutil.Block, view
 		return err
 	}
 
-	log.Infof("disconnectBlock success: height=%d,round=%d,slot=%d,hash=%s,stateRoot=%s",
-		node.height, node.round.Round, node.slot, node.hash.String(), node.stateRoot.String())
+	log.Infof("disconnectBlock success: height=%d,round=%d,slot=%d,weight=%d,hash=%s,stateRoot=%s",
+		node.height, node.round.Round, node.slot, node.weight, node.hash.String(), node.stateRoot.String())
 	// Prune fully spent entries and mark all entries in the view unmodified
 	// now that the modifications have been committed to the database.
 	view.Commit()
@@ -2250,7 +2250,8 @@ func (b *BlockChain) isCurrent() bool {
 	// Not current if the latest main (best) chain height is before the
 	// latest known good checkpoint (when checkpoints are enabled).
 	checkpoint := b.LatestCheckpoint()
-	if checkpoint != nil && b.bestChain.Tip().height < checkpoint.Height {
+	tip := b.bestChain.Tip()
+	if checkpoint != nil && tip.height < checkpoint.Height {
 		return false
 	}
 
@@ -2264,7 +2265,10 @@ func (b *BlockChain) isCurrent() bool {
 	// The chain appears to be current if none of the checks reported
 	// otherwise.
 	minusHour := b.timeSource.AdjustedTime() - int64(time.Hour/time.Second)
-	return b.bestChain.Tip().timestamp >= minusHour
+	if tip.height == 0 {
+		return chaincfg.ActiveNetParams.ChainStartTime >= minusHour
+	}
+	return tip.timestamp >= minusHour
 }
 
 // IsCurrent returns whether or not the chain believes it is current.  Several
